@@ -143,7 +143,7 @@ Proposed order: start from the owner's own demo notes, then 1 + 2, and split the
    - ~~Small branches~~: done. Branches grown from the CT, plus illustrative fine branches below CT resolution (switchable, labelled on the page).
    - Contrast density is too uniform; real contrast streams and layers.
    - A soft synthetic chest background (lungs, diaphragm, more spine and ribs) beyond the cropped 23 × 23 × 14 cm scan.
-   - Guide catheter (JL4/JR4) in the DRR, perhaps anchored with TotalSegmentator `aortic_sinuses`. Cardiac motion for cine.
+   - ~~Guide catheter~~: done (JL4/JR4 along this CT's aorta; could later be anchored with TotalSegmentator `aortic_sinuses`). Cardiac motion for cine.
 2. ~~**Overlay clarity**~~: done (separate toggles, per-chamber chips, thinner contours, SCCT segment numbers).
 3. **Teaching per view**
    - "What to look for" for each preset: segments seen well, foreshortened or overlapped.
@@ -171,6 +171,12 @@ Proposed order: start from the owner's own demo notes, then 1 + 2, and split the
   3. Display: I = e^(−∫μ) on a log window with automatic brightness from the central image, then edge enhancement, quantum noise (σ ∝ 1/√I) at 15 pulses/s, and a square flat-panel field.
   - **Tuned by eye** against CC-BY cine angiograms on Wikimedia Commons (an RAO caudal LAD and LAO RCA runs from published case reports): iodine 15 000 HU equivalent at full lumen, black level 0.08 so dense vessels read dark grey rather than black, and sharpening 0.95.
   - **Coronary volume at full CT resolution** (0.45 mm), lightly blurred for anti-aliasing, so distal vessels stay thin. The lumen volume is unchanged (3.15 mL).
+  - **Guide catheter** (JL4 for left injections, JR4 for right), femoral approach. `tools/export_catheter.py` shapes it along this CT's own aorta, using the centroids of the TotalSegmentator mask in each slice:
+    - up the descending aorta, over an arch above the scan (extrapolated), then down the ascending aorta, resting off-centre away from the ostium
+    - a curve into the ostium, ending coaxial with the vessel, with the tip a few mm inside
+    - The DRR draws it analytically: the exact length of each ray inside a 6F tube (2.0 mm outside, 1.78 mm lumen), so it also works above the scan. The braided wall is slightly denser, so the edges read darker.
+    - Its lumen fills with contrast during the injection.
+    - A "Guide catheter" button hides it, the readout names it, and the room view shows it. It's an approximation for teaching, not catheter mechanics.
   - **Small branches.** The labelled tree only holds the named segments, so two more layers are added:
     - **From the CT** (this patient's): `tools/export_scan.py` follows tube-like enhanced voxels (Frangi vesselness) out from the labelled tree. It stays out of the blood pool, using the TotalSegmentator masks, and out of bone, and rejects anything thicker than a small artery. In scan 814 that adds 0.31 mL: an RV/acute marginal and a conus-like branch off the RCA, plus twigs off the LAD, diagonals and PDA.
     - **Illustrative fine branches** (not this patient's): branches below about 1 mm can't be seen on a CT, so `tools/synth_branches.py` grows them from the real tree. Epicardial twigs follow the heart's surface, septal perforators leave the LAD, and terminal fans finish the vessel ends. They start 0.5–1.1 mm across and taper. In scan 814: 183 twigs, 3 m in total, 0.64 mL of lumen.

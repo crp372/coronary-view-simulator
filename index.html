@@ -207,6 +207,7 @@ details strong{color:var(--fg);font-weight:500}
           <button type="button" id="tLabels" aria-pressed="true">Vessel labels</button>
           <button type="button" id="tSegN" aria-pressed="false">Segment numbers</button>
           <button type="button" id="tBones" aria-pressed="true">Spine and ribs</button>
+          <button type="button" id="tCath" aria-pressed="true" hidden>Guide catheter</button>
           <button type="button" id="tFine" aria-pressed="true" hidden title="Branches finer than the CT can show, generated to look realistic; not this patient's anatomy">Fine branches (illustrative)</button>
         </div>
         <div class="legend" id="ovLegend" hidden></div>
@@ -246,8 +247,8 @@ const css=getComputedStyle(document.documentElement);
 const tok=n=>css.getPropertyValue(n).trim()||'#888';
 
 // ovV: CT coronary overlay; ovC: chamber overlay (the model's chambers in model mode); segN: SCCT segment numbers
-// fine: illustrative fine branches (below CT resolution) in the CT image
-const state={lao:-30,cra:-25,tx:0,ty:0,tz:0,fov:20,inj:'L',ovV:false,ovC:false,segN:false,labels:true,bones:true,fine:true};
+// fine: illustrative fine branches (below CT resolution) in the CT image; cath: guide catheter in the CT image
+const state={lao:-30,cra:-25,tx:0,ty:0,tz:0,fov:20,inj:'L',ovV:false,ovC:false,segN:false,labels:true,bones:true,fine:true,cath:true};
 const chOn={LV:true,RV:true,LA:true,RA:true,Ao:true,PA:true,Myo:false};   // per-chamber switches (legend chips)
 
 /* ---------- Patient coordinates: x = patient's left, y = anterior (up, supine), z = feet. Isocentre at origin. ---------- */
@@ -493,6 +494,8 @@ const roomModelTree=new THREE.Group(),roomCTTree=new THREE.Group(),roomCTCh=new 
 Object.values(built).forEach(b=>{const g=b.geo.clone();roomModelTree.add(new THREE.Mesh(g,roomVesselMat[b.v.sys]));});
 roomModelAnat.add(new THREE.Mesh(taperTube(ao,1.45,1.2,0).geo,new THREE.MeshBasicMaterial({color:'#c97fb6',transparent:true,opacity:.5,depthWrite:false})));
 const roomHiMat=new THREE.MeshBasicMaterial({color:0xffffff});
+// CT mode's guide catheters (JL4, JR4) in the room, shown for the injected side
+const roomCathMat=new THREE.MeshStandardMaterial({color:0x9aa3aa,roughness:.5}),roomCath=[],catName={};
 const roomChHiMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.45,depthWrite:false,side:THREE.DoubleSide});
 document.getElementById('roomLegend').innerHTML=`<span><i style="background:var(--accent)"></i>Left coronary</span><span><i style="background:var(--cool)"></i>Right coronary</span>`;
 
@@ -553,6 +556,7 @@ function updateGeometry(){
   sysGroups.L.visible=state.inj==='L';sysGroups.R.visible=state.inj==='R';
   ovDir.value.copy(d);
   VES.forEach((e,i)=>{e.ov.visible=state.ovV||hover===i;});
+  roomCath.forEach(m=>{m.visible=state.cath&&m.userData.side===state.inj;});
   CH.forEach(c=>{const on=chOn[c.s.id]!==false;c.ov.visible=state.ovC&&on;c.room.visible=on;});
   bones.visible=state.bones;
 }
@@ -577,8 +581,9 @@ const DRR_STEP=0.5;              // ray-march step in voxels
 //     dark grey rather than black, as on real runs; shutter: flat-panel field, half-width of the visible
 //     square (1 = edge) and its corner radius
 // Tuned by eye against CC-BY cine angiograms on Wikimedia Commons (RAO caudal LAD, LAO RCA).
+//   cath: guide catheter attenuation, 1/cm: mu over the whole tube, wall extra in the braided wall
 const TUNE={body:[-3,-1.7,17,12],fadeIn:1,fadeOut:3,win:[0.05,0.95],gamma:1.2,sharp:0.95,noise:0.028,
-  iod:15000,floor:0.08,shutter:[0.97,0.12]};
+  iod:15000,floor:0.08,shutter:[0.97,0.12],cath:{mu:0.9,wall:4}};
 
 const DRR_VS=`#version 300 es
 out vec2 uv;
@@ -595,13 +600,25 @@ vec3 rayDir(){vec3 P=uC+uR*((uv.x*2.0-1.0)*uH)+uT*((uv.y*2.0-1.0)*uH);
 vec2 hitBox(vec3 ro,vec3 rd,vec3 lo,vec3 hi){vec3 inv=1.0/rd,a=(lo-ro)*inv,b=(hi-ro)*inv,mn=min(a,b),mx=max(a,b);
   return vec2(max(max(mn.x,mn.y),mn.z),min(min(mx.x,mx.y),mx.z));}
 vec3 tc(vec3 p){return ((p-uOrg)/uSp+0.5)/uDim;}
+// guide catheter: a polyline of straight tube pieces (anatomy frame, cm); uCatN = 0 when there is none
+uniform vec4 uCat[64];uniform int uCatN;
+// length of the ray inside the tube of radius r, summed over its pieces (each an infinite cylinder clipped to the piece)
+float catChord(vec3 ro,vec3 rd,float r){float L=0.0;
+  for(int i=0;i<63;i++){if(i>=uCatN-1)break;
+    vec3 a=uCat[i].xyz,ab=uCat[i+1].xyz-a;float len=length(ab);if(len<1e-5)continue;vec3 u=ab/len;
+    vec3 w=ro-a;float du=dot(rd,u),wu=dot(w,u);vec3 dp=rd-du*u,wp=w-wu*u;
+    float A=dot(dp,dp),B=dot(wp,dp),D=B*B-A*(dot(wp,wp)-r*r);if(D<=0.0||A<1e-10)continue;
+    float s=sqrt(D),t0=(-B-s)/A,t1=(-B+s)/A,s0=-1e9,s1=1e9;
+    if(abs(du)>1e-6){s0=-wu/du;s1=(len-wu)/du;if(s0>s1){float q=s0;s0=s1;s1=q;}}else if(wu<0.0||wu>len)continue;
+    L+=max(0.0,min(t1,s1)-max(t0,s0));}
+  return L;}
 `;
 
 // Pass A: CT line integral (cm × 1/cm). Past the CT faces the edge voxels are extended outward
 // (clamped sampling) and fade into flat soft tissue inside an elliptical body outline, so the
 // volume's edges don't show as seams.
 const DRR_FS_CT=DRR_RAY+`
-uniform float uMuBg,uFin,uFout;uniform vec4 uBody;
+uniform float uMuBg,uFin,uFout,uCatRo,uCatRi,uCatMu,uCatWall;uniform vec4 uBody;
 float sdBox(vec3 p){vec3 q=abs(p-0.5*(uLo+uHi))-0.5*(uHi-uLo);return length(max(q,0.0))+min(max(q.x,max(q.y,q.z)),0.0);}
 vec2 hitBody(vec3 ro,vec3 rd){vec2 q=(ro.xy-uBody.xy)/uBody.zw,k=rd.xy/uBody.zw;
   float A=dot(k,k),B=dot(q,k),C=dot(q,q)-1.0,D=B*B-A*C;
@@ -620,14 +637,18 @@ void main(){
       if(w>0.0)mu=${MU_W.toFixed(3)}*max(0.0,2.55*texture(uVol,tc(p)).r-0.024);   // HU = 2550 v - 1024
       L+=(w*mu+(1.0-w)*uMuBg*inBody(p))*ds;}
   }
+  // catheter: a radiopaque tube, denser in its braided wall (so its edges read slightly darker)
+  if(uCatN>1){float co=catChord(uS,rd,uCatRo),ci=catChord(uS,rd,uCatRi);L+=uCatMu*co+uCatWall*(co-ci);}
   o=vec4(L,0.0,0.0,1.0);
 }`;
 
 // Pass B: iodine path (cm of full-occupancy lumen) for one side, filled up to uFill mm from the ostium.
 const DRR_FS_IOD=DRR_RAY+`
-uniform float uSide,uFill;
+uniform float uSide,uFill,uCatRi;
 void main(){
   vec3 rd=rayDir();vec2 tb=hitBox(uS,rd,uLo,uHi);float L=0.0;
+  // the catheter's lumen is full of contrast while the tree is
+  if(uCatN>1&&uFill>0.0)L+=catChord(uS,rd,uCatRi);
   if(tb.x<tb.y){
     float n=ceil((tb.y-tb.x)/uStep),ds=(tb.y-tb.x)/n;
     for(int i=0;i<2048;i++){if(float(i)>=n)break;
@@ -706,7 +727,7 @@ function addSynthetic(base,syn){const out=base.slice();
   return out;}
 
 // Builds the GL resources; throws if a shader or float target fails. Returns render(view, fill, wash, frame).
-function createDRR(gl,cv,meta,ct,cor,syn){
+function createDRR(gl,cv,meta,ct,cor,syn,cath){
   function program(fs){
     const mk=(type,src)=>{const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);
       if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error('Shader: '+gl.getShaderInfoLog(s));return s;};
@@ -736,6 +757,11 @@ function createDRR(gl,cv,meta,ct,cor,syn){
   const gCT=volGrid(meta.ct),gCor=volGrid(meta.coronary);
   const corBase=splitCoronary(cor,gCor.dim,meta.coronary.right_segments);
   const corData=on=>on&&syn?addSynthetic(corBase,syn):corBase;
+  // catheter polylines per side, packed for the uCat uniform array (vec4, w unused)
+  const catPack={};
+  if(cath)for(const s of ['L','R'])if(cath[s]){const p=cath[s].pts.slice(0,64),a=new Float32Array(64*4);p.forEach((q,i)=>a.set(q,4*i));catPack[s]={a,n:p.length};}
+  const setCath=(pr,v,on)=>{const c=on&&catPack[v.inj];gl.uniform4fv(pr.u('uCat[0]'),c?c.a:new Float32Array(256));gl.uniform1i(pr.u('uCatN'),c?c.n:0);
+    if(cath){gl.uniform1f(pr.u('uCatRo'),cath.outer_radius_cm);gl.uniform1f(pr.u('uCatRi'),cath.inner_radius_cm);}};
   const R={pCT:program(DRR_FS_CT),pIod:program(DRR_FS_IOD),pOut:program(DRR_FS_OUT),
     ct:tex3D(ct,gCT.dim,gl.R8,gl.RED),
     cor:tex3D(corData(state.fine),gCor.dim,gl.RGBA8,gl.RGBA),
@@ -753,6 +779,7 @@ function createDRR(gl,cv,meta,ct,cor,syn){
   function renderCT(v){
     const pr=R.pCT;gl.useProgram(pr.p);setRay(pr,v,gCT);
     gl.uniform1f(pr.u('uMuBg'),R.muBg);gl.uniform1f(pr.u('uFin'),TUNE.fadeIn);gl.uniform1f(pr.u('uFout'),TUNE.fadeOut);gl.uniform4fv(pr.u('uBody'),TUNE.body);
+    setCath(pr,v,state.cath);gl.uniform1f(pr.u('uCatMu'),TUNE.cath.mu);gl.uniform1f(pr.u('uCatWall'),TUNE.cath.wall);
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_3D,R.ct);
     const t0=performance.now();drawTo(R.tA);gl.readPixels(0,0,1,1,gl.RGBA,gl.FLOAT,px);stats.drrMs=performance.now()-t0;
     // automatic brightness: window from percentiles of the central image, like a fluoro system's ABC
@@ -764,7 +791,7 @@ function createDRR(gl,cv,meta,ct,cor,syn){
   }
   function renderIodine(v,fill){
     const pr=R.pIod;gl.useProgram(pr.p);setRay(pr,v,gCor);
-    gl.uniform1f(pr.u('uSide'),v.inj==='R'?1:0);gl.uniform1f(pr.u('uFill'),fill);
+    gl.uniform1f(pr.u('uSide'),v.inj==='R'?1:0);gl.uniform1f(pr.u('uFill'),fill);setCath(pr,v,state.cath);
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_3D,R.cor);
     const t0=performance.now();drawTo(R.tB);gl.readPixels(0,0,1,1,gl.RGBA,gl.FLOAT,px);stats.iodMs=performance.now()-t0;
   }
@@ -800,7 +827,7 @@ let drr=null, mode='loading', modeWhy='', drrAttr='';   // mode: 'loading' (mode
 // tube and detector in the anatomy's frame: the table offset moves the anatomy, so it's subtracted
 function drrView(){const {d,t}=dirs(state.lao,state.cra),r=new V3().crossVectors(t,d),off=new V3(state.tx,state.ty,state.tz);
   return {S:d.clone().multiplyScalar(-SOD).sub(off).toArray(),C:d.clone().multiplyScalar(SID-SOD).sub(off).toArray(),r:r.toArray(),t:t.toArray(),h:state.fov/2,inj:state.inj,
-    key:`${state.lao}|${state.cra}|${state.fov}|${state.tx}|${state.ty}|${state.tz}`};}
+    key:`${state.lao}|${state.cra}|${state.fov}|${state.tx}|${state.ty}|${state.tz}|${state.inj}|${state.cath}`};}   // inj, cath: the CT pass draws the catheter
 
 async function startDRR(){
   const fail=why=>{modeWhy=why;mode='model';setMode();};
@@ -818,7 +845,11 @@ async function startDRR(){
     // illustrative fine branches are optional: without the file, only the CT's own vessels are drawn
     let syn=null;const sm=meta.coronary.synthetic;
     if(sm)try{syn=await fetchBytes(DRR_DATA+sm.file);if(syn.length!==prod(meta.coronary.dims))syn=null;}catch(e){console.info('No synthetic fine branches:',e.message||e);}
-    drr=createDRR(gl,drrCv,meta,ct,cor,syn);
+    // guide catheter, optional like the fine branches
+    let cath=null;try{cath=await fetchJSON(DRR_DATA+'catheter.json');}catch(e){console.info('No guide catheter:',e.message||e);}
+    drr=createDRR(gl,drrCv,meta,ct,cor,syn,cath);
+    if(cath)for(const s of ['L','R'])if(cath[s]){const pts=cath[s].pts.map(p=>new V3(...p));
+      const m=new THREE.Mesh(taperTube(pts,0.12,0.12,0).geo,roomCathMat);m.userData.side=s;roomCTTree.add(m);roomCath.push(m);catName[s]=cath[s].name;}
   }catch(e){console.warn('DRR unavailable, using the model renderer:',e);return fail('the CT couldn’t be loaded ('+String(e.message||e)+')');}
   // labels near the same spot along each centreline as drr.html; other points along it, nearest first, are
   // fallbacks for when that spot is off-screen
@@ -895,7 +926,8 @@ function syncUI(fromSlider){
   const a=angTxt(state.lao,state.cra);
   $('roAng').innerHTML=`<b>${a.replace('  ','<br>')}</b>`;
   $('roFov').innerHTML=`FOV ${state.fov} cm<br>SID ${SID} cm`;
-  $('roInj').textContent=(state.inj==='L'?'LCA injection':'RCA injection')+(mode==='drr'?'':state.inj==='L'?' · JL4':' · JR4');
+  const cn=mode==='drr'?(state.cath&&catName[state.inj]):(state.inj==='L'?'JL4':'JR4');
+  $('roInj').textContent=(state.inj==='L'?'LCA injection':'RCA injection')+(cn?' · '+cn:'');
   $('roTbl').innerHTML=`TBL ${state.tx>=0?'+':''}${state.tx.toFixed(1)} / ${state.tz>=0?'+':''}${state.tz.toFixed(1)} / ${state.ty>=0?'+':''}${state.ty.toFixed(1)}<br>${mode==='drr'?'DRR · CT 814':mode==='loading'?'Loading CT…':'Model heart'}`;
   $('nowAng').textContent=a;
   let hit=null;presetBtns.forEach(({b,p})=>{const on=p.inj===state.inj&&Math.abs(p.lao-state.lao)<=5&&Math.abs(p.cra-state.cra)<=5;b.setAttribute('aria-pressed',String(on));if(on)hit=p;});
@@ -908,7 +940,7 @@ document.querySelectorAll('#fovSeg button').forEach(b=>b.addEventListener('click
 document.querySelectorAll('#roomViewSeg button').forEach(b=>b.addEventListener('click',()=>setRoomView(b.dataset.rv)));
 function toggle(id,key,after){const b=$(id);b.addEventListener('click',()=>{state[key]=!state[key];b.setAttribute('aria-pressed',String(state[key]));after&&after();});}
 toggle('tOvV','ovV',refreshOverlayUI);toggle('tOvC','ovC',refreshOverlayUI);toggle('tSegN','segN');
-toggle('tLabels','labels');toggle('tBones','bones');toggle('tFine','fine',()=>{if(drr&&drr.hasFine)drr.setFine(state.fine);setMode();});
+toggle('tLabels','labels');toggle('tBones','bones');toggle('tFine','fine',()=>{if(drr&&drr.hasFine)drr.setFine(state.fine);setMode();});toggle('tCath','cath',()=>syncUI());
 // legend: segment colours with the coronary overlay; with the chamber overlay, one chip per chamber to show or hide it
 function refreshOverlayUI(){
   const drrOn=mode==='drr',lg=$('ovLegend');
@@ -1092,12 +1124,14 @@ function setMode(){
   fr.setClearColor(fluoroBg,on?0:1);
   $('tOvV').hidden=$('tSegN').hidden=!on;           // the model heart has no separate coronary overlay or segments
   $('tFine').hidden=!(on&&drr&&drr.hasFine);
+  $('tCath').hidden=!(on&&roomCath.length);
   refreshOverlayUI();
   $('srcNote').innerHTML=on
     ?`<strong>Fluoro image:</strong> X-rays traced through a real coronary CT (ImageCAS scan 814), with contrast only in the injected tree. `+
       `The labelled vessels and a few small branches found in the CT are this patient's.`+
       (drr&&drr.hasFine&&state.fine?` <strong>Branches finer than about 1 mm are illustrative</strong>: generated along the heart's surface to look realistic, not this patient's anatomy (switch them off with “Fine branches”).`:'')+
-      ` No catheter or heart motion yet. Data: ${esc(drrAttr)}. Non-commercial use only.`
+      (roomCath.length?` The guide catheter (JL4 or JR4, femoral approach) is shaped along this CT's aorta; the arch above the scan is extrapolated.`:'')+
+      ` No heart motion yet. Data: ${esc(drrAttr)}. Non-commercial use only.`
     :mode==='loading'?'Loading a real coronary CT for the fluoro image. Until then it shows a simplified model heart.'
     :modeWhy==='file'?'<strong>Fluoro image:</strong> simplified model heart. For the image computed from a real coronary CT, serve this folder (<code>python3 -m http.server</code>) and open it from localhost.'
     :`<strong>Fluoro image:</strong> simplified model heart, because ${esc(modeWhy)}.`;

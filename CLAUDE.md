@@ -53,6 +53,9 @@ Single dark "cath lab console" theme by choice. Colour tokens on `:root` (`--bg`
    - **Chosen dataset:** ImageCAS volumes (Kaggle, CC BY-NC 4.0) with ImageCAS-X labels (Zenodo, CC BY 4.0). ImageCAS-X provides 14 named coronary segments that map onto `VESSELS`, plus centrelines, meshes, and per-scan dominance, quality and disease descriptors. Chambers will come from TotalSegmentator `heartchambers_highres` (non-commercial). The project is therefore non-commercial unless licences change. See README "Data" and `tools/README.md`.
    - **Web export** (`data/web/<id>/`, from `tools/export_scan.py`): de-contrasted CT plus a coronary volume (occupancy, segment, distance from ostium) plus `vessels.json`, all in the patient coordinates above (cm, tree centred at the isocentre), x-fastest. Source frames differ: NIfTI files are RAS → sim `(−x, y, −z)`; ImageCAS-X `.vtk` centrelines and meshes are LPS → sim `(x, −y, −z)`. Always convert through the export, never ad hoc.
    - **Small branches:**
+   - **Guide catheter:** `catheter.json` from `tools/export_catheter.py`.
+     - `catChord()` in `DRR_RAY` sums the ray's length inside the tube's straight pieces (`uCat[64]`, `uCatN`). Pass A adds the radiopaque tube (`TUNE.cath`); pass B adds its contrast-filled lumen.
+     - The CT pass cache key includes `inj` and `cath`, because the catheter changes with the side.
      - **Grown from the CT:** coronary G channel = parent segment + 16 (`CT_BRANCH`), so always take `seg & 15` for the segment or side. They're this patient's anatomy.
      - **Illustrative fine branches:** `tools/synth_branches.py`, written to `synthetic.u8.gz` (1–127 left, 129–255 right). They are *not* this patient's: keep them labelled on the page, switchable (`state.fine`, `drr.setFine`), and out of hover, SCCT and the overlay.
 3. **Better room view:** hand-built geometry and the "Close on heart" camera are done.
