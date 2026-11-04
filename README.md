@@ -35,9 +35,15 @@ Then open http://localhost:8000/. Opened from `file://` (or anywhere the CT can'
 - "Centre table" reset.
 
 ### Room view
-- 3D view of the C-arm, tube, detector, X-ray beam cone, table and a translucent patient with the heart and coronary tree visible inside. In DRR mode, the tree and the translucent chambers, aorta and PA are the CT's own (from `vessels.json` and the TotalSegmentator meshes).
-- Left coronary in amber, right coronary in cyan. In DRR mode, hovering over a vessel or chamber highlights it in white, names it, and highlights it in the fluoro image too. The heart is small at the room's default zoom, so chambers are hard to hit there.
-- Drag to orbit, scroll to zoom.
+- 3D view of the room, with the X-ray beam cone between tube and detector:
+  - **C-arm:** a floor-standing unit at the head end. A column and horizontal arm carry a holder that turns with LAO/RAO; the arc slides through it for cranial/caudal.
+  - **Imaging chain:** a flat-panel detector housing with its active area, and the X-ray tube with its collimator under the table.
+  - **Table and patient:** a table on a pedestal at the foot end, with a translucent patient (shaped torso, head, neck, arms, legs). The heart and coronary tree are visible inside.
+  - **Anatomy in DRR mode:** the tree and the translucent chambers, aorta and PA are the CT's own (from `vessels.json` and the TotalSegmentator meshes).
+- **Camera:** "Whole room" or "Close on heart".
+  - The close view moves in to the heart from the current viewing direction, fades the skin, and follows the heart when the table moves.
+  - Drag to orbit, scroll to zoom.
+- Left coronary in amber, right coronary in cyan. In DRR mode, hovering over a vessel or chamber highlights it in white, names it, and highlights it in the fluoro image too. Chambers are easiest to hover in the close view.
 
 ### Injection and display
 - Switch between left and right coronary injection.
@@ -92,9 +98,8 @@ Rendered RAO caudal, LAO (RCA) and the spider view headlessly and compared them 
 ## Planned refinements (discussed, not yet built)
 
 ### 1. Better room view
-- Improved hand-built geometry and lighting (rounded C-arm, proper detector and tube housings, table pedestal, recognisable patient), or
-- Real glTF models of a C-arm and human body, bundled with the artifact.
-- Main issue: sourcing models with a suitable licence, especially if the tool is ever monetised.
+- ~~Improved hand-built geometry (rounded C-arm, proper detector and tube housings, table pedestal, recognisable patient) and a close-on-heart camera~~: done.
+- Still possible: real glTF models of a C-arm and human body. Sourcing models with a suitable licence is the main issue, especially if the tool is ever monetised.
 
 ### 2. More anatomically precise overlay
 - Replace ellipsoids with real meshes, from either:
