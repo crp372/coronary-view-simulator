@@ -5,6 +5,13 @@ Data-prep scripts (Python) that turn raw CT and labels into small web-ready file
 | Script | Does |
 |---|---|
 | `pick_scan.py` | Ranks ImageCAS-X scans: quality 4, right-dominant, no disease. Ordered by key-segment coverage, then field of view. Standard library only. |
+| `preview_scan.py` | Renders PNGs of a scan with its labels into `data/raw/preview/`: slab MIPs, AP and lateral MIPs, a rough DRR, and the coronary tree. |
+
+Set up the Python environment once:
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install -r tools/requirements.txt
+```
 
 ## Chosen scan: 814
 

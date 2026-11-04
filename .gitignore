@@ -2,3 +2,5 @@ node_modules/
 .DS_Store
 *.log
 data/raw/
+.venv/
+__pycache__/
