@@ -1,6 +1,6 @@
 """Export an ImageCAS scan + ImageCAS-X labels as web-ready files for the simulator.
 
-    .venv/bin/python tools/export_scan.py 814 [--block 801-1000] [--out data/web]
+    .venv/bin/python tools/export_scan.py 814 [--block 801-1000] [--raw data/raw] [--out data/web]
 
 Writes data/web/<id>/:
   ct.u8.gz          De-contrasted CT, uint8, HU = v*10 - 1024. Blood pool, myocardium and
@@ -24,6 +24,8 @@ from scipy.spatial import cKDTree
 SEGMENTS = {1: 'LM', 2: 'LAD', 3: 'LCx', 4: 'D1', 5: 'D2', 6: 'OM1', 7: 'OM2', 8: 'IM',
             9: 'RCA', 10: 'R-PDA', 11: 'R-PLA', 12: 'L-PDA', 13: 'L-PLA', 14: 'Other'}
 BONE_HU, CORTEX_HU, CORTEX_FRAC = 150, 700, 0.03
+BLOOD_HU, BLOOD_R = (250, 600), 3   # enhanced blood band (smoothed HU); min radius, full-res voxels
+SHELL_HU, SHELL_FRAC = 300, 0.05    # band pieces with a denser shell than this are marrow
 SOFT_HU = 50         # unenhanced blood / myocardium
 FACTOR = 2           # downsample: 0.45 × 0.45 × 0.5 mm → 0.91 × 0.91 × 1.0 mm
 MIN_PATH_MM = 3      # drop centreline stubs shorter than this
@@ -55,17 +57,39 @@ def block_mean(a, f):
     return a.reshape(s[0] // f, f, s[1] // f, f, s[2] // f, f).mean(axis=(1, 3, 5))
 
 
+def ball(r):
+    g = np.mgrid[-r:r + 1, -r:r + 1, -r:r + 1]
+    return (g ** 2).sum(0) <= r * r
+
+
+def enhanced_blood(ct):
+    """Contrast-filled blood pool: regions of the smoothed CT in the BLOOD_HU band wide enough to
+    hold a BLOOD_R ball. Marrow in the same band is wrapped in trabeculae and cortex, so pieces whose
+    surrounding shell is at least SHELL_FRAC above SHELL_HU are left out."""
+    sm = ndi.gaussian_filter(ct.astype(np.float32), 1)
+    band = ndi.binary_opening((sm > BLOOD_HU[0]) & (sm < BLOOD_HU[1]), ball(BLOOD_R))
+    lab, n = ndi.label(band)
+    shell = ndi.grey_dilation(lab, size=(7, 7, 7))            # 2–3 voxels outside each piece
+    shell[ndi.binary_dilation(band)] = 0
+    dense = ndi.mean(ct > SHELL_HU, shell, np.arange(1, n + 1))
+    return np.isin(lab, np.flatnonzero(dense < SHELL_FRAC) + 1)
+
+
 def bone_mask(ct):
     """Components above BONE_HU that contain cortical bone. Blood pool and enhanced vessels are
-    homogeneous and lack a >CORTEX_HU shell. Holes (marrow, canal) are filled slice by slice."""
-    cand = ct > BONE_HU
+    homogeneous and lack a >CORTEX_HU shell, but a vessel lying on bone (descending aorta on the
+    spine) joins its component, so enhanced blood and its partial-volume rim are cut out first.
+    Holes (marrow, canal) are filled slice by slice."""
+    blood = enhanced_blood(ct)
+    rim = ndi.binary_dilation(blood, iterations=3) & (ct < CORTEX_HU)
+    cand = (ct > BONE_HU) & ~rim
     cortex = ndi.binary_dilation(ct > CORTEX_HU, iterations=3)
     cc, n = ndi.label(cand)
     frac = ndi.mean(cortex, cc, np.arange(1, n + 1))
     bone = np.isin(cc, np.flatnonzero(frac >= CORTEX_FRAC) + 1)
     for k in range(bone.shape[2]):
         bone[:, :, k] = ndi.binary_fill_holes(bone[:, :, k])
-    return ndi.binary_dilation(bone, iterations=1)
+    return ndi.binary_dilation(bone, iterations=1) & ~blood
 
 
 def decontrast(ct, bone):
@@ -155,9 +179,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('scan')
     ap.add_argument('--block', default='801-1000')
+    ap.add_argument('--raw', default='data/raw')
     ap.add_argument('--out', default='data/web')
     args = ap.parse_args()
-    raw = 'data/raw'
+    raw = args.raw
     xdir = f'{raw}/imagecas-x/ImageCAS-X_dataset'
     out = os.path.join(args.out, args.scan)
     os.makedirs(out, exist_ok=True)

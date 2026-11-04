@@ -5,7 +5,7 @@ Writes two PNGs:
   <id>_projections.png  AP and left-lateral views: CT MIP, quick parallel-beam DRR,
                         coronary tree coloured by segment
 
-    .venv/bin/python tools/preview_scan.py 814 [--block 801-1000] [--out data/raw/preview]
+    .venv/bin/python tools/preview_scan.py 814 [--block 801-1000] [--raw data/raw] [--out data/raw/preview]
 
 Display conventions: axial seen from the feet, coronal/AP seen from the front
 (patient's right on screen left), sagittal/lateral seen from the patient's left
@@ -66,10 +66,11 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('scan')
     ap.add_argument('--block', default='801-1000')
+    ap.add_argument('--raw', default='data/raw')
     ap.add_argument('--out', default='data/raw/preview')
     args = ap.parse_args()
-    ct, z = load_ras(f'data/raw/imagecas/extracted/{args.block}/{args.scan}.img.nii.gz')
-    lab, _ = load_ras(f'data/raw/imagecas-x/ImageCAS-X_dataset/segmentations/{args.scan}.coronary.nii.gz')
+    ct, z = load_ras(f'{args.raw}/imagecas/extracted/{args.block}/{args.scan}.img.nii.gz')
+    lab, _ = load_ras(f'{args.raw}/imagecas-x/ImageCAS-X_dataset/segmentations/{args.scan}.coronary.nii.gz')
     lab = lab.astype(np.uint8)
     os.makedirs(args.out, exist_ok=True)
     present = [k for k in SEGMENTS if (lab == k).any()]

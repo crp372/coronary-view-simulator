@@ -22,7 +22,15 @@ Data-prep scripts (Python) that turn raw CT and labels into small web-ready file
 | `vessels.json` | One entry per vessel path, in the `VESSELS` shape: `id`, `sys` (L/R), `seg`, `lab`, `parent`, `pts` (cm), `r` (radius in cm, from the mask's distance transform; minimum about one voxel), `sdist` (cm from the ostium). |
 | `meta.json` | Grid dims, spacing and origins, encodings, the offset that was subtracted to centre the tree, and attribution. |
 
-**How the bone mask is built:** take voxels above 150 HU and group them into connected pieces. A piece counts as bone if at least 3% of it lies within 3 voxels of cortex (above 700 HU); holes such as marrow are then filled slice by slice. Blood pool has no cortical shell, so it is left out of the mask and gets clamped. Metal also counts as bone, so the ECG leads stay visible.
+**How the bone mask is built:**
+1. Find enhanced blood first. Smooth the CT slightly and take regions between 250 and 600 HU that are wide enough to hold a ball about 3 mm across. Some marrow (sternum, vertebral bodies) is also in that range, but it is wrapped in trabeculae and cortex. So a region counts as marrow, not blood, if at least 5% of a thin shell around it is above 300 HU. In scan 814, the aorta's shell has 0% above 300 HU and every marrow piece has at least 13%.
+2. Cut the blood, plus a 3-voxel partial-volume rim, out of the voxels above 150 HU. Without this step the descending aorta, which lies on the spine, joins the vertebrae's connected piece and keeps its contrast.
+3. Group what is left into connected pieces. A piece counts as bone if at least 3% of it lies within 3 voxels of cortex (above 700 HU).
+4. Fill holes such as marrow slice by slice.
+
+Blood is never part of the mask, so it gets clamped. Metal also counts as bone, so the ECG leads stay visible.
+
+Run the scripts from a worktree with `--raw <main checkout>/data/raw`.
 
 Set up the Python environment once:
 
