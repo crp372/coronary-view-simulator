@@ -129,6 +129,31 @@ Decision: "realistic fluoro" means synthetic DRR images from CT, so the C-arm st
 ### Other ideas
 - Quiz mode: show a random projection and ask the learner to name the angle or a highlighted vessel.
 
+### Refinement backlog (from the first full demo; parked, not started)
+Proposed order: start from the owner's own demo notes, then 1 + 2, and split the code (4) before larger work.
+1. **Image realism**
+   - Calibrate against real reference angiograms per standard view: iodine strength, contrast, noise, sharpening, brightness control.
+   - Distal vessels look slightly fat, because their radius can't go below one voxel (0.9 mm). Contrast density is too uniform; real contrast streams and layers.
+   - A soft synthetic chest background (lungs, diaphragm, more spine and ribs) beyond the cropped 23 × 23 × 14 cm scan.
+   - Guide catheter (JL4/JR4) in the DRR, perhaps anchored with TotalSegmentator `aortic_sinuses`. Cardiac motion for cine.
+2. **Overlay clarity**
+   - Separate toggles for vessels and chambers, perhaps per chamber.
+   - Thinner contours and less fill, or chambers only on hover.
+   - Optional SCCT 18-segment numbering.
+3. **Teaching per view**
+   - "What to look for" for each preset: segments seen well, foreshortened or overlapped.
+   - A table offset per preset, so nothing is cut off (e.g. the proximal RCA in LAO 40 at 20 cm).
+   - Quiz mode once the image and overlay are settled.
+4. **Code health**
+   - Split `index.html` into modules (e.g. Vite).
+   - One shared DRR engine instead of copies in `drr.html` and `index.html`.
+   - Automatic screenshot checks of the standard views.
+5. **Data**
+   - More hearts (left-dominant, co-dominant).
+   - The ramus (IM) is recorded as a child of the LCx; it should come off the LM.
+   - The aorta and PA are cut off at the edges of the scan.
+   - Check TotalSegmentator's terms before sharing publicly.
+
 ---
 
 ## DRR fluoro from CT scan 814

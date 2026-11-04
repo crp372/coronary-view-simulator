@@ -54,7 +54,7 @@ Single dark "cath lab console" theme by choice. Colour tokens on `:root` (`--bg`
    - Licensed glTF models remain optional.
 4. Quiz mode: random projection, name the angle or a highlighted vessel.
 
-Suggested order: ~~pick a CTCA dataset~~ → ~~DRR in `index.html`~~ (done, model renderer kept as fallback) → ~~CT coronary overlay with hover~~ → ~~CT chambers (TotalSegmentator)~~ → ~~room polish~~ (done) → per-preset table framing → realism (catheter, motion, chest background) → quiz mode. Data-prep scripts (Python) go in `tools/`. Raw data goes in the git-ignored `data/raw/`, and only small web-ready derived files are committed. Once the project grows, consider splitting `index.html` into modules (e.g. Vite).
+Suggested order: ~~pick a CTCA dataset~~ → ~~DRR in `index.html`~~ (done, model renderer kept as fallback) → ~~CT coronary overlay with hover~~ → ~~CT chambers (TotalSegmentator)~~ → ~~room polish~~ (done) → quiz mode (roadmap item 4). A refinement backlog from the first demo (realism, overlay clarity, per-view teaching and framing, code split, more scans) is parked in README "Refinement backlog"; don't start it unless asked. Older order for reference: per-preset table framing → realism (catheter, motion, chest background) → quiz mode. Data-prep scripts (Python) go in `tools/`. Raw data goes in the git-ignored `data/raw/`, and only small web-ready derived files are committed. Once the project grows, consider splitting `index.html` into modules (e.g. Vite).
 
 ## Notes
 - The DRR and its coronary overlay are one real, right-dominant heart. The chambers and the fallback image are a simplified right-dominant model, and the chambers are only shown in model mode. Say so in the UI (the "How the views are named" notes and `#srcNote` do).
