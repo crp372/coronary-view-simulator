@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Coronary View Simulator</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: cath-lab console. Live fluoro monitor dominates the left; room view and C-arm/table controls form the right rail. Single dark look by choice, like a control room. */
+:root{
+  --bg:#0e1215; --panel:#151a1f; --panel2:#1c232a; --line:#2b343c; --fg:#e3e7ea; --muted:#8b97a1;
+  --accent:#e8b450; --cool:#74b8c8; --screen:#050607; --ink:#0b0e10;
+  --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Barlow",system-ui,-apple-system,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--bg);color:var(--fg)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+.wrap{max-width:1320px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 24px;border-bottom:1px solid var(--line);padding-bottom:14px}
+h1{font-family:var(--f-display);font-weight:700;font-size:clamp(28px,4vw,40px);letter-spacing:.01em;margin:0;line-height:1;text-wrap:balance}
+h1 span{color:var(--accent)}
+.sub{color:var(--muted);margin:0;max-width:62ch}
+h2{font-family:var(--f-display);font-weight:600;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0}
+.grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:920px){.grid{grid-template-columns:minmax(0,1fr)}}
+.col{display:flex;flex-direction:column;gap:14px;min-width:0}
+
+.monitor{position:relative;width:100%;max-width:100%;aspect-ratio:1/1;background:var(--screen);border-radius:4px;overflow:hidden;touch-action:none;cursor:grab;border:1px solid var(--line)}
+.monitor.drag{cursor:grabbing}
+.monitor canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#noise{mix-blend-mode:overlay;opacity:.28;pointer-events:none}
+.vig{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 50%,transparent 58%,var(--screen) 104%)}
+.ro{position:absolute;font-family:var(--f-mono);font-size:clamp(11px,1.5vw,13px);color:var(--accent);text-shadow:0 0 3px var(--ink),0 0 1px var(--ink);pointer-events:none;line-height:1.35;font-variant-numeric:tabular-nums}
+.ro.tl{top:10px;left:12px}.ro.tr{top:10px;right:12px;text-align:right}.ro.bl{bottom:10px;left:12px}.ro.br{bottom:10px;right:12px;text-align:right}
+.ro b{font-weight:500;font-size:1.25em}
+.labels{position:absolute;inset:0;pointer-events:none}
+.lbl{position:absolute;transform:translate(-50%,-50%);font-family:var(--f-display);font-weight:600;font-size:clamp(11px,1.6vw,14px);letter-spacing:.04em;color:var(--accent);text-shadow:0 0 3px var(--ink),0 0 2px var(--ink),0 0 1px var(--ink);white-space:nowrap}
+.lbl.ch{color:var(--fg);font-size:clamp(12px,1.8vw,16px)}
+.lbl.r{color:var(--cool)}
+
+.now{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:12px 14px}
+.now .ang{font-family:var(--f-mono);color:var(--accent);font-variant-numeric:tabular-nums}
+.now .nm{font-family:var(--f-display);font-weight:600;font-size:18px}
+.now .bf{color:var(--muted);flex-basis:100%}
+.now .bf strong{color:var(--fg);font-weight:500}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:14px;display:flex;flex-direction:column;gap:12px}
+.room{position:relative;width:100%;aspect-ratio:4/3;max-width:100%;border-radius:3px;overflow:hidden;background:var(--panel2)}
+.room canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.room .hint{position:absolute;left:10px;bottom:8px;font-size:12px;color:var(--muted);pointer-events:none}
+.legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+
+.ctl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:center}
+.ctl label{font-weight:500}
+.ctl output{font-family:var(--f-mono);color:var(--accent);font-variant-numeric:tabular-nums;font-size:14px}
+.ctl input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--accent);margin:4px 0 0}
+.ctl .ends{grid-column:1/-1;display:flex;justify-content:space-between;font-size:11px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+button{font:inherit;color:var(--fg);background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:7px 12px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button[aria-pressed=true]{background:var(--accent);color:var(--ink);border-color:var(--accent);font-weight:600}
+button.go{border-color:var(--accent);color:var(--accent)}
+.row{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between}
+
+.presets{display:flex;flex-direction:column;gap:10px}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}
+.pre{text-align:left;display:flex;flex-direction:column;gap:2px;padding:10px 12px}
+.pre .pn{font-family:var(--f-display);font-weight:600;font-size:16px}
+.pre .pa{font-family:var(--f-mono);font-size:12px;color:var(--accent)}
+.pre .pb{font-size:12.5px;color:var(--muted);line-height:1.35}
+.pre[aria-pressed=true] .pa,.pre[aria-pressed=true] .pb{color:var(--ink)}
+
+details{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:12px 14px}
+summary{cursor:pointer;font-family:var(--f-display);font-weight:600;font-size:16px}
+details p,details li{color:var(--muted);max-width:68ch}
+details strong{color:var(--fg);font-weight:500}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Coronary <span>View</span> Simulator</h1>
+    <p class="sub">Swing the C-arm and move the table, then turn on the anatomy overlay to see which structures the projection is showing you.</p>
+  </header>
+
+  <div class="grid">
+    <div class="col">
+      <div class="monitor" id="monitor" aria-label="Simulated fluoroscopy image. Drag to pan the table.">
+        <canvas id="fluoro"></canvas>
+        <canvas id="noise" width="110" height="110"></canvas>
+        <div class="vig"></div>
+        <div class="labels" id="labels"></div>
+        <div class="ro tl" id="roAng"></div>
+        <div class="ro tr" id="roFov"></div>
+        <div class="ro bl" id="roInj"></div>
+        <div class="ro br" id="roTbl"></div>
+      </div>
+      <div class="now" aria-live="polite">
+        <span class="ang" id="nowAng"></span>
+        <span class="nm" id="nowName"></span>
+        <span class="bf" id="nowBest"></span>
+      </div>
+      <section class="presets">
+        <h2>Standard views · left coronary</h2>
+        <div class="pgrid" id="presetsL"></div>
+        <h2>Standard views · right coronary</h2>
+        <div class="pgrid" id="presetsR"></div>
+      </section>
+    </div>
+
+    <div class="col">
+      <div class="panel">
+        <div class="row"><h2>Room</h2><div class="legend" id="roomLegend"></div></div>
+        <div class="room" id="room"><canvas id="roomc"></canvas><span class="hint">Drag to orbit · scroll to zoom</span></div>
+      </div>
+
+      <div class="panel">
+        <h2>C-arm</h2>
+        <div class="ctl">
+          <label for="sLao">Rotation</label><output id="oLao"></output>
+          <input type="range" id="sLao" min="-90" max="90" step="1">
+          <div class="ends"><span>RAO 90°</span><span>AP</span><span>LAO 90°</span></div>
+        </div>
+        <div class="ctl">
+          <label for="sCra">Angulation</label><output id="oCra"></output>
+          <input type="range" id="sCra" min="-45" max="45" step="1">
+          <div class="ends"><span>Caudal 45°</span><span>0°</span><span>Cranial 45°</span></div>
+        </div>
+        <div class="row">
+          <span>Field of view</span>
+          <div class="seg" id="fovSeg">
+            <button type="button" data-fov="25">25 cm</button>
+            <button type="button" data-fov="20">20 cm</button>
+            <button type="button" data-fov="15">15 cm</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="row"><h2>Table</h2><button type="button" id="tblReset">Centre table</button></div>
+        <div class="ctl">
+          <label for="sTx">Lateral</label><output id="oTx"></output>
+          <input type="range" id="sTx" min="-12" max="12" step="0.5">
+          <div class="ends"><span>To patient's right</span><span>To patient's left</span></div>
+        </div>
+        <div class="ctl">
+          <label for="sTz">Longitudinal</label><output id="oTz"></output>
+          <input type="range" id="sTz" min="-15" max="15" step="0.5">
+          <div class="ends"><span>Headward</span><span>Footward</span></div>
+        </div>
+        <div class="ctl">
+          <label for="sTy">Height</label><output id="oTy"></output>
+          <input type="range" id="sTy" min="-10" max="10" step="0.5">
+          <div class="ends"><span>Lower</span><span>Higher</span></div>
+        </div>
+        <p class="sub" style="font-size:13px;margin:0">You can also drag the fluoro image to pan the table.</p>
+      </div>
+
+      <div class="panel">
+        <h2>Injection and display</h2>
+        <div class="row">
+          <div class="seg" id="injSeg">
+            <button type="button" data-inj="L">Left coronary</button>
+            <button type="button" data-inj="R">Right coronary</button>
+          </div>
+          <button type="button" class="go" id="cine">Run cine injection</button>
+        </div>
+        <div class="seg">
+          <button type="button" id="tOverlay" aria-pressed="false">Anatomy overlay</button>
+          <button type="button" id="tLabels" aria-pressed="true">Vessel labels</button>
+          <button type="button" id="tBones" aria-pressed="true">Spine and ribs</button>
+        </div>
+        <div class="legend" id="ovLegend" hidden></div>
+      </div>
+    </div>
+  </div>
+
+  <details>
+    <summary>How the views are named, and how to read the image</summary>
+    <ul>
+      <li><strong>Views are named for where the detector sits.</strong> The X-ray tube is under the table, the detector is above the patient. LAO means the detector has swung over toward the patient's left; RAO, toward the right. Cranial tilts the detector toward the head, caudal toward the feet.</li>
+      <li><strong>The image is drawn as seen from the detector.</strong> In AP the head is at the top and the patient's left is on the screen's right, like looking down at the patient from the ceiling.</li>
+      <li><strong>RAO separates left from right along the AV groove.</strong> The AV groove (RCA and LCx) is seen edge-on, so the RCA looks like an "L" and the LAD runs along the front of the heart.</li>
+      <li><strong>LAO looks down the septum.</strong> The AV groove opens into a ring, so the RCA looks like a "C", and the LAD and LCx split to either side of the septum.</li>
+      <li><strong>Cranial views open the LAD and diagonals; caudal views open the LM, LCx and OMs.</strong> LAO caudal, the "spider", looks up the long axis from the apex onto the LM bifurcation.</li>
+      <li>This is a teaching model with simplified, right-dominant anatomy. Real hearts vary in orientation, so the best angles differ between patients.</li>
+    </ul>
+  </details>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function(){
+const V3=THREE.Vector3, deg=Math.PI/180;
+const SOD=70, SID=110; // source–isocentre and source–image distances, cm
+const reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+const css=getComputedStyle(document.documentElement);
+const tok=n=>css.getPropertyValue(n).trim()||'#888';
+
+const state={lao:-30,cra:-25,tx:0,ty:0,tz:0,fov:20,inj:'L',overlay:false,labels:true,bones:true};
+
+/* ---------- Patient coordinates: x = patient's left, y = anterior (up, supine), z = feet. Isocentre at origin. ---------- */
+const u=new V3(0.69,0.40,0.60).normalize();               // heart long axis, base → apex
+const dL=new V3(Math.SQRT1_2,Math.SQRT1_2,0);              // LAO 45 looks down the septum
+const ns=new V3().crossVectors(u,dL).normalize(); if(ns.y>0) ns.negate();   // septal normal, toward LV
+const w=new V3().crossVectors(ns,u).normalize(); if(w.y<0) w.negate();      // toward anterior IV groove
+const O=u.clone().multiplyScalar(-3.5).add(new V3(0,0.3,0));               // base-plane centre
+const P=(a,b,c)=>O.clone().addScaledVector(u,a).addScaledVector(w,b).addScaledVector(ns,c);
+const Rr=a=>{const k=(a+1)/10;return 4.2*Math.sqrt(Math.max(0,1-k*k));};
+// a: distance along long axis from AV groove; th: angle around axis (0 ant IV groove, 90 obtuse margin, 180 post IV groove, 270 acute margin)
+const L=(a,th,rs=1)=>{const t=th*deg,r=Rr(a)*rs;return P(a,r*Math.cos(t),r*Math.sin(t));};
+
+const VESSELS=[
+ {id:'LM',sys:'L',r:[0.22,0.2],lab:'LM',at:.45,pts:[P(-0.9,1.2,1.2),P(-0.4,2.4,1.9),L(0.1,30,0.98)]},
+ {id:'LAD',sys:'L',parent:'LM',r:[0.18,0.05],lab:'LAD',at:.42,pts:[L(0.1,30,0.98),L(0.5,22),L(1.4,10),L(2.6,4),L(4,1),L(5.5,0),L(7,0),L(8.1,0),P(8.9,0.6,0.3),P(9.05,-0.2,0.2),L(8.6,180)]},
+ {id:'D1',sys:'L',parent:'LAD',r:[0.12,0.04],lab:'D1',at:.6,pts:[L(1.9,7),L(3.2,30),L(4.8,52),L(6.4,64)]},
+ {id:'D2',sys:'L',parent:'LAD',r:[0.09,0.035],lab:'D2',at:.65,pts:[L(4.2,1),L(5.4,25),L(6.9,42)]},
+ {id:'S1',sys:'L',parent:'LAD',r:[0.07,0.03],lab:'Septal',at:.8,pts:[L(1.7,8),L(2.9,4,0.72),L(4.1,2,0.5)]},
+ {id:'S2',sys:'L',parent:'LAD',r:[0.06,0.03],pts:[L(3.2,3),L(4.3,1,0.7),L(5.3,0,0.5)]},
+ {id:'LCx',sys:'L',parent:'LM',r:[0.17,0.06],lab:'LCx',at:.55,pts:[L(0.1,30,0.98),L(0.0,52),L(0.0,78),L(0.1,104),L(0.2,128),L(0.35,148)]},
+ {id:'OM1',sys:'L',parent:'LCx',r:[0.11,0.04],lab:'OM1',at:.7,pts:[L(0.0,80),L(1.8,86),L(3.8,91),L(5.6,95)]},
+ {id:'OM2',sys:'L',parent:'LCx',r:[0.09,0.035],lab:'OM2',at:.75,pts:[L(0.15,114),L(2.0,117),L(3.9,121)]},
+ {id:'RCA',sys:'R',r:[0.19,0.09],lab:'RCA',at:.5,pts:[P(-1.0,1.6,-1.3),P(-0.6,2.5,-2.5),L(-0.2,302),L(-0.1,280),L(0.0,258),L(0.1,234),L(0.2,206),L(0.3,182)]},
+ {id:'Conus',sys:'R',parent:'RCA',r:[0.06,0.03],lab:'Conus',at:.9,pts:[P(-0.6,2.5,-2.5),L(0.7,322),L(1.5,342)]},
+ {id:'SAN',sys:'R',parent:'RCA',r:[0.05,0.025],lab:'SA node',at:.95,pts:[P(-0.6,2.5,-2.5),P(-1.9,1.5,-3.2),P(-3.3,0.4,-2.8)]},
+ {id:'AM',sys:'R',parent:'RCA',r:[0.08,0.03],lab:'AM',at:.75,pts:[L(0.0,264),L(1.9,262),L(3.8,258),L(5.3,255)]},
+ {id:'PDA',sys:'R',parent:'RCA',r:[0.09,0.035],lab:'PDA',at:.7,pts:[L(0.3,182),L(1.6,180),L(3.4,180),L(5.4,180)]},
+ {id:'PLV',sys:'R',parent:'RCA',r:[0.09,0.035],lab:'PLV',at:.8,pts:[L(0.3,182),L(0.35,166),L(0.6,152),L(2.1,146),L(3.6,141)]},
+];
+const CHAMBERS=[
+ {id:'LV',c:[4.0,-0.4,1.5],r:[4.4,2.6,2.5],col:'#e0645a'},
+ {id:'RV',c:[3.0,0.9,-1.9],r:[3.7,2.2,2.0],col:'#5b8fd9'},
+ {id:'LA',c:[-2.3,-2.0,1.5],r:[1.9,1.9,2.3],col:'#e39a4b'},
+ {id:'RA',c:[-1.8,0.2,-3.2],r:[2.0,2.3,2.0],col:'#6fc2b8'},
+];
+const root=P(-1.2,1.0,-0.3);
+const ao=[[0,0,0],[-1.2,0.8,-4],[-0.5,0.5,-8],[1.5,-1.0,-10.5],[4,-4,-10],[6,-6,-7],[6,-6.2,0],[5.8,-6.4,16]].map(p=>root.clone().add(new V3(...p)));
+const pa0=P(-0.2,2.6,0.2);
+const paPts=[[0,0,0],[0.6,0.2,-2.8],[1.8,-1.2,-5.2],[3.8,-3.0,-6.2]].map(p=>pa0.clone().add(new V3(...p)));
+
+/* ---------- Geometry helpers ---------- */
+function addConst(g,rad){const n=g.attributes.position.count;g.setAttribute('rad',new THREE.Float32BufferAttribute(new Float32Array(n).fill(rad),1));g.setAttribute('sdist',new THREE.Float32BufferAttribute(new Float32Array(n),1));return g;}
+function taperTube(pts,r0,r1,s0){
+  const curve=new THREE.CatmullRomCurve3(pts,false,'centripetal');
+  const len=curve.getLength(),N=Math.max(16,Math.ceil(len*5)),RS=10;
+  const fr=curve.computeFrenetFrames(N,false);
+  const pos=[],nor=[],rad=[],sd=[],idx=[],p=new V3(),n=new V3();
+  for(let i=0;i<=N;i++){const t=i/N;curve.getPointAt(t,p);const r=r0+(r1-r0)*t;
+    for(let j=0;j<=RS;j++){const a=j/RS*Math.PI*2;n.copy(fr.normals[i]).multiplyScalar(Math.cos(a)).addScaledVector(fr.binormals[i],Math.sin(a));
+      pos.push(p.x+n.x*r,p.y+n.y*r,p.z+n.z*r);nor.push(n.x,n.y,n.z);rad.push(r);sd.push(s0+t*len);}}
+  for(let i=0;i<N;i++)for(let j=0;j<RS;j++){const a=i*(RS+1)+j,b=a+RS+1;idx.push(a,b,a+1,b,b+1,a+1);}
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3));
+  g.setAttribute('rad',new THREE.Float32BufferAttribute(rad,1));g.setAttribute('sdist',new THREE.Float32BufferAttribute(sd,1));g.setIndex(idx);
+  return {geo:g,curve,len,s0};
+}
+const sphereGeo=addConst(new THREE.SphereGeometry(1,36,24),1);
+function ellMatrix(c,r){const m=new THREE.Matrix4().makeBasis(u,w,ns);m.scale(new V3(...r));m.setPosition(P(...c));return m;}
+function ellMesh(mat,c,r){const m=new THREE.Mesh(sphereGeo,mat);m.matrixAutoUpdate=false;m.matrix.copy(c.isMatrix4?c:ellMatrix(c,r));return m;}
+function worldEll(mat,center,radii){const m=new THREE.Mesh(sphereGeo,mat);m.position.copy(center);m.scale.set(...radii);return m;}
+
+/* Fluoro attenuation shader: each surface subtracts density ∝ local thickness, so overlaps darken like contrast does */
+function densMat(dens,useFill){
+  return new THREE.ShaderMaterial({
+    uniforms:{dens:{value:dens},fill:{value:999},wash:{value:1},useFill:{value:useFill?1:0}},
+    vertexShader:'attribute float rad;attribute float sdist;varying vec3 vN;varying vec3 vP;varying float vR;varying float vS;void main(){vec4 mv=modelViewMatrix*vec4(position,1.0);vN=normalMatrix*normal;vP=mv.xyz;vR=rad;vS=sdist;gl_Position=projectionMatrix*mv;}',
+    fragmentShader:'uniform float dens;uniform float fill;uniform float wash;uniform float useFill;varying vec3 vN;varying vec3 vP;varying float vR;varying float vS;void main(){float f=abs(dot(normalize(vN),normalize(-vP)));float d=dens*(0.025+vR)*f;if(useFill>0.5){d*=1.0-smoothstep(fill-0.8,fill,vS);d*=wash;}gl_FragColor=vec4(vec3(d),1.0);}',
+    transparent:true,depthTest:false,depthWrite:false,side:THREE.DoubleSide,
+    blending:THREE.CustomBlending,blendEquation:THREE.ReverseSubtractEquation,blendSrc:THREE.OneFactor,blendDst:THREE.OneFactor
+  });
+}
+
+/* ---------- Build vessels ---------- */
+const built={};
+VESSELS.forEach(v=>{
+  let s0=0;
+  if(v.parent){const pb=built[v.parent];let best=1e9,bt=0;const q=new V3();
+    for(let i=0;i<=200;i++){pb.curve.getPointAt(i/200,q);const dd=q.distanceTo(v.pts[0]);if(dd<best){best=dd;bt=i/200;}}
+    s0=pb.s0+bt*pb.len;}
+  built[v.id]=Object.assign(taperTube(v.pts,v.r[0],v.r[1],s0),{v});
+});
+
+/* ---------- Fluoro scene ---------- */
+const fCanvas=document.getElementById('fluoro');
+const fr=new THREE.WebGLRenderer({canvas:fCanvas,antialias:true,preserveDrawingBuffer:true});
+fr.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+fr.setClearColor(new THREE.Color('#cdcdc7'));
+const fScene=new THREE.Scene(), oScene=new THREE.Scene();
+const fcam=new THREE.PerspectiveCamera(10,1,1,300);
+const anat=new THREE.Group(); fScene.add(anat);
+const ovl=new THREE.Group(); oScene.add(ovl);
+
+const matV=densMat(1.45,true), matCath=densMat(2.6,false), matBone=densMat(0.055,false), matRib=densMat(0.09,false), matSoft=densMat(0.045,false), matDia=densMat(0.03,false);
+const sysGroups={L:new THREE.Group(),R:new THREE.Group()}; anat.add(sysGroups.L,sysGroups.R);
+Object.values(built).forEach(b=>sysGroups[b.v.sys].add(new THREE.Mesh(b.geo,matV)));
+
+// guide catheters up the aorta into each ostium
+function cathPts(ost){return [ao[7],ao[6],ao[5],ao[4],ao[3],ao[2],root.clone().add(new V3(-1.1,0.7,-4)),root.clone().add(new V3(-0.6,0.5,-1.4)),ost];}
+['L','R'].forEach(s=>{const ost=s==='L'?VESSELS[0].pts[0]:VESSELS[9].pts[0];const t=taperTube(cathPts(ost),0.1,0.1,0);sysGroups[s].add(new THREE.Mesh(t.geo,matCath));});
+
+// cardiac silhouette, diaphragm
+CHAMBERS.forEach(c=>anat.add(ellMesh(matSoft,c.c,c.r.map(x=>x*1.25))));
+anat.add(new THREE.Mesh(taperTube(ao.slice(0,5),1.5,1.4,0).geo,matSoft));
+anat.add(worldEll(matDia,new V3(-5,-1,16.5),[12,11,11]));
+anat.add(worldEll(matDia,new V3(7,-1,18),[10,10,10]));
+
+// spine and ribs
+const bones=new THREE.Group(); anat.add(bones);
+const vbGeo=addConst(new THREE.CylinderGeometry(2.2,2.2,2.4,28).rotateX(Math.PI/2),1);
+const pedGeo=addConst(new THREE.SphereGeometry(0.7,16,12),1);
+for(let z=-30;z<=22;z+=3.05){const m=new THREE.Mesh(vbGeo,matBone);m.position.set(0,-10,z);bones.add(m);
+  [-1.7,1.7].forEach(x=>{const p=new THREE.Mesh(pedGeo,matBone);p.position.set(x,-12.3,z-0.3);p.scale.set(1,1,1.4);bones.add(p);});}
+for(let i=0;i<10;i++){const z0=-24+i*3.1;[-1,1].forEach(side=>{const pts=[];
+  for(let k=0;k<=12;k++){const s=k/12,ang=-Math.PI/2+s*Math.PI*0.86;pts.push(new V3(side*(2+13.5*Math.cos(ang)),-1+11.5*Math.sin(ang),z0+s*s*5.5));}
+  bones.add(new THREE.Mesh(taperTube(pts,0.55,0.45,0).geo,matRib));});}
+
+// overlay: chambers and great vessels
+const ovMats={};
+CHAMBERS.forEach(c=>{const m=new THREE.MeshBasicMaterial({color:c.col,transparent:true,opacity:0.26,depthTest:false,depthWrite:false,side:THREE.DoubleSide});ovMats[c.id]=m;ovl.add(ellMesh(m,c.c,c.r));});
+const aoMat=new THREE.MeshBasicMaterial({color:'#c97fb6',transparent:true,opacity:0.26,depthTest:false,depthWrite:false,side:THREE.DoubleSide});
+const paMat=new THREE.MeshBasicMaterial({color:'#9a8be0',transparent:true,opacity:0.26,depthTest:false,depthWrite:false,side:THREE.DoubleSide});
+ovl.add(new THREE.Mesh(taperTube(ao,1.45,1.2,0).geo,aoMat));
+ovl.add(new THREE.Mesh(taperTube(paPts,1.35,1.2,0).geo,paMat));
+
+/* ---------- Labels ---------- */
+const labelsEl=document.getElementById('labels');
+const LABELS=[];
+Object.values(built).forEach(b=>{if(!b.v.lab)return;const el=document.createElement('span');el.className='lbl'+(b.v.sys==='R'?' r':'');el.textContent=b.v.lab;labelsEl.appendChild(el);
+  LABELS.push({el,p:b.curve.getPointAt(b.v.at),kind:'v',sys:b.v.sys});});
+const chamberAnchors=CHAMBERS.map(c=>({id:c.id,p:P(...c.c)})).concat([{id:'Ao',p:ao[2]},{id:'PA',p:paPts[2]}]);
+chamberAnchors.forEach(c=>{const el=document.createElement('span');el.className='lbl ch';el.textContent=c.id;labelsEl.appendChild(el);LABELS.push({el,p:c.p,kind:'c'});});
+document.getElementById('ovLegend').innerHTML=CHAMBERS.map(c=>`<span><i style="background:${c.col}"></i>${c.id}</span>`).join('')+'<span><i style="background:#c97fb6"></i>Aorta</span><span><i style="background:#9a8be0"></i>Pulmonary artery</span>';
+
+/* ---------- Room scene ---------- */
+const rCanvas=document.getElementById('roomc');
+const rr=new THREE.WebGLRenderer({canvas:rCanvas,antialias:true});
+rr.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+rr.setClearColor(new THREE.Color(tok('--panel2')));
+const rScene=new THREE.Scene();
+const rcam=new THREE.PerspectiveCamera(40,4/3,5,2000);
+rcam.position.set(185,120,150);
+const orbit=new THREE.OrbitControls(rcam,rCanvas);orbit.target.set(0,-15,-5);orbit.enableDamping=!reduce;orbit.minDistance=90;orbit.maxDistance=520;orbit.update();
+rScene.add(new THREE.HemisphereLight(0xdfe8ee,0x2a2f33,0.9));
+const dl=new THREE.DirectionalLight(0xffffff,0.7);dl.position.set(120,220,-80);rScene.add(dl);
+const grid=new THREE.GridHelper(420,21,tok('--line'),tok('--line'));grid.position.y=-110;rScene.add(grid);
+
+const tableG=new THREE.Group();rScene.add(tableG);
+const tableMat=new THREE.MeshStandardMaterial({color:0x3a444d,roughness:.8});
+const top=new THREE.Mesh(new THREE.BoxGeometry(52,3,215),tableMat);top.position.set(0,-13.5,47);tableG.add(top);
+const ped=new THREE.Mesh(new THREE.BoxGeometry(26,92,36),tableMat);ped.position.set(0,-61,115);tableG.add(ped);
+const skin=new THREE.MeshStandardMaterial({color:0xa9bdc9,transparent:true,opacity:0.16,depthWrite:false,roughness:.9,side:THREE.DoubleSide});
+const torso=new THREE.Mesh(new THREE.CylinderGeometry(1,1,66,28).rotateX(Math.PI/2).scale(17,11,1),skin);torso.position.set(0,-1,8);tableG.add(torso);
+const head=new THREE.Mesh(new THREE.SphereGeometry(9,24,16),skin);head.position.set(0,-2,-36);tableG.add(head);
+[-8,8].forEach(x=>{const l=new THREE.Mesh(new THREE.CylinderGeometry(6.5,5,85,18).rotateX(Math.PI/2),skin);l.position.set(x,-5,83);tableG.add(l);});
+CHAMBERS.forEach(c=>tableG.add(ellMesh(new THREE.MeshBasicMaterial({color:c.col,transparent:true,opacity:0.45,depthWrite:false}),c.c,c.r)));
+const roomVesselMat={L:new THREE.MeshBasicMaterial({color:tok('--accent')}),R:new THREE.MeshBasicMaterial({color:tok('--cool')})};
+Object.values(built).forEach(b=>{const g=b.geo.clone();tableG.add(new THREE.Mesh(g,roomVesselMat[b.v.sys]));});
+tableG.add(new THREE.Mesh(taperTube(ao,1.45,1.2,0).geo,new THREE.MeshBasicMaterial({color:'#c97fb6',transparent:true,opacity:.5,depthWrite:false})));
+document.getElementById('roomLegend').innerHTML=`<span><i style="background:var(--accent)"></i>Left coronary</span><span><i style="background:var(--cool)"></i>Right coronary</span>`;
+
+// C-arm, built in a local frame: Y = detector direction, Z = toward the head along the arc
+const carm=new THREE.Group();carm.matrixAutoUpdate=false;rScene.add(carm);
+const metal=new THREE.MeshStandardMaterial({color:0xd6dadd,roughness:.45,metalness:.25});
+const dark=new THREE.MeshStandardMaterial({color:0x22282d,roughness:.6});
+const arcPts=[];for(let i=0;i<=48;i++){const f=i/48*Math.PI;arcPts.push(new V3(0,88*Math.cos(f),88*Math.sin(f)));}
+carm.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(arcPts),96,3.4,12,false),metal));
+const armD=new THREE.Mesh(new THREE.CylinderGeometry(3,3,40,14),metal);armD.position.y=68;carm.add(armD);
+const detB=new THREE.Mesh(new THREE.BoxGeometry(34,7,34),dark);detB.position.y=SID-SOD+3.5;carm.add(detB);
+const armS=new THREE.Mesh(new THREE.CylinderGeometry(3,3,12,14),metal);armS.position.y=-82;carm.add(armS);
+const srcB=new THREE.Mesh(new THREE.BoxGeometry(18,14,22),metal);srcB.position.y=-SOD-4;carm.add(srcB);
+const beamGeo=new THREE.BufferGeometry();beamGeo.setAttribute('position',new THREE.Float32BufferAttribute(new Float32Array(16*3),3));
+const beam=new THREE.LineSegments(beamGeo,new THREE.LineBasicMaterial({color:tok('--accent'),transparent:true,opacity:.75}));rScene.add(beam);
+const iso=new THREE.Mesh(new THREE.SphereGeometry(0.9,10,8),new THREE.MeshBasicMaterial({color:tok('--accent')}));rScene.add(iso);
+
+/* ---------- Geometry of the projection ---------- */
+function dirs(lao,cra){const a=lao*deg,b=cra*deg;
+  const d=new V3(Math.sin(a)*Math.cos(b),Math.cos(a)*Math.cos(b),-Math.sin(b)).normalize();
+  const hd=new V3(0,0,-1),t=hd.clone().addScaledVector(d,-hd.dot(d)).normalize();return {d,t};}
+
+function updateGeometry(){
+  const {d,t}=dirs(state.lao,state.cra);
+  const off=new V3(state.tx,state.ty,state.tz);
+  anat.position.copy(off);ovl.position.copy(off);tableG.position.copy(off);
+  // camera at the tube looking toward the detector; mirror so the image reads as seen from the detector
+  fcam.position.copy(d).multiplyScalar(-SOD);fcam.up.copy(t);fcam.lookAt(0,0,0);
+  fcam.fov=2*Math.atan(state.fov/2/SID)/deg;fcam.aspect=1;fcam.updateProjectionMatrix();
+  fcam.projectionMatrix.elements[0]*=-1;fcam.projectionMatrixInverse.copy(fcam.projectionMatrix).invert();fcam.updateMatrixWorld();
+  const X=new V3().crossVectors(d,t);
+  carm.matrix.makeBasis(X,d,t);
+  // beam: tube focal spot to the four detector corners, plus the detector outline
+  const s=d.clone().multiplyScalar(-SOD),c=d.clone().multiplyScalar(SID-SOD),h=state.fov/2;
+  const cn=[[1,1],[1,-1],[-1,-1],[-1,1]].map(([i,j])=>c.clone().addScaledVector(X,i*h).addScaledVector(t,j*h));
+  const arr=beamGeo.attributes.position.array;let k=0;const put=v=>{arr[k++]=v.x;arr[k++]=v.y;arr[k++]=v.z;};
+  cn.forEach(p=>{put(s);put(p);});for(let i=0;i<4;i++){put(cn[i]);put(cn[(i+1)%4]);}
+  beamGeo.attributes.position.needsUpdate=true;beamGeo.computeBoundingSphere();
+  sysGroups.L.visible=state.inj==='L';sysGroups.R.visible=state.inj==='R';
+  bones.visible=state.bones;
+}
+
+/* ---------- Presets ---------- */
+const PRESETS=[
+ {name:'RAO caudal',lao:-30,cra:-25,inj:'L',best:'LM, proximal LAD and LCx, OM branches'},
+ {name:'AP caudal',lao:0,cra:-30,inj:'L',best:'LM body and bifurcation, proximal LCx'},
+ {name:'LAO caudal (spider)',lao:45,cra:-30,inj:'L',best:'LM bifurcation and the LAD and LCx ostia'},
+ {name:'RAO cranial',lao:-30,cra:30,inj:'L',best:'Mid and distal LAD, diagonal origins'},
+ {name:'AP cranial',lao:0,cra:35,inj:'L',best:'Mid LAD, diagonals pulled away from the LAD'},
+ {name:'LAO cranial',lao:40,cra:30,inj:'L',best:'LAD with diagonals and septals separated'},
+ {name:'Left lateral',lao:90,cra:0,inj:'L',best:'Mid LAD and LCx, LIMA graft course'},
+ {name:'LAO',lao:40,cra:0,inj:'R',best:'RCA as a "C": ostium, proximal and mid RCA'},
+ {name:'RAO',lao:-30,cra:0,inj:'R',best:'RCA as an "L": mid RCA and PDA length'},
+ {name:'LAO cranial',lao:30,cra:25,inj:'R',best:'Crux: distal RCA splitting into PDA and PLV'},
+];
+const angTxt=(lao,cra)=>{const a=Math.round(lao),c=Math.round(cra);
+  return (a===0?'AP 0°':(a>0?'LAO ':'RAO ')+Math.abs(a)+'°')+'  '+(c===0?'0°':(c>0?'CRA ':'CAU ')+Math.abs(c)+'°');};
+const presetBtns=[];
+PRESETS.forEach(p=>{const b=document.createElement('button');b.type='button';b.className='pre';b.setAttribute('aria-pressed','false');
+  b.innerHTML=`<span class="pn">${p.name}</span><span class="pa">${angTxt(p.lao,p.cra)}</span><span class="pb">${p.best}</span>`;
+  b.addEventListener('click',()=>goTo(p));document.getElementById(p.inj==='L'?'presetsL':'presetsR').appendChild(b);presetBtns.push({b,p});});
+
+let tween=null;
+function goTo(p){setInj(p.inj);if(reduce){state.lao=p.lao;state.cra=p.cra;syncUI();return;}
+  tween={t0:performance.now(),dur:850,from:{lao:state.lao,cra:state.cra},to:{lao:p.lao,cra:p.cra}};}
+
+/* ---------- UI wiring ---------- */
+const $=id=>document.getElementById(id);
+const sliders={lao:$('sLao'),cra:$('sCra'),tx:$('sTx'),tz:$('sTz'),ty:$('sTy')};
+Object.entries(sliders).forEach(([k,el])=>el.addEventListener('input',()=>{state[k]=parseFloat(el.value);if(k==='lao'||k==='cra')tween=null;syncUI(true);}));
+const fmtCm=(v,neg,pos)=>v===0?'centred':`${Math.abs(v).toFixed(1)} cm ${v<0?neg:pos}`;
+function syncUI(fromSlider){
+  if(!fromSlider){for(const k in sliders)sliders[k].value=state[k];}
+  $('oLao').textContent=Math.round(state.lao)===0?'AP':(state.lao>0?'LAO ':'RAO ')+Math.abs(Math.round(state.lao))+'°';
+  $('oCra').textContent=Math.round(state.cra)===0?'0°':(state.cra>0?'Cranial ':'Caudal ')+Math.abs(Math.round(state.cra))+'°';
+  $('oTx').textContent=fmtCm(state.tx,'right','left');$('oTz').textContent=fmtCm(state.tz,'headward','footward');$('oTy').textContent=state.ty===0?'isocentre':`${Math.abs(state.ty).toFixed(1)} cm ${state.ty<0?'lower':'higher'}`;
+  document.querySelectorAll('#fovSeg button').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.fov===state.fov)));
+  document.querySelectorAll('#injSeg button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.inj===state.inj)));
+  const a=angTxt(state.lao,state.cra);
+  $('roAng').innerHTML=`<b>${a.replace('  ','<br>')}</b>`;
+  $('roFov').innerHTML=`FOV ${state.fov} cm<br>SID ${SID} cm`;
+  $('roInj').textContent=state.inj==='L'?'LCA injection · JL4':'RCA injection · JR4';
+  $('roTbl').innerHTML=`TBL ${state.tx>=0?'+':''}${state.tx.toFixed(1)} / ${state.tz>=0?'+':''}${state.tz.toFixed(1)} / ${state.ty>=0?'+':''}${state.ty.toFixed(1)}`;
+  $('nowAng').textContent=a;
+  let hit=null;presetBtns.forEach(({b,p})=>{const on=p.inj===state.inj&&Math.abs(p.lao-state.lao)<=5&&Math.abs(p.cra-state.cra)<=5;b.setAttribute('aria-pressed',String(on));if(on)hit=p;});
+  $('nowName').textContent=hit?hit.name:'Custom view';
+  $('nowBest').innerHTML=hit?`<strong>Best for:</strong> ${hit.best}`:'Not a standard view. Pick a preset below, or keep adjusting and watch which segments separate or overlap.';
+}
+function setInj(s){state.inj=s;syncUI();}
+document.querySelectorAll('#injSeg button').forEach(b=>b.addEventListener('click',()=>setInj(b.dataset.inj)));
+document.querySelectorAll('#fovSeg button').forEach(b=>b.addEventListener('click',()=>{state.fov=+b.dataset.fov;syncUI();}));
+function toggle(id,key,after){const b=$(id);b.addEventListener('click',()=>{state[key]=!state[key];b.setAttribute('aria-pressed',String(state[key]));after&&after();});}
+toggle('tOverlay','overlay',()=>{$('ovLegend').hidden=!state.overlay;});
+toggle('tLabels','labels');toggle('tBones','bones');
+$('tblReset').addEventListener('click',()=>{state.tx=state.ty=state.tz=0;syncUI();});
+
+// cine injection: contrast fills from the ostium, holds, washes out
+let cine=null;
+$('cine').addEventListener('click',()=>{cine={t0:performance.now()};});
+function cineStep(now){
+  if(!cine){matV.uniforms.fill.value=999;matV.uniforms.wash.value=1;return;}
+  const e=(now-cine.t0)/1000;let fill=999,wash=1;
+  if(e<1.6)fill=0.5+32*(1-Math.pow(1-e/1.6,2));
+  else if(e<3.4)fill=999;
+  else if(e<4.4)wash=1-(e-3.4);
+  else if(e<4.9)wash=0;
+  else if(e<5.3)wash=(e-4.9)/0.4;
+  else cine=null;
+  matV.uniforms.fill.value=fill;matV.uniforms.wash.value=wash;
+}
+
+// drag the image to pan the table (the anatomy follows the pointer)
+const mon=$('monitor');let drag=null;
+mon.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};mon.setPointerCapture(e.pointerId);mon.classList.add('drag');});
+mon.addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag={x:e.clientX,y:e.clientY};
+  const {d,t}=dirs(state.lao,state.cra),right=new V3().crossVectors(t,d);
+  const cpp=state.fov/(SID/SOD)/mon.clientWidth;
+  const mv=right.multiplyScalar(dx*cpp).addScaledVector(t,-dy*cpp);
+  const cl=(v,a)=>Math.max(-a,Math.min(a,Math.round(v*2)/2));
+  state.tx=cl(state.tx+mv.x,12);state.ty=cl(state.ty+mv.y,10);state.tz=cl(state.tz+mv.z,15);
+  syncUI();});
+const endDrag=()=>{drag=null;mon.classList.remove('drag');};
+mon.addEventListener('pointerup',endDrag);mon.addEventListener('pointercancel',endDrag);
+
+/* ---------- Sizing ---------- */
+function sizeAll(){
+  const m=mon.clientWidth;fr.setSize(m,m,false);
+  const room=$('room');rr.setSize(room.clientWidth,room.clientHeight,false);rcam.aspect=room.clientWidth/Math.max(1,room.clientHeight);rcam.updateProjectionMatrix();
+}
+new ResizeObserver(sizeAll).observe(mon);new ResizeObserver(sizeAll).observe($('room'));sizeAll();
+
+/* ---------- Noise ---------- */
+const nc=$('noise'),nx=nc.getContext('2d'),nimg=nx.createImageData(nc.width,nc.height);
+function noise(){const a=nimg.data;for(let i=0;i<a.length;i+=4){const v=128+(Math.random()-0.5)*110;a[i]=a[i+1]=a[i+2]=v;a[i+3]=255;}nx.putImageData(nimg,0,0);}
+noise();
+
+/* ---------- Labels projection ---------- */
+const tmp=new V3();
+function placeLabels(){
+  const W=mon.clientWidth,H=mon.clientHeight;
+  LABELS.forEach(l=>{
+    const show=(l.kind==='v'&&state.labels&&l.sys===state.inj)||(l.kind==='c'&&state.overlay);
+    if(!show){l.el.hidden=true;return;}
+    tmp.copy(l.p).add(anat.position).project(fcam);
+    const x=(tmp.x+1)/2*W,y=(1-tmp.y)/2*H;
+    if(x<14||x>W-14||y<14||y>H-14){l.el.hidden=true;return;}
+    l.el.hidden=false;l.el.style.left=x+'px';l.el.style.top=y+'px';
+  });
+}
+
+/* ---------- Loop ---------- */
+let frame=0;
+function loop(now){
+  if(tween){const k=Math.min(1,(now-tween.t0)/tween.dur),e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
+    state.lao=tween.from.lao+(tween.to.lao-tween.from.lao)*e;state.cra=tween.from.cra+(tween.to.cra-tween.from.cra)*e;
+    if(k>=1){state.lao=tween.to.lao;state.cra=tween.to.cra;tween=null;}syncUI();}
+  cineStep(now);
+  updateGeometry();
+  fr.autoClear=true;fr.render(fScene,fcam);
+  if(state.overlay){fr.autoClear=false;fr.render(oScene,fcam);fr.autoClear=true;}
+  placeLabels();
+  if(!reduce&&(frame++%2===0))noise();
+  orbit.update();rr.render(rScene,rcam);
+  requestAnimationFrame(loop);
+}
+syncUI();requestAnimationFrame(loop);
+})();
+</script>
+
+</body>
+</html>
