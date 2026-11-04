@@ -357,7 +357,7 @@ function shellMu(ct,g){const [nx,ny,nz]=g.dim,k=g.sp.map(s=>Math.round(1.5/s));l
 // trilinear sampling at the lumen edge doesn't drag the distance toward 0.
 function splitCoronary(c,dims,right){const [nx,ny,nz]=dims,n=prod(dims),out=new Uint8Array(n*4);
   for(let i=0;i<n;i++){const occ=c[3*i],seg=c[3*i+1];
-    if(occ&&seg)out[4*i+(right.includes(seg)?1:0)]=occ;out[4*i+2]=c[3*i+2];}
+    if(occ&&seg)out[4*i+(right.includes(seg&15)?1:0)]=occ;out[4*i+2]=c[3*i+2];}   // seg & 15: grown branches carry parent + 16
   const sx=1,sy=nx,sz=nx*ny;
   for(let z=1;z<nz-1;z++)for(let y=1;y<ny-1;y++)for(let x=1;x<nx-1;x++){const i=(z*ny+y)*nx+x;if(c[3*i])continue;
     let m=0;for(const o of [sx,-sx,sy,-sy,sz,-sz]){const j=i+o;if(c[3*j]&&c[3*j+2]>m)m=c[3*j+2];}if(m)out[4*i+2]=m;}

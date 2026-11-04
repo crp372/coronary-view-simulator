@@ -8,6 +8,7 @@ Data-prep scripts (Python) that turn raw CT and labels into small web-ready file
 | `preview_scan.py` | Renders PNGs of a scan with its labels into `data/raw/preview/`: slab MIPs, AP and lateral MIPs, a rough DRR, and the coronary tree. |
 | `export_scan.py` | Writes the web-ready files for a scan to `data/web/<id>/` (format below). |
 | `export_chambers.py` | Turns TotalSegmentator heart-chamber masks into meshes in `data/web/<id>/chambers.*` (see "Heart chambers" below). |
+| `synth_branches.py` | Illustrative fine branches below CT resolution, grown from the real tree along the heart's surface. Used by `export_scan.py`; parameters and seed in `P`, copied into `meta.json`. |
 | `check_export.py` | Renders AP and lateral DRRs from the exported files only: de-contrasted, left injection, right injection, and `vessels.json`. |
 
 ## Web export format (`data/web/<id>/`)
@@ -19,7 +20,8 @@ Data-prep scripts (Python) that turn raw CT and labels into small web-ready file
 | File | Contents |
 |---|---|
 | `ct.u8.gz` | De-contrasted CT, 0.91 × 0.91 × 1 mm. uint8, HU = v × 10 − 1024. Everything that isn't bone and is above 50 HU (blood pool, enhanced myocardium, coronaries, lung vessels) is set to 50 HU, so the scan looks unenhanced. The renderer adds iodine back only where the injection goes. |
-| `coronary.rgb8.gz` | Same spacing, cropped to the tree. R = lumen occupancy 0–255 (partial-volume fraction, so thin distal vessels keep their projected density). G = ImageCAS-X segment label 0–14. B = distance from the ostium in mm, for the cine fill. |
+| `coronary.rgb8.gz` | Full CT resolution (0.45 × 0.45 × 0.5 mm), cropped to the tree, with a slight Gaussian blur (σ 0.6 voxel) that anti-aliases the lumen edge without changing its total. R = lumen occupancy 0–255 (partial-volume fraction, so thin distal vessels keep their projected density). G = ImageCAS-X segment label 0–14, or parent segment + 16 for small branches grown from the CT (so `G & 15` gives the segment and side). B = distance from the ostium in mm, for the cine fill. |
+| `synthetic.u8.gz` | Optional, on the coronary grid. Illustrative fine branches: 1–127 = left-tree occupancy × 127, 129–255 = 128 + right-tree occupancy × 127, 0 = none. Not this patient's anatomy. Their distance from the ostium is in `coronary.rgb8.gz` channel B wherever the real tree is absent. Only written if the TotalSegmentator masks exist. |
 | `vessels.json` | One entry per vessel path, in the `VESSELS` shape: `id`, `sys` (L/R), `seg`, `lab`, `parent`, `pts` (cm), `r` (radius in cm, from the mask's distance transform; minimum about one voxel), `sdist` (cm from the ostium). |
 | `meta.json` | Grid dims, spacing and origins, encodings, the offset that was subtracted to centre the tree, and attribution. |
 

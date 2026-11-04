@@ -207,6 +207,7 @@ details strong{color:var(--fg);font-weight:500}
           <button type="button" id="tLabels" aria-pressed="true">Vessel labels</button>
           <button type="button" id="tSegN" aria-pressed="false">Segment numbers</button>
           <button type="button" id="tBones" aria-pressed="true">Spine and ribs</button>
+          <button type="button" id="tFine" aria-pressed="true" hidden title="Branches finer than the CT can show, generated to look realistic; not this patient's anatomy">Fine branches (illustrative)</button>
         </div>
         <div class="legend" id="ovLegend" hidden></div>
         <div class="note" id="ovNote" hidden>The overlays come from this CT's own segmentations, so they line up with the image:
@@ -245,7 +246,8 @@ const css=getComputedStyle(document.documentElement);
 const tok=n=>css.getPropertyValue(n).trim()||'#888';
 
 // ovV: CT coronary overlay; ovC: chamber overlay (the model's chambers in model mode); segN: SCCT segment numbers
-const state={lao:-30,cra:-25,tx:0,ty:0,tz:0,fov:20,inj:'L',ovV:false,ovC:false,segN:false,labels:true,bones:true};
+// fine: illustrative fine branches (below CT resolution) in the CT image
+const state={lao:-30,cra:-25,tx:0,ty:0,tz:0,fov:20,inj:'L',ovV:false,ovC:false,segN:false,labels:true,bones:true,fine:true};
 const chOn={LV:true,RV:true,LA:true,RA:true,Ao:true,PA:true,Myo:false};   // per-chamber switches (legend chips)
 
 /* ---------- Patient coordinates: x = patient's left, y = anterior (up, supine), z = feet. Isocentre at origin. ---------- */
@@ -556,21 +558,27 @@ function updateGeometry(){
 }
 
 /* ---------- DRR fluoro: X-rays traced through a real CT (scan 814) ---------- */
-// Same engine as drr.html (the standalone prototype); keep the shaders and TUNE in step.
+// Started from drr.html (the standalone prototype). Since the image-realism pass, index.html has its own TUNE
+// (iodine, black level, flat-panel shutter) and the full-resolution coronary grid; drr.html is left as it was.
 // Pass A: CT line integral; pass B: iodine line integral in the injected tree (cine fill by distance
-// from the ostium); pass C: combine with automatic brightness, unsharp mask, quantum noise and vignette.
+// from the ostium); pass C: combine with automatic brightness, unsharp mask, quantum noise and the flat-panel field.
 // If it can't start (no WebGL2 or float targets, file://, fetch failure), the model renderer above stays on.
 const DRR_DATA='data/web/814/';
 const MU_W=0.2;                  // water attenuation, 1/cm
 const DRR_N=512, DRR_NA=64;      // DRR resolution; low-res copy for automatic brightness
 const DRR_STEP=0.5;              // ray-march step in voxels
-const DRR_IOD=25000;             // iodine, HU equivalent at full lumen
 // Body outline beyond the CT (elliptical cylinder along z): centre x, y and semi-axes, cm.
 // Estimated from scan 814's anterior skin and the midline of its sternum and spine.
 //   fadeIn/fadeOut: cm inside/outside the CT faces over which it fades into flat soft tissue
 //   win: display window percentiles of the central image; gamma: LUT steepness toward black
 //   sharp: unsharp-mask gain; noise: quantum noise in attenuation units at the bright end
-const TUNE={body:[-3,-1.7,17,12],fadeIn:1,fadeOut:3,win:[0.05,0.95],gamma:1.2,sharp:0.7,noise:0.028};
+//   iod: iodine, HU equivalent at full lumen (undiluted contrast is ~28 000 at fluoro energies; mixing with
+//     blood during the injection roughly halves it); floor: display black level, so dense vessels read
+//     dark grey rather than black, as on real runs; shutter: flat-panel field, half-width of the visible
+//     square (1 = edge) and its corner radius
+// Tuned by eye against CC-BY cine angiograms on Wikimedia Commons (RAO caudal LAD, LAO RCA).
+const TUNE={body:[-3,-1.7,17,12],fadeIn:1,fadeOut:3,win:[0.05,0.95],gamma:1.2,sharp:0.95,noise:0.028,
+  iod:15000,floor:0.08,shutter:[0.97,0.12]};
 
 const DRR_VS=`#version 300 es
 out vec2 uv;
@@ -630,11 +638,11 @@ void main(){
   o=vec4(L,0.0,0.0,1.0);
 }`;
 
-// Pass C: combine, unsharp mask, quantum noise, log/gamma display, vignette.
+// Pass C: combine, unsharp mask, quantum noise, log/gamma display with a black level, flat-panel shutter.
 const DRR_FS_OUT=`#version 300 es
 precision highp float;
 in vec2 uv;out vec4 o;
-uniform sampler2D uA,uB;uniform float uK,uLo,uHi,uGam,uSharp,uNoise,uFrame;uniform vec2 uTex;
+uniform sampler2D uA,uB;uniform float uK,uLo,uHi,uGam,uSharp,uNoise,uFrame,uFloor;uniform vec2 uTex,uShut;
 // iodine gets a slight blur (focal spot, motion) so the voxelised lumen doesn't stair-step
 float iod(vec2 q){vec2 e=uTex*1.3;return 0.36*texture(uB,q).r+0.16*(texture(uB,q+vec2(e.x,e.y)).r+texture(uB,q+vec2(-e.x,e.y)).r+texture(uB,q+vec2(e.x,-e.y)).r+texture(uB,q-e).r);}
 float tot(vec2 q){return texture(uA,q).r+uK*iod(q);}
@@ -654,9 +662,12 @@ void main(){
   Ls+=uNoise*exp(0.5*clamp(L-uLo,-1.0,4.0))*n;
   float x=(Ls-uLo)/max(uHi-uLo,0.3);
   // log window, exponential toward black, with a soft shoulder above the bright end (C1 at x = 0)
-  float y=x>=0.0?0.02+0.78*exp(-uGam*x):0.8+0.17*(1.0-exp(0.78*uGam/0.17*x));
-  float r=length(uv-0.5)*2.0;
-  y*=mix(1.0,0.62,smoothstep(0.45,1.45,r));
+  float sh=0.8-uFloor;
+  float y=x>=0.0?uFloor+sh*exp(-uGam*x):0.8+0.17*(1.0-exp(sh*uGam/0.17*x));
+  // flat-panel field: a square with rounded corners and dark shutters outside it, a mild fall-off toward the corners
+  vec2 q=abs(uv-0.5)*2.0;vec2 dq=max(q-(uShut.x-uShut.y),0.0);float sd=length(dq)-uShut.y;
+  y*=mix(1.0,0.82,smoothstep(0.6,1.3,length(q)));
+  y=mix(y,0.03,smoothstep(-0.006,0.006,sd));
   o=vec4(vec3(clamp(y,0.0,1.0)),1.0);
 }`;
 
@@ -682,14 +693,20 @@ function shellMu(ct,g){const [nx,ny,nz]=g.dim,k=g.sp.map(s=>Math.round(1.5/s));l
 // trilinear sampling at the lumen edge doesn't drag the distance toward 0.
 function splitCoronary(c,dims,right){const [nx,ny,nz]=dims,n=prod(dims),out=new Uint8Array(n*4);
   for(let i=0;i<n;i++){const occ=c[3*i],seg=c[3*i+1];
-    if(occ&&seg)out[4*i+(right.includes(seg)?1:0)]=occ;out[4*i+2]=c[3*i+2];}
+    if(occ&&seg)out[4*i+(right.includes(seg&15)?1:0)]=occ;out[4*i+2]=c[3*i+2];}   // seg & 15: grown branches carry parent + 16
   const sx=1,sy=nx,sz=nx*ny;
   for(let z=1;z<nz-1;z++)for(let y=1;y<ny-1;y++)for(let x=1;x<nx-1;x++){const i=(z*ny+y)*nx+x;if(c[3*i])continue;
     let m=0;for(const o of [sx,-sx,sy,-sy,sz,-sz]){const j=i+o;if(c[3*j]&&c[3*j+2]>m)m=c[3*j+2];}if(m)out[4*i+2]=m;}
   return out;}
+// Illustrative fine branches (synthetic.u8.gz): 1–127 left occupancy, 129–255 right, added onto a copy
+// of the split coronary volume
+function addSynthetic(base,syn){const out=base.slice();
+  for(let i=0;i<syn.length;i++){const v=syn[i];if(!v)continue;const r=v>128,k=4*i+(r?1:0);
+    out[k]=Math.min(255,out[k]+Math.round((r?v-128:v)*255/127));}
+  return out;}
 
 // Builds the GL resources; throws if a shader or float target fails. Returns render(view, fill, wash, frame).
-function createDRR(gl,cv,meta,ct,cor){
+function createDRR(gl,cv,meta,ct,cor,syn){
   function program(fs){
     const mk=(type,src)=>{const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);
       if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error('Shader: '+gl.getShaderInfoLog(s));return s;};
@@ -717,9 +734,11 @@ function createDRR(gl,cv,meta,ct,cor){
   const linear=!!gl.getExtension('OES_texture_float_linear');
   const fmt=linear?[gl.R32F,gl.FLOAT]:[gl.R16F,gl.HALF_FLOAT];
   const gCT=volGrid(meta.ct),gCor=volGrid(meta.coronary);
+  const corBase=splitCoronary(cor,gCor.dim,meta.coronary.right_segments);
+  const corData=on=>on&&syn?addSynthetic(corBase,syn):corBase;
   const R={pCT:program(DRR_FS_CT),pIod:program(DRR_FS_IOD),pOut:program(DRR_FS_OUT),
     ct:tex3D(ct,gCT.dim,gl.R8,gl.RED),
-    cor:tex3D(splitCoronary(cor,gCor.dim,meta.coronary.right_segments),gCor.dim,gl.RGBA8,gl.RGBA),
+    cor:tex3D(corData(state.fine),gCor.dim,gl.RGBA8,gl.RGBA),
     tA:target(DRR_N,fmt[0],fmt[1],gl.LINEAR),tB:target(DRR_N,fmt[0],fmt[1],gl.LINEAR),
     tS:target(DRR_NA,gl.R32F,gl.FLOAT,gl.NEAREST),small:new Float32Array(DRR_NA*DRR_NA*4),muBg:shellMu(ct,gCT)};
   gl.bindVertexArray(gl.createVertexArray());
@@ -753,7 +772,7 @@ function createDRR(gl,cv,meta,ct,cor){
     const pr=R.pOut;gl.useProgram(pr.p);gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,cv.width,cv.height);
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,R.tA.t);gl.uniform1i(pr.u('uA'),0);
     gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,R.tB.t);gl.uniform1i(pr.u('uB'),1);
-    gl.uniform1f(pr.u('uK'),MU_W*DRR_IOD/1000*wash);
+    gl.uniform1f(pr.u('uK'),MU_W*TUNE.iod/1000*wash);gl.uniform1f(pr.u('uFloor'),TUNE.floor);gl.uniform2fv(pr.u('uShut'),TUNE.shutter);
     gl.uniform1f(pr.u('uLo'),win.lo);gl.uniform1f(pr.u('uHi'),win.hi);
     gl.uniform1f(pr.u('uGam'),TUNE.gamma);gl.uniform1f(pr.u('uSharp'),TUNE.sharp);gl.uniform1f(pr.u('uNoise'),TUNE.noise);gl.uniform1f(pr.u('uFrame'),frame);
     gl.uniform2f(pr.u('uTex'),1/DRR_N,1/DRR_N);
@@ -769,6 +788,10 @@ function createDRR(gl,cv,meta,ct,cor){
       win.lo+=(win.tlo-win.lo)*0.3;win.hi+=(win.thi-win.hi)*0.3;   // ABC settles over a few frames
       renderOut(frame,wash);},
     invalidate(){lastG=lastI='';},
+    hasFine:!!syn,
+    // swap the coronary texture with or without the illustrative fine branches
+    setFine(on){gl.bindTexture(gl.TEXTURE_3D,R.cor);gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
+      gl.texSubImage3D(gl.TEXTURE_3D,0,0,0,0,gCor.dim[0],gCor.dim[1],gCor.dim[2],gl.RGBA,gl.UNSIGNED_BYTE,corData(on));lastI='';},
     finish(){gl.readPixels(0,0,1,1,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array(4));}};
 }
 
@@ -792,7 +815,10 @@ async function startDRR(){
     meta=await fetchJSON(DRR_DATA+'meta.json');
     [vessels,ct,cor]=await Promise.all([fetchJSON(DRR_DATA+meta.vessels),fetchBytes(DRR_DATA+meta.ct.file),fetchBytes(DRR_DATA+meta.coronary.file)]);
     if(ct.length!==prod(meta.ct.dims)||cor.length!==3*prod(meta.coronary.dims))throw new Error('CT data has an unexpected size');
-    drr=createDRR(gl,drrCv,meta,ct,cor);
+    // illustrative fine branches are optional: without the file, only the CT's own vessels are drawn
+    let syn=null;const sm=meta.coronary.synthetic;
+    if(sm)try{syn=await fetchBytes(DRR_DATA+sm.file);if(syn.length!==prod(meta.coronary.dims))syn=null;}catch(e){console.info('No synthetic fine branches:',e.message||e);}
+    drr=createDRR(gl,drrCv,meta,ct,cor,syn);
   }catch(e){console.warn('DRR unavailable, using the model renderer:',e);return fail('the CT couldn’t be loaded ('+String(e.message||e)+')');}
   // labels near the same spot along each centreline as drr.html; other points along it, nearest first, are
   // fallbacks for when that spot is off-screen
@@ -882,7 +908,7 @@ document.querySelectorAll('#fovSeg button').forEach(b=>b.addEventListener('click
 document.querySelectorAll('#roomViewSeg button').forEach(b=>b.addEventListener('click',()=>setRoomView(b.dataset.rv)));
 function toggle(id,key,after){const b=$(id);b.addEventListener('click',()=>{state[key]=!state[key];b.setAttribute('aria-pressed',String(state[key]));after&&after();});}
 toggle('tOvV','ovV',refreshOverlayUI);toggle('tOvC','ovC',refreshOverlayUI);toggle('tSegN','segN');
-toggle('tLabels','labels');toggle('tBones','bones');
+toggle('tLabels','labels');toggle('tBones','bones');toggle('tFine','fine',()=>{if(drr&&drr.hasFine)drr.setFine(state.fine);setMode();});
 // legend: segment colours with the coronary overlay; with the chamber overlay, one chip per chamber to show or hide it
 function refreshOverlayUI(){
   const drrOn=mode==='drr',lg=$('ovLegend');
@@ -1065,9 +1091,13 @@ function setMode(){
   roomModelAnat.visible=!(on&&CH.length);roomCTCh.visible=on;   // model chambers stay only if the CT has none
   fr.setClearColor(fluoroBg,on?0:1);
   $('tOvV').hidden=$('tSegN').hidden=!on;           // the model heart has no separate coronary overlay or segments
+  $('tFine').hidden=!(on&&drr&&drr.hasFine);
   refreshOverlayUI();
   $('srcNote').innerHTML=on
-    ?`<strong>Fluoro image:</strong> X-rays traced through a real coronary CT (ImageCAS scan 814), with contrast only in the injected tree. No catheter or heart motion yet. Data: ${esc(drrAttr)}. Non-commercial use only.`
+    ?`<strong>Fluoro image:</strong> X-rays traced through a real coronary CT (ImageCAS scan 814), with contrast only in the injected tree. `+
+      `The labelled vessels and a few small branches found in the CT are this patient's.`+
+      (drr&&drr.hasFine&&state.fine?` <strong>Branches finer than about 1 mm are illustrative</strong>: generated along the heart's surface to look realistic, not this patient's anatomy (switch them off with “Fine branches”).`:'')+
+      ` No catheter or heart motion yet. Data: ${esc(drrAttr)}. Non-commercial use only.`
     :mode==='loading'?'Loading a real coronary CT for the fluoro image. Until then it shows a simplified model heart.'
     :modeWhy==='file'?'<strong>Fluoro image:</strong> simplified model heart. For the image computed from a real coronary CT, serve this folder (<code>python3 -m http.server</code>) and open it from localhost.'
     :`<strong>Fluoro image:</strong> simplified model heart, because ${esc(modeWhy)}.`;

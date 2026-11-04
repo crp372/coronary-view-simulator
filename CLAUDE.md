@@ -30,7 +30,7 @@ A browser-based teaching tool for coronary angiography projections, built by Chi
     - Picks are queued and run once per frame in `step()` (`runPick`), because raycasting about 170k triangles per pointer event would be too slow.
     - In the image, only what's visible can be picked: the injected tree, or both trees and the chambers with the overlay on. Touch uses a tap.
   - `densMat` leaves alpha untouched (`blendEquationAlpha`), because the fluoro renderer has `alpha:true`.
-  - Passes: CT line integral (reruns only on geometry change), iodine line integral for the injected side (reruns on cine fill), and display (log window with auto brightness, unsharp mask, noise, vignette). Image constants are in `TUNE`.
+  - Passes: CT line integral (reruns only on geometry change), iodine line integral for the injected side (reruns on cine fill), and display (log window with auto brightness and a black level, unsharp mask, noise, square flat-panel shutter). `TUNE.iod` / `floor` / `sharp` were tuned against CC-BY Commons cine angiograms; `drr.html` keeps the older values. Image constants are in `TUNE`.
   - `window.sim` exposes `state`, `mode`, `drr` (its `stats`, `win`), `tune`, `set()`, `ready` (promise for DRR start-up) and `frame()`, which renders one frame without rAF (rAF stops when the page is hidden).
 - **`drr.html`** is the standalone DRR prototype (`window.drr` hook). Its shaders, `TUNE` and data helpers are duplicated in `index.html`; change both together.
 
@@ -52,6 +52,9 @@ Single dark "cath lab console" theme by choice. Colour tokens on `:root` (`--bg`
 2. **Precise anatomy overlay** from segmentations of the same CTCA scan (chambers + real coronary tree), drawn as contours, with near/far walls and hover highlighting in both views.
    - **Chosen dataset:** ImageCAS volumes (Kaggle, CC BY-NC 4.0) with ImageCAS-X labels (Zenodo, CC BY 4.0). ImageCAS-X provides 14 named coronary segments that map onto `VESSELS`, plus centrelines, meshes, and per-scan dominance, quality and disease descriptors. Chambers will come from TotalSegmentator `heartchambers_highres` (non-commercial). The project is therefore non-commercial unless licences change. See README "Data" and `tools/README.md`.
    - **Web export** (`data/web/<id>/`, from `tools/export_scan.py`): de-contrasted CT plus a coronary volume (occupancy, segment, distance from ostium) plus `vessels.json`, all in the patient coordinates above (cm, tree centred at the isocentre), x-fastest. Source frames differ: NIfTI files are RAS → sim `(−x, y, −z)`; ImageCAS-X `.vtk` centrelines and meshes are LPS → sim `(x, −y, −z)`. Always convert through the export, never ad hoc.
+   - **Small branches:**
+     - **Grown from the CT:** coronary G channel = parent segment + 16 (`CT_BRANCH`), so always take `seg & 15` for the segment or side. They're this patient's anatomy.
+     - **Illustrative fine branches:** `tools/synth_branches.py`, written to `synthetic.u8.gz` (1–127 left, 129–255 right). They are *not* this patient's: keep them labelled on the page, switchable (`state.fine`, `drr.setFine`), and out of hover, SCCT and the overlay.
 3. **Better room view:** hand-built geometry and the "Close on heart" camera are done.
    - **Camera:** `setRoomView('room' | 'heart')` tweens the orbit target and camera position in `roomCamStep`. Heart view targets `tableG.position` and follows table moves. Orbit limits apply after the tween.
    - **Stand:** the stand's `holder` sits at (0, 0, −88), because the arc always passes through that point, and `rotation.z = −lao`.

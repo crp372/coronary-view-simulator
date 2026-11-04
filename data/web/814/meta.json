@@ -34,23 +34,23 @@
  "coronary": {
   "file": "coronary.rgb8.gz",
   "dims": [
-   126,
-   120,
-   91
+   272,
+   270,
+   207
   ],
   "spacing_cm": [
-   0.0906,
-   0.0906,
-   0.1
+   0.0453,
+   0.0453,
+   0.05
   ],
   "origin_cm": [
-   -5.6641,
-   -5.3922,
-   -4.525
+   -6.2305,
+   -5.5055,
+   -5.45
   ],
   "channels": [
    "occupancy 0-255",
-   "segment label 0-14",
+   "segment label 0-14, or parent segment + 16 for branches grown from the CT",
    "distance from ostium, mm"
   ],
   "segments": {
@@ -73,7 +73,80 @@
    9,
    10,
    11
-  ]
+  ],
+  "ct_branch_offset": 16,
+  "ct_branch_ml": 0.31,
+  "ct_branch_params": {
+   "vness": 0.002,
+   "hu": 110,
+   "rmax_mm": 1.4,
+   "bridge": 2,
+   "min_vox": 40,
+   "margin_mm": 15,
+   "sigmas": [
+    0.8,
+    1.2,
+    1.8
+   ]
+  },
+  "synthetic": {
+   "file": "synthetic.u8.gz",
+   "dims": [
+    272,
+    270,
+    207
+   ],
+   "note": "illustrative fine branches, not this patient's anatomy",
+   "encoding": "uint8 on the coronary grid: 1-127 left-tree occupancy (v/127), 129-255 right-tree (v-128)/127",
+   "twigs": 183,
+   "kinds": {
+    "epicardial": 141,
+    "septal": 12,
+    "terminal": 30
+   },
+   "length_cm": 303.9,
+   "lumen_ml": 0.637,
+   "params": {
+    "seed": 814,
+    "spacing_mm": 6.5,
+    "length_mm": [
+     8,
+     30
+    ],
+    "r0_mm": [
+     0.25,
+     0.55
+    ],
+    "r0_frac": 0.55,
+    "r_tip_mm": 0.12,
+    "taper": 1.4,
+    "step_mm": 0.5,
+    "angle_deg": [
+     45,
+     80
+    ],
+    "wiggle": 0.14,
+    "gap_mm": [
+     0.6,
+     4.0
+    ],
+    "leave_mm": 10.0,
+    "septal_spacing_mm": 8.0,
+    "septal_length_mm": [
+     12,
+     26
+    ],
+    "septal_r0_mm": [
+     0.25,
+     0.5
+    ],
+    "septal_extent": 0.66,
+    "tip_twigs": 3,
+    "second_order_p": 0.55,
+    "min_parent_r_mm": 0.3,
+    "smooth": 0.35
+   }
+  }
  },
  "vessels": "vessels.json"
 }

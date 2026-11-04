@@ -6,9 +6,12 @@ Writes data/web/<id>/:
   ct.u8.gz          De-contrasted CT, uint8, HU = v*10 - 1024. Blood pool, myocardium and
                     coronaries are clamped to unenhanced soft tissue, so iodine can be added
                     back only where the simulated injection goes. Bone is kept.
-  coronary.rgb8.gz  Coronary volume on the same grid, cropped to the tree. Per voxel:
+  coronary.rgb8.gz  Coronary volume at full CT resolution (0.45 mm), cropped to the tree. Per voxel:
                     R = lumen occupancy (0–255, partial-volume fraction, keeps thin vessels),
-                    G = segment label (0–14, ImageCAS-X), B = distance from ostium (mm, cine fill).
+                    G = segment label (0–14, ImageCAS-X; + 16 for small branches grown from the CT),
+                    B = distance from ostium (mm, cine fill).
+  synthetic.u8.gz   Illustrative fine branches on the coronary grid (tools/synth_branches.py), if the
+                    TotalSegmentator masks are there; not this patient's anatomy.
   vessels.json      Centreline tree in the VESSELS shape: points, radii, distance from ostium (cm).
   meta.json         Grid sizes, spacing and origins (simulator coords, cm), encodings, attribution.
 
@@ -21,14 +24,25 @@ import nibabel as nib
 from scipy import ndimage as ndi
 from scipy.spatial import cKDTree
 
+import synth_branches as synth
+
 SEGMENTS = {1: 'LM', 2: 'LAD', 3: 'LCx', 4: 'D1', 5: 'D2', 6: 'OM1', 7: 'OM2', 8: 'IM',
             9: 'RCA', 10: 'R-PDA', 11: 'R-PLA', 12: 'L-PDA', 13: 'L-PLA', 14: 'Other'}
 BONE_HU, CORTEX_HU, CORTEX_FRAC = 150, 700, 0.03
 BLOOD_HU, BLOOD_R = (250, 600), 3   # enhanced blood band (smoothed HU); min radius, full-res voxels
 SHELL_HU, SHELL_FRAC = 300, 0.05    # band pieces with a denser shell than this are marrow
 SOFT_HU = 50         # unenhanced blood / myocardium
-FACTOR = 2           # downsample: 0.45 × 0.45 × 0.5 mm → 0.91 × 0.91 × 1.0 mm
+FACTOR = 2           # CT downsample: 0.45 × 0.45 × 0.5 mm → 0.91 × 0.91 × 1.0 mm
+COR_FACTOR = 1       # coronary volume at full resolution (0.45 mm), so distal vessels stay thin
+COR_SMOOTH = 0.6     # Gaussian sigma (voxels) on the lumen occupancy: anti-aliasing
 MIN_PATH_MM = 3      # drop centreline stubs shorter than this
+# Small branches the labels miss, grown from the CT (needs the TotalSegmentator chamber masks, to keep
+# out of the blood pool): Frangi vesselness above `vness`, brighter than `hu`, nothing thicker than
+# `rmax_mm`, joined to the labelled tree within `bridge` voxels, pieces of at least `min_vox` voxels
+GROW = dict(vness=0.002, hu=110, rmax_mm=1.4, bridge=2, min_vox=40, margin_mm=15, sigmas=(0.8, 1.2, 1.8))
+CT_BRANCH = 16       # label offset for grown voxels: parent segment + 16, so the app can tell them apart
+POOL_MASKS = ['heart_ventricle_left', 'heart_ventricle_right', 'heart_atrium_left', 'heart_atrium_right',
+              'aorta', 'pulmonary_artery']
 RAS_TO_SIM = np.diag([-1.0, 1.0, -1.0])  # NIfTI RAS mm → simulator axes (left, anterior, feet)
 LPS_TO_SIM = np.diag([1.0, -1.0, -1.0])  # VTK (ITK/DICOM LPS) mm → simulator axes
 
@@ -90,6 +104,35 @@ def bone_mask(ct):
     for k in range(bone.shape[2]):
         bone[:, :, k] = ndi.binary_fill_holes(bone[:, :, k])
     return ndi.binary_dilation(bone, iterations=1) & ~blood
+
+
+def grow_ct_branches(ct, lab, pool, bone, sp):
+    """Branches the labels miss: tube-like enhanced voxels outside the blood pool and bone, connected to
+    the labelled tree. Anything thicker than a small artery, plus a margin round it, is cut out first, so
+    the growth can't leak into the atrial appendage or a venous confluence. Returns labels on the full
+    grid: each grown voxel gets its nearest tree segment's label + CT_BRANCH, 0 elsewhere."""
+    from skimage.filters import frangi
+    tree = lab > 0
+    nz = np.argwhere(tree)
+    m = np.round(GROW['margin_mm'] / sp).astype(int)
+    lo, hi = np.maximum(nz.min(0) - m, 0), np.minimum(nz.max(0) + m + 1, tree.shape)
+    cr = tuple(slice(a, b) for a, b in zip(lo, hi))
+    c, tr = ct[cr].astype(np.float32), tree[cr]
+    v = frangi(np.clip(c, -200, 800), sigmas=GROW['sigmas'], black_ridges=False, alpha=0.5, beta=0.5)
+    bright = (c > GROW['hu']) & ~ndi.binary_dilation(pool[cr], iterations=2) & ~bone[cr] & ~tr
+    thick = ndi.distance_transform_edt(bright, sampling=sp) > GROW['rmax_mm']
+    bright &= ~ndi.binary_dilation(thick, iterations=4)
+    cand = (v > GROW['vness']) & bright
+    pieces, _ = ndi.label(cand)
+    touching = np.unique(pieces[ndi.binary_dilation(tr, iterations=GROW['bridge']) & cand])
+    grown = np.isin(pieces, touching[touching > 0])
+    pieces, n = ndi.label(grown)
+    sizes = ndi.sum_labels(grown, pieces, range(1, n + 1))
+    grown = np.isin(pieces, np.flatnonzero(sizes >= GROW['min_vox']) + 1)
+    _, near = ndi.distance_transform_edt(~tr, return_indices=True)
+    out = np.zeros(lab.shape, np.uint8)
+    out[cr] = np.where(grown, lab[cr][tuple(near)] + CT_BRANCH, 0)
+    return out
 
 
 def decontrast(ct, bone):
@@ -207,19 +250,23 @@ def main():
     org_ds = org + sp * (FACTOR - 1) / 2            # centre of the first downsampled voxel
     ct_u8 = np.clip(np.round((ct_ds + 1024) / 10), 0, 255).astype(np.uint8)
 
-    # Coronary: occupancy + majority label per block, cropped to the tree
-    occ = block_mean(lab > 0, FACTOR)
-    counts = np.stack([block_mean(lab == k, FACTOR) for k in range(1, 15)])
-    seg_ds = np.where(occ > 0, counts.argmax(0) + 1, 0).astype(np.uint8)
-    nz = np.argwhere(occ > 0)
-    lo = np.maximum(nz.min(0) - 3, 0)
-    hi = np.minimum(nz.max(0) + 4, occ.shape)
-    crop = tuple(slice(a, b) for a, b in zip(lo, hi))
-    occ_c, seg_c = occ[crop], seg_ds[crop]
-    org_c = org_ds + sp_ds * lo
+    tree_lab = lab   # the labelled tree alone, for centreline radii
+    # Small branches grown from the CT, added to the labels (codes + CT_BRANCH)
+    seg_dir = f'{raw}/totalseg/{args.scan}/heartchambers'
+    grown_ml = 0.0
+    if all(os.path.exists(f'{seg_dir}/{m}.nii.gz') for m in POOL_MASKS):
+        pool = np.zeros(lab.shape, bool)
+        for m in POOL_MASKS:
+            pool |= to_sim_grid(nib.load(f'{seg_dir}/{m}.nii.gz'))[0] > 0
+        grown = grow_ct_branches(ct, lab, pool, bone, sp)
+        lab = np.where(grown > 0, grown, lab).astype(np.uint8)
+        grown_ml = float((grown > 0).sum() * np.prod(sp)) / 1000
+        print(f'grown from the CT: {grown_ml:.2f} mL')
+    else:
+        print(f'no TotalSegmentator chamber masks in {seg_dir}: skipping CT branch growth')
 
     # Centrelines → sim mm, distance from ostium, vessel paths
-    edt = ndi.distance_transform_edt(lab > 0, sampling=sp)
+    edt = ndi.distance_transform_edt(tree_lab > 0, sampling=sp)
     trees, kd_pts, kd_dist, kd_sys = [], [], [], []
     for side, sys_ in (('left', 'L'), ('right', 'R')):
         p_lps, lines, label, start = read_centreline(f'{xdir}/centerlines/{args.scan}.coronary_{side}_centerline.vtk')
@@ -232,14 +279,6 @@ def main():
         trees.append((sys_, p_sim, label, paths, dist, radius))
         reached = np.array(sorted(dist))
         kd_pts.append(p_sim[reached]); kd_dist.append([dist[i] for i in reached]); kd_sys += [sys_] * len(reached)
-
-    kd = cKDTree(np.concatenate(kd_pts))
-    kd_dist = np.concatenate(kd_dist)
-    occ_idx = np.argwhere(occ_c > 0)
-    _, near = kd.query(org_c + sp_ds * occ_idx)
-    ostium = np.zeros(occ_c.shape, np.uint8)
-    ostium[tuple(occ_idx.T)] = np.clip(np.round(kd_dist[near]), 0, 255)
-    cor = np.stack([np.round(occ_c * 255).astype(np.uint8), seg_c, ostium], axis=-1)
 
     # vessels.json
     vessels, used = [], {}
@@ -263,12 +302,76 @@ def main():
                 r=[round(float(radius[i]) / 10, 3) for i in n],
                 sdist=[round(dist[i] / 10, 2) for i in n]))
 
+    # Illustrative fine branches below CT resolution, grown from the tree along the heart's surface
+    # (tools/synth_branches.py). Not this patient's anatomy: stored separately so the app can label
+    # them and switch them off.
+    twigs, syn_info = [], None
+    if all(os.path.exists(f'{seg_dir}/{m}.nii.gz') for m in POOL_MASKS + ['heart_myocardium']):
+        heart = pool | (to_sim_grid(nib.load(f'{seg_dir}/heart_myocardium.nii.gz'))[0] > 0)
+        surf = synth.Surface(heart, org, sp)
+        twigs = synth.grow([dict(pts=np.array(v['pts']) * 10 + centre, r=np.array(v['r']) * 10,
+                                 sdist=np.array(v['sdist']) * 10, sys=v['sys'], lab=v['lab']) for v in vessels], surf)
+
+    # Coronary: occupancy + majority label per block, cropped to the tree, then a slight blur that
+    # anti-aliases the lumen edge without changing its total (so projected density is kept)
+    occ = block_mean(lab > 0, COR_FACTOR)
+    if COR_FACTOR == 1:
+        seg_ds = lab
+    else:
+        codes = [k for k in np.unique(lab) if k]
+        counts = np.stack([block_mean(lab == k, COR_FACTOR) for k in codes])
+        seg_ds = np.where(occ > 0, np.array(codes, np.uint8)[counts.argmax(0)], 0).astype(np.uint8)
+    sp_cor = sp * COR_FACTOR
+    org_cor = org + sp * (COR_FACTOR - 1) / 2
+    nz = np.argwhere(occ > 0)
+    if twigs:   # the crop also has to hold the synthetic twigs
+        tw_ijk = np.round((np.concatenate([t['pts'] for t in twigs]) - org_cor) / sp_cor).astype(int)
+        nz = np.concatenate([nz, np.clip(tw_ijk, 0, np.array(occ.shape) - 1)])
+    lo = np.maximum(nz.min(0) - 6, 0)
+    hi = np.minimum(nz.max(0) + 7, occ.shape)
+    crop = tuple(slice(a, b) for a, b in zip(lo, hi))
+    occ_c = ndi.gaussian_filter(occ[crop], COR_SMOOTH)
+    occ_c[occ_c < 0.5 / 255] = 0
+    # the blurred rim needs a label too: take the nearest labelled voxel's
+    _, near_lab = ndi.distance_transform_edt(seg_ds[crop] == 0, return_indices=True)
+    seg_c = np.where(occ_c > 0, seg_ds[crop][tuple(near_lab)], 0).astype(np.uint8)
+    org_c = org_cor + sp_cor * lo
+
+    kd = cKDTree(np.concatenate(kd_pts))
+    kd_dist = np.concatenate(kd_dist)
+    occ_idx = np.argwhere(occ_c > 0)
+    away, near = kd.query(org_c + sp_cor * occ_idx)
+    # grown branches have no centreline: their distance runs on from the nearest centreline point
+    away = np.where(seg_c[tuple(occ_idx.T)] > CT_BRANCH, away, 0)
+    ostium = np.zeros(occ_c.shape, np.uint8)
+    ostium[tuple(occ_idx.T)] = np.clip(np.round(kd_dist[near] + away), 0, 255)
+    syn = None
+    if twigs:
+        occ_s, dist_s = synth.rasterise(twigs, org_c, sp_cor, occ_c.shape)
+        # one byte per voxel: 1–127 left-tree occupancy, 129–255 right-tree occupancy (128 + 127 × occ)
+        qL, qR = np.round(occ_s['L'] * 127), np.round(occ_s['R'] * 127)
+        syn = np.where(qR > qL, np.where(qR > 0, 128 + qR, 0), qL).astype(np.uint8)
+        fill = (ostium == 0) & (syn > 0)
+        ostium[fill] = np.clip(np.round(dist_s[fill]), 0, 255)
+        length = sum(float(np.linalg.norm(np.diff(t['pts'], axis=0), axis=1).sum()) for t in twigs) / 10
+        lumen = float((occ_s['L'] + occ_s['R']).sum() * np.prod(sp_cor)) / 1000
+        syn_info = dict(file='synthetic.u8.gz', dims=list(syn.shape), note='illustrative fine branches, not this patient\'s anatomy',
+                        encoding='uint8 on the coronary grid: 1-127 left-tree occupancy (v/127), 129-255 right-tree (v-128)/127',
+                        twigs=len(twigs), kinds={k: sum(t['kind'] == k for t in twigs) for k in ('epicardial', 'septal', 'terminal')},
+                        length_cm=round(length, 1), lumen_ml=round(lumen, 3), params=synth.P)
+        print(f'synthetic: {len(twigs)} twigs, {length:.0f} cm, {lumen:.2f} mL')
+    cor = np.stack([np.round(occ_c * 255).astype(np.uint8), seg_c, ostium], axis=-1)
+
     def save_gz(name, arr):
         with gzip.open(os.path.join(out, name), 'wb', compresslevel=9) as f:
             f.write(np.ascontiguousarray(arr.transpose(2, 1, 0, *range(3, arr.ndim))).tobytes())  # x fastest
 
     save_gz('ct.u8.gz', ct_u8)
     save_gz('coronary.rgb8.gz', cor)
+    if syn is not None:
+        save_gz('synthetic.u8.gz', syn)
+    elif os.path.exists(os.path.join(out, 'synthetic.u8.gz')):
+        os.remove(os.path.join(out, 'synthetic.u8.gz'))
     with open(os.path.join(out, 'vessels.json'), 'w') as f:
         json.dump(vessels, f, separators=(',', ':'))
     cm = lambda v: [round(float(x) / 10, 4) for x in v]
@@ -281,9 +384,12 @@ def main():
         centre_subtracted_cm=cm(centre),
         ct=dict(file='ct.u8.gz', dims=list(ct_u8.shape), spacing_cm=cm(sp_ds), origin_cm=cm(org_ds - centre),
                 encoding='uint8, HU = v*10 - 1024', decontrast=f'non-bone voxels above {SOFT_HU} HU set to {SOFT_HU}'),
-        coronary=dict(file='coronary.rgb8.gz', dims=list(cor.shape[:3]), spacing_cm=cm(sp_ds),
-                      origin_cm=cm(org_c - centre), channels=['occupancy 0-255', 'segment label 0-14', 'distance from ostium, mm'],
-                      segments=SEGMENTS, right_segments=[9, 10, 11]),
+        coronary=dict(file='coronary.rgb8.gz', dims=list(cor.shape[:3]), spacing_cm=cm(sp_cor),
+                      origin_cm=cm(org_c - centre),
+                      channels=['occupancy 0-255', f'segment label 0-14, or parent segment + {CT_BRANCH} for branches grown from the CT',
+                                'distance from ostium, mm'],
+                      segments=SEGMENTS, right_segments=[9, 10, 11], ct_branch_offset=CT_BRANCH,
+                      ct_branch_ml=round(grown_ml, 2), ct_branch_params=GROW, synthetic=syn_info),
         vessels='vessels.json')
     with open(os.path.join(out, 'meta.json'), 'w') as f:
         json.dump(meta, f, indent=1)

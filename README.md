@@ -20,7 +20,7 @@ Then open http://localhost:8000/. Opened from `file://` (or anywhere the CT can'
 - Simulated fluoroscopy image rendered from the X-ray tube's position, displayed as seen from the detector (head up; patient's left on screen right in AP).
 - **Default: DRR from a real CT.** X-rays are traced through ImageCAS scan 814 at the current angle, with iodine only in the injected tree (see [DRR fluoro](#drr-fluoro-from-ct-scan-814)). Vessel labels come from the scan's own centrelines. The data attribution is shown under the monitor.
 - **Fallback: model heart** (no WebGL2 or float render targets, `file://`, or the data can't load). Contrast-filled vessels darken in proportion to their thickness; faint cardiac silhouette, spine, ribs, diaphragm domes and the guide catheter (JL4 for left, JR4 for right).
-- Animated quantum-noise grain and vignette (drawn by the DRR's display pass, or as CSS layers over the model image).
+- Animated quantum-noise grain. With the CT image, a square flat-panel field with rounded corners and dark shutters, drawn by the DRR's display pass. With the model image, a round vignette, drawn as CSS layers.
 - Monitor-style readouts in the corners: angulation (e.g. `RAO 30° CAU 25°`), field of view, source-to-image distance, injection side, and table position.
 - **Drag the image to pan the table**; the anatomy follows the pointer.
 
@@ -139,8 +139,9 @@ Decision: "realistic fluoro" means synthetic DRR images from CT, so the C-arm st
 ### Refinement backlog (from the first full demo; parked, not started)
 Proposed order: start from the owner's own demo notes, then 1 + 2, and split the code (4) before larger work.
 1. **Image realism**
-   - Calibrate against real reference angiograms per standard view: iodine strength, contrast, noise, sharpening, brightness control.
-   - Distal vessels look slightly fat, because their radius can't go below one voxel (0.9 mm). Contrast density is too uniform; real contrast streams and layers.
+   - ~~Calibrate against real reference angiograms; thinner distal vessels~~: done (first pass: iodine, black level, sharpening, flat-panel field, 0.45 mm coronary volume). Small side branches (conus, SA node, RV and acute marginal branches) are missing because ImageCAS-X doesn't label them.
+   - ~~Small branches~~: done. Branches grown from the CT, plus illustrative fine branches below CT resolution (switchable, labelled on the page).
+   - Contrast density is too uniform; real contrast streams and layers.
    - A soft synthetic chest background (lungs, diaphragm, more spine and ribs) beyond the cropped 23 × 23 × 14 cm scan.
    - Guide catheter (JL4/JR4) in the DRR, perhaps anchored with TotalSegmentator `aortic_sinuses`. Cardiac motion for cine.
 2. ~~**Overlay clarity**~~: done (separate toggles, per-chamber chips, thinner contours, SCCT segment numbers).
@@ -167,7 +168,14 @@ Proposed order: start from the owner's own demo notes, then 1 + 2, and split the
 - **Three passes.**
   1. Cone-beam ray march through the de-contrasted CT, at half-voxel steps: μ = 0.2/cm × (1 + HU/1000).
   2. Ray march through the coronary volume, adding iodine for the injected side only, weighted by lumen occupancy. Its cine fill is driven by distance from the ostium.
-  3. Display: I = e^(−∫μ) on a log window with automatic brightness from the central image, then edge enhancement, quantum noise (σ ∝ 1/√I) at 15 pulses/s, and a vignette.
+  3. Display: I = e^(−∫μ) on a log window with automatic brightness from the central image, then edge enhancement, quantum noise (σ ∝ 1/√I) at 15 pulses/s, and a square flat-panel field.
+  - **Tuned by eye** against CC-BY cine angiograms on Wikimedia Commons (an RAO caudal LAD and LAO RCA runs from published case reports): iodine 15 000 HU equivalent at full lumen, black level 0.08 so dense vessels read dark grey rather than black, and sharpening 0.95.
+  - **Coronary volume at full CT resolution** (0.45 mm), lightly blurred for anti-aliasing, so distal vessels stay thin. The lumen volume is unchanged (3.15 mL).
+  - **Small branches.** The labelled tree only holds the named segments, so two more layers are added:
+    - **From the CT** (this patient's): `tools/export_scan.py` follows tube-like enhanced voxels (Frangi vesselness) out from the labelled tree. It stays out of the blood pool, using the TotalSegmentator masks, and out of bone, and rejects anything thicker than a small artery. In scan 814 that adds 0.31 mL: an RV/acute marginal and a conus-like branch off the RCA, plus twigs off the LAD, diagonals and PDA.
+    - **Illustrative fine branches** (not this patient's): branches below about 1 mm can't be seen on a CT, so `tools/synth_branches.py` grows them from the real tree. Epicardial twigs follow the heart's surface, septal perforators leave the LAD, and terminal fans finish the vessel ends. They start 0.5–1.1 mm across and taper. In scan 814: 183 twigs, 3 m in total, 0.64 mL of lumen.
+      - The page labels them as illustrative, the "Fine branches" button switches them off, and they're never named on hover or numbered.
+      - Both layers fill on cine and follow the injection side.
 - **Controls in `index.html`:** all the existing ones. The table sliders and drag-to-pan move the anatomy (the offset is subtracted from tube and detector), and cine fills by distance from the ostium in mm. Iodine is fixed at +25 000 HU at full lumen. `drr.html` adds an iodine-strength slider and a centreline toggle.
 - **Labels:** from `vessels.json` centrelines, at 45% along each vessel. If that point is off-screen, the nearest on-screen point along the centreline is used instead.
 - **Speed (Apple M5, Chrome):** about 6 ms for the 512² DRR pass, about 1 ms for the iodine pass, and about 3 ms per display frame at 1520². The CT pass only reruns when the geometry changes.

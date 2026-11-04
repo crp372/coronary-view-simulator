@@ -38,15 +38,22 @@ def main():
     cor = load(web, meta, 'coronary', 3)
     sp = np.array(meta['ct']['spacing_cm']) * 10
     o_ct, o_cor = np.array(meta['ct']['origin_cm']), np.array(meta['coronary']['origin_cm'])
+    right_vox = np.isin(cor[..., 1] & 15, meta['coronary']['right_segments'])   # grown branches: parent + 16
+    # per-side occupancy, brought onto the CT grid when the coronary volume is finer (block mean)
+    f = np.round(np.array(meta['ct']['spacing_cm']) / np.array(meta['coronary']['spacing_cm'])).astype(int)
+    occ = {s: np.where((cor[..., 1] > 0) & (right_vox if s == 'R' else ~right_vox), cor[..., 0] / 255, 0) for s in 'LR'}
+    if (f > 1).any():
+        n = np.array(cor.shape[:3]) // f * f
+        occ = {s: a[:n[0], :n[1], :n[2]].reshape(n[0] // f[0], f[0], n[1] // f[1], f[1], n[2] // f[2], f[2]).mean(axis=(1, 3, 5))
+               for s, a in occ.items()}
+        o_cor = o_cor + np.array(meta['coronary']['spacing_cm']) * (f - 1) / 2
     off = np.round((o_cor - o_ct) * 10 / sp).astype(int)
-    right = np.isin(cor[..., 1], meta['coronary']['right_segments'])
 
     def with_iodine(side):
         h = hu.copy()
-        sel = (cor[..., 0] > 0) & ((cor[..., 1] > 0) & (right if side == 'R' else ~right))
-        add = np.where(sel, cor[..., 0] / 255 * IODINE_HU, 0)
-        sl = tuple(slice(a, a + n) for a, n in zip(off, cor.shape[:3]))
-        h[sl] += add
+        a = occ[side]
+        sl = tuple(slice(o, o + n) for o, n in zip(off, a.shape))
+        h[sl] += a * IODINE_HU
         return h
 
     vols = {'De-contrasted CT': hu, 'Left injection': with_iodine('L'), 'Right injection': with_iodine('R')}
