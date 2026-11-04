@@ -47,7 +47,22 @@ Then open http://localhost:8000/. Opened from `file://` (or anywhere the CT can'
 
 ### Injection and display
 - Switch between left and right coronary injection.
-- **Cine injection**: contrast fills from the ostium, holds, then washes out.
+- **Cine injection**: contrast fills from the ostium, holds, then washes out. In the CT image, a run takes about 5.4 s, all timed to a 72/min heartbeat and drawn at 15 pulses/s:
+  - **Filling (about 0.6 s):** the front is dense and fast, as on real runs, and advances in surges, because coronary flow is mostly diastolic. Its leading edge is diluted over about 10 mm and mottled behind it.
+  - **Holding (about 2 s).**
+  - **Washout (about 1 s):** unopacified blood clears the tree from the ostium outward, also in pulses and with an uneven edge.
+  - **Then the static view fades back in.**
+  - **Heart motion:** the heart beats only during a cine run, like recording on a real system, and holds still otherwise. A "Heart motion" button turns it off.
+    - **No jumps:** each run starts at end-diastole (the CT's own shape). The run ends only once the last beat is back there, so the image doesn't jump at either end. Every motion component is zero at end-diastole.
+    - **What moves:** the motion is applied to what the X-rays sample, to the overlay, to the labels and hover picking, and to the catheter tip. Its components:
+      - long-axis shortening: the AV plane descends 1.7 cm toward the apex, tapering off up into the atria and aortic root
+      - radial squeeze (10%) and twist (base and apex turn opposite ways)
+      - a pendulum-like swing of the whole heart
+      - a smooth uneven field, so parts of the tree move differently
+      - buckling: vessels tethered to the shortening surface turn wavy in systole and straighten in diastole, like an accordion
+    - **Timing:** each component has its own time course from the LV volume curve: isovolumic contraction, brisk ejection, isovolumic relaxation, rapid filling, diastasis, atrial kick. The twist unwinds early in diastole. Because the components are out of step, points trace loops rather than lines.
+    - **Fitted and checked:** the heart's frame comes from the CT's own chamber meshes. The amplitudes and timing were compared frame by frame with a real RAO caudal cine (CC BY, Wikimedia Commons). The first version had a long frozen diastole and uniform squeezing, which looked like a zoom, and was reworked.
+    - It's still a modelled motion, not this heart's measured motion.
 - Toggles: coronary overlay, chamber overlay, vessel labels, segment numbers, and spine and ribs (model image only; hidden in DRR mode, where the CT has its own bones). In model mode only the chamber overlay applies.
 - **Overlays, DRR mode:** everything comes from the same CT, so it lines up with the image. Each overlay turns on separately.
   - **Coronary overlay:** the tree from ImageCAS-X, including the tree that isn't injected. Thin ribbons coloured by segment, with labels for both trees.
@@ -136,14 +151,24 @@ Decision: "realistic fluoro" means synthetic DRR images from CT, so the C-arm st
 ### Other ideas
 - Quiz mode: show a random projection and ask the learner to name the angle or a highlighted vessel.
 
+### Current plan (agreed with the project owner, in this order)
+1. ~~**Phase 1, realism in motion:**~~ done: heart motion during cine (a cardiac warp, with the coronaries moving as the heart contracts); contrast streaming (contrast layers and streams rather than filling evenly).
+2. **Phase 2, code health:** split `index.html` into modules; share one DRR engine with `drr.html`; add automatic screenshot checks of the standard views.
+3. **Phase 3, layout:**
+   - no scrolling back and forth
+   - a full-screen version
+   - all controls on one screen, in collapsible groups
+   - a "choose heart" dropdown, ready for more hearts
+4. **Phase 4, protocol:** write up everything done for the first heart as a repeatable protocol, so new hearts from the Kaggle dataset can go through the same steps.
+
 ### Refinement backlog (from the first full demo; parked, not started)
 Proposed order: start from the owner's own demo notes, then 1 + 2, and split the code (4) before larger work.
 1. **Image realism**
    - ~~Calibrate against real reference angiograms; thinner distal vessels~~: done (first pass: iodine, black level, sharpening, flat-panel field, 0.45 mm coronary volume). Small side branches (conus, SA node, RV and acute marginal branches) are missing because ImageCAS-X doesn't label them.
    - ~~Small branches~~: done. Branches grown from the CT, plus illustrative fine branches below CT resolution (switchable, labelled on the page).
-   - Contrast density is too uniform; real contrast streams and layers.
-   - A soft synthetic chest background (lungs, diaphragm, more spine and ribs) beyond the cropped 23 × 23 × 14 cm scan.
-   - ~~Guide catheter~~: done (JL4/JR4 along this CT's aorta; could later be anchored with TotalSegmentator `aortic_sinuses`). Cardiac motion for cine.
+   - ~~Contrast density too uniform~~: done (pulsatile, diluted and mottled front; proximal-first washout).
+   - ~~Synthetic chest background beyond the cropped scan~~: done (`tools/export_chest.py`).
+   - ~~Guide catheter~~: done (JL4/JR4 along this CT's aorta; could later be anchored with TotalSegmentator `aortic_sinuses`). ~~Cardiac motion for cine~~: done.
 2. ~~**Overlay clarity**~~: done (separate toggles, per-chamber chips, thinner contours, SCCT segment numbers).
 3. **Teaching per view**
    - "What to look for" for each preset: segments seen well, foreshortened or overlapped.
@@ -171,6 +196,12 @@ Proposed order: start from the owner's own demo notes, then 1 + 2, and split the
   3. Display: I = e^(−∫μ) on a log window with automatic brightness from the central image, then edge enhancement, quantum noise (σ ∝ 1/√I) at 15 pulses/s, and a square flat-panel field.
   - **Tuned by eye** against CC-BY cine angiograms on Wikimedia Commons (an RAO caudal LAD and LAO RCA runs from published case reports): iodine 15 000 HU equivalent at full lumen, black level 0.08 so dense vessels read dark grey rather than black, and sharpening 0.95.
   - **Coronary volume at full CT resolution** (0.45 mm), lightly blurred for anti-aliasing, so distal vessels stay thin. The lumen volume is unchanged (3.15 mL).
+  - **Chest beyond the scan.** The CT covers only 23 × 23 × 13.8 cm. Everything outside it comes from a coarse synthetic chest: `tools/export_chest.py`, 3 mm voxels, about 0.5 MB.
+    - **What it holds:** body wall with subcutaneous fat, lungs with faint markings, diaphragm domes (right higher) with the liver below, vertebrae with discs, 12 pairs of ribs with costal cartilage, the sternum and the clavicles.
+    - **Fitted to scan 814:** midline, spine, skin and chest width; lung and tissue values match the CT's own (lung about −880 HU).
+    - **Seamless edges:** near each face of the CT, the CT's own lung-or-tissue pattern is carried across and fades into the generic chest over about 4 cm. The DRR blends from CT to chest over the CT's outer 1.5 cm, so the scan's edges don't show.
+    - The DRR steps finely through the CT and coarsely through the chest. A frame still takes about 5 ms for the CT pass.
+    - It's illustrative; everything inside the scan is still the patient's own CT.
   - **Guide catheter** (JL4 for left injections, JR4 for right), femoral approach. `tools/export_catheter.py` shapes it along this CT's own aorta, using the centroids of the TotalSegmentator mask in each slice:
     - up the descending aorta, over an arch above the scan (extrapolated), then down the ascending aorta, resting off-centre away from the ostium
     - a curve into the ostium, ending coaxial with the vessel, with the tip a few mm inside

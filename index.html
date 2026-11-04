@@ -208,6 +208,7 @@ details strong{color:var(--fg);font-weight:500}
           <button type="button" id="tSegN" aria-pressed="false">Segment numbers</button>
           <button type="button" id="tBones" aria-pressed="true">Spine and ribs</button>
           <button type="button" id="tCath" aria-pressed="true" hidden>Guide catheter</button>
+          <button type="button" id="tMotion" aria-pressed="true" hidden title="During a cine run the heart beats at 72/min (modelled, not this heart's measured motion)">Heart motion</button>
           <button type="button" id="tFine" aria-pressed="true" hidden title="Branches finer than the CT can show, generated to look realistic; not this patient's anatomy">Fine branches (illustrative)</button>
         </div>
         <div class="legend" id="ovLegend" hidden></div>
@@ -247,8 +248,9 @@ const css=getComputedStyle(document.documentElement);
 const tok=n=>css.getPropertyValue(n).trim()||'#888';
 
 // ovV: CT coronary overlay; ovC: chamber overlay (the model's chambers in model mode); segN: SCCT segment numbers
-// fine: illustrative fine branches (below CT resolution) in the CT image; cath: guide catheter in the CT image
-const state={lao:-30,cra:-25,tx:0,ty:0,tz:0,fov:20,inj:'L',ovV:false,ovC:false,segN:false,labels:true,bones:true,fine:true,cath:true};
+// fine: illustrative fine branches (below CT resolution) in the CT image; cath: guide catheter in the CT image;
+// motion: the heart beats during a cine run
+const state={lao:-30,cra:-25,tx:0,ty:0,tz:0,fov:20,inj:'L',ovV:false,ovC:false,segN:false,labels:true,bones:true,fine:true,cath:true,motion:true};
 const chOn={LV:true,RV:true,LA:true,RA:true,Ao:true,PA:true,Myo:false};   // per-chamber switches (legend chips)
 
 /* ---------- Patient coordinates: x = patient's left, y = anterior (up, supine), z = feet. Isocentre at origin. ---------- */
@@ -389,6 +391,20 @@ const SCCT={1:'Proximal RCA',2:'Mid RCA',3:'Distal RCA',4:'R-PDA',5:'Left main',
   15:'L-PDA',16:'R-PLB',17:'Ramus intermedius',18:'L-PLB'};
 const SCCT_WHOLE={LM:5,D1:9,D2:10,OM1:12,OM2:14,IM:17,'R-PDA':4,'R-PLA':16,'L-PDA':15,'L-PLA':18};
 const SEGN=[];       // {n, vessel index, from, to (sdist)} once the CT tree is loaded
+// the CT heart's frame for cardiac motion: long axis from the LA's centre to the LV apex (the LV vertex farthest
+// from it), centre between the ventricles, AV plane 40% of the way from the LA's centre to the LV's, radius = the
+// farthest ventricular vertex
+function heartFrame(){
+  const by=id=>CH.find(c=>c.s.id===id),lv=by('LV'),rv=by('RV'),la=by('LA');if(!lv||!rv||!la)return;
+  const cLV=new V3(...lv.s.centroid_cm),cRV=new V3(...rv.s.centroid_cm),cLA=new V3(...la.s.centroid_cm);
+  const pos=lv.ov.geometry.attributes.position,q=new V3();let apex=null,best=-1;
+  for(let i=0;i<pos.count;i++){q.fromBufferAttribute(pos,i);const d=q.distanceTo(cLA);if(d>best){best=d;apex=q.clone();}}
+  const c=cLV.clone().add(cRV).multiplyScalar(0.5),ax=apex.clone().sub(cLA).normalize();
+  let R=0;for(const m of [lv,rv]){const p=m.ov.geometry.attributes.position;for(let i=0;i<p.count;i++)R=Math.max(R,q.fromBufferAttribute(p,i).distanceTo(c));}
+  const av=cLA.clone().lerp(cLV,0.4);
+  HEART_U.uHc.value.copy(c);HEART_U.uHax.value.copy(ax);
+  HEART_U.uHm.value.set(HEART_U.uHm.value.x,apex.clone().sub(c).dot(ax),av.sub(c).dot(ax),R);
+}
 function buildScct(){
   const byLab=l=>VES.findIndex(e=>e.v.lab===l),origin=l=>{const i=byLab(l);return i<0?null:VES[i].v.sdist[0];};
   const span=i=>{const s=VES[i].v.sdist;return [s[0],s[s.length-1]];};
@@ -407,6 +423,72 @@ function buildScct(){
 }
 const scctAt=(vi,j)=>{const s=VES[vi].v.sdist[Math.min(j,VES[vi].v.sdist.length-1)];return SEGN.find(g=>g.i===vi&&s>=g.from-1e-6&&s<=g.to+1e-6);};
 const ovDir={value:new V3(0,1,0)};
+// Cardiac motion, shared by the DRR (raw WebGL uniforms), the overlay materials and the CPU (catheter, labels, picking).
+// The volumes are the reference heart (end-diastole). Each frame, hdisp(q) gives the displacement of a reference point:
+//   - long-axis shortening: the AV plane descends toward the apex, which barely moves; tapering off up into the atria
+//     and aortic root
+//   - radial squeeze toward the long axis, and twist (base and apex turn opposite ways)
+//   - a pendulum-like swing of the whole heart, and a smooth uneven field so parts of the tree move differently
+// Each has its own time course over the beat (heartPhase), out of step with the others, so points trace loops rather
+// than lines. Everything fades out between the heart's radius and 1.5 × it, so bone and chest wall stay still.
+// uHc: centre; uHax: long axis, base → apex; uHm = (on, apex level, AV level, radius) along the axis;
+// uHk = (radial squeeze fraction, AV descent cm, twist rad); uHt = this frame's (shortening, squeeze, twist, uneven
+// field cm) phases; uHtr = this frame's swing (cm); uHb = (buckling amplitude this frame, wavelength), cm: as the
+// heart shortens, vessels tethered to its surface buckle, so they turn wavy in systole and straighten in diastole.
+// Frame from the CT chambers once loaded (heartFrame). Amplitudes tuned against a real RAO caudal cine (CC BY).
+const HEART_U={uHc:{value:new V3()},uHax:{value:u.clone()},uHk:{value:new V3(0.10,1.7,0.18)},uHm:{value:new THREE.Vector4(0,6,-3,7)},
+  uHt:{value:new THREE.Vector4()},uHtr:{value:new V3()},uHb:{value:new THREE.Vector2(0,3.2)}};
+const HEART_CORE=`uniform vec3 uHc,uHax,uHk,uHtr;uniform vec4 uHm,uHt;uniform vec2 uHb;
+  vec3 hfield(vec3 q){return vec3(sin(dot(q,vec3(.31,.17,-.22))+1.3),sin(dot(q,vec3(-.19,.28,.13))+4.1),sin(dot(q,vec3(.11,-.24,.29))+2.2))
+    +.5*vec3(sin(dot(q,vec3(.47,-.29,.21))+.7),sin(dot(q,vec3(.23,.41,-.37))+2.9),sin(dot(q,vec3(-.39,.18,.44))+5.3));}
+  vec3 hdisp(vec3 q){vec3 d=q-uHc;float len=length(d),wg=1.-smoothstep(uHm.w,1.5*uHm.w,len);if(wg<=0.)return vec3(0.);
+    float h=dot(d,uHax);vec3 r=d-h*uHax;float base=clamp((uHm.y-h)/max(uHm.y-uHm.z,1.),0.,1.);
+    float lw=base*(1.-.6*clamp((uHm.z-h)/3.,0.,1.));
+    float th=uHt.z*uHk.z*(1.-2.*base);vec3 rr=(r*cos(th)+cross(uHax,r)*sin(th))*(1.-uHt.y*uHk.x);
+    float rl=max(length(r),.5);vec3 cir=cross(uHax,r)/rl;float k=6.2832/uHb.y;
+    float ang=atan(cir.y,r.x/rl);vec3 bk=uHb.x*(cir*sin(k*h+1.7*q.x)+uHax*sin(k*rl*ang*.5));
+    return wg*((rr-r)+uHax*(uHt.x*uHk.y*lw)+uHtr+uHt.w*hfield(q)+bk);}`;
+const HEART_GLSL=HEART_CORE+`
+  vec3 hfw(vec3 p){return uHm.x>0.?p+hdisp(p):p;}`;
+// the same on the CPU
+const _hd=new V3(),_hr=new V3(),_hx=new V3();
+function heartDisp(q,out){const H=HEART_U,c=H.uHc.value,ax=H.uHax.value,k=H.uHk.value,m=H.uHm.value,t=H.uHt.value;
+  const d=_hd.copy(q).sub(c),len=d.length(),f=Math.min(1,Math.max(0,(len-m.w)/(0.5*m.w))),wg=1-f*f*(3-2*f);
+  if(wg<=0)return out.set(0,0,0);
+  const h=d.dot(ax),r=_hr.copy(d).addScaledVector(ax,-h),base=Math.min(1,Math.max(0,(m.y-h)/Math.max(m.y-m.z,1)));
+  const lw=base*(1-0.6*Math.min(1,Math.max(0,(m.z-h)/3))),th=t.z*k.z*(1-2*base);
+  const rr=_hx.crossVectors(ax,r).multiplyScalar(Math.sin(th)).addScaledVector(r,Math.cos(th)).multiplyScalar(1-t.y*k.x);
+  const rl=Math.max(r.length(),0.5),cir=new V3().crossVectors(ax,r).divideScalar(rl),kk=2*Math.PI/H.uHb.value.y;
+  const ang=Math.atan2(cir.y,r.x/rl),bk=cir.clone().multiplyScalar(Math.sin(kk*h+1.7*q.x)).addScaledVector(ax,Math.sin(kk*rl*ang*0.5)).multiplyScalar(H.uHb.value.x);
+  const F=(a,b,c2,ph)=>Math.sin(a*q.x+b*q.y+c2*q.z+ph);
+  const fx=F(.31,.17,-.22,1.3)+.5*F(.47,-.29,.21,.7),fy=F(-.19,.28,.13,4.1)+.5*F(.23,.41,-.37,2.9),fz=F(.11,-.24,.29,2.2)+.5*F(-.39,.18,.44,5.3);
+  return out.copy(rr).sub(r).addScaledVector(ax,t.x*k.y*lw).add(H.uHtr.value).add(_hx.set(fx,fy,fz).multiplyScalar(t.w)).add(bk).multiplyScalar(wg);}
+const _hf=new V3();
+function heartForward(p,out){out.copy(p);if(HEART_U.uHm.value.x<=0)return out;return out.add(heartDisp(p,_hf));}
+// Time courses over one beat (t in s), from the LV volume curve: isovolumic contraction, ejection to end-systole at about
+// 35% of the cycle, isovolumic relaxation, rapid filling (most of the recovery), slow diastasis, then the atrial kick.
+// Twist peaks at end-systole and unwinds early in diastole, ahead of the volume; the swing and the uneven field run on
+// their own phases, so trajectories are loops.
+const HR=72,CYCLE=60/HR;
+const ease=x=>x<=0?0:x>=1?1:0.5-0.5*Math.cos(Math.PI*x);
+function lvCurve(f){   // 0 at end-diastole, 1 at end-systole
+  if(f<0.06)return 0.03*ease(f/0.06);
+  if(f<0.36)return 0.03+0.97*ease((f-0.06)/0.30);
+  if(f<0.43)return 1;
+  if(f<0.62)return 1-0.72*ease((f-0.43)/0.19);
+  if(f<0.84)return 0.28-0.10*ease((f-0.62)/0.22);
+  if(f<0.95)return 0.18-0.18*ease((f-0.84)/0.11);
+  return 0;}
+function heartPhase(t,on){
+  const H=HEART_U;H.uHm.value.x=on?1:0;if(!on){H.uHt.value.set(0,0,0,0);H.uHtr.value.set(0,0,0);H.uHb.value.x=0;return;}
+  const f=(t%CYCLE)/CYCLE,w=2*Math.PI*f;
+  const twist=f<0.34?ease((f-0.04)/0.30):f<0.52?1-ease((f-0.36)/0.16):0;
+  // every component is zero at the start of the beat (end-diastole, the CT's own shape), so runs start and end cleanly
+  H.uHt.value.set(lvCurve(f),lvCurve((f+0.985)%1),twist,0.25*(0.55*lvCurve(f)+0.45*(Math.sin(w+1.1)-Math.sin(1.1))));
+  H.uHb.value.x=0.32*lvCurve(f);
+  // swing: mostly toward the apex and forward in systole, with a sideways component a quarter-beat out of step
+  const ax=H.uHax.value,sw=lvCurve((f+0.96)%1),side=Math.sin(w-0.6)-Math.sin(-0.6);
+  H.uHtr.value.copy(ax).multiplyScalar(0.4*sw).add(new V3(0,0.3*sw,0)).add(new V3(-ax.y,ax.x,0).normalize().multiplyScalar(0.25*side));}
 const VES=[];        // CT vessels once loaded: {v, pts, room mesh, overlay mesh, overlay material}
 const CH=[];         // CT chambers and great vessels (TotalSegmentator): {s, overlay mesh, material, room mesh, room material}
 let hover=null;      // index into VES of the highlighted vessel
@@ -414,16 +496,16 @@ let hoverCh=null;    // index into CH of the highlighted chamber
 // chamber overlay: drawn as rims, bright where the beam grazes a wall edge-on (like a contour), with a faint
 // fill; brighter nearer the detector, as for the vessels
 function chamberOvlMat(col,gain){return new THREE.ShaderMaterial({transparent:true,depthTest:false,depthWrite:false,side:THREE.DoubleSide,
-  uniforms:{uD:ovDir,uCol:{value:new THREE.Color(col)},uHi:{value:0},uGain:{value:gain}},
-  vertexShader:`uniform vec3 uD;varying float vNear,vRim;
-    void main(){vec4 w=modelMatrix*vec4(position,1.);vec3 n=normalize(mat3(modelMatrix)*normal);
+  uniforms:{uD:ovDir,uCol:{value:new THREE.Color(col)},uHi:{value:0},uGain:{value:gain},...HEART_U},
+  vertexShader:`uniform vec3 uD;varying float vNear,vRim;${HEART_GLSL}
+    void main(){vec4 w=modelMatrix*vec4(hfw(position),1.);vec3 n=normalize(mat3(modelMatrix)*normal);
       vNear=clamp(.5+dot(w.xyz,uD)/9.,0.,1.);vRim=1.-abs(dot(n,uD));gl_Position=projectionMatrix*viewMatrix*w;}`,
   fragmentShader:`uniform vec3 uCol;uniform float uHi,uGain;varying float vNear,vRim;
     void main(){float a=(pow(vRim,10.)*mix(.28,.8,vNear)+.012+uHi*.1)*uGain;gl_FragColor=vec4(mix(uCol,vec3(1.),uHi*.45),min(a,1.));}`});}
 function ctOvlMat(col){return new THREE.ShaderMaterial({transparent:true,depthTest:false,depthWrite:false,side:THREE.DoubleSide,
-  uniforms:{uD:ovDir,uCol:{value:new THREE.Color(col)},uHi:{value:0}},
-  vertexShader:`uniform vec3 uD;varying float vNear;
-    void main(){vec4 w=modelMatrix*vec4(position,1.);vNear=clamp(.5+dot(w.xyz,uD)/9.,0.,1.);gl_Position=projectionMatrix*viewMatrix*w;}`,
+  uniforms:{uD:ovDir,uCol:{value:new THREE.Color(col)},uHi:{value:0},...HEART_U},
+  vertexShader:`uniform vec3 uD;varying float vNear;${HEART_GLSL}
+    void main(){vec4 w=modelMatrix*vec4(hfw(position),1.);vNear=clamp(.5+dot(w.xyz,uD)/9.,0.,1.);gl_Position=projectionMatrix*viewMatrix*w;}`,
   fragmentShader:`uniform vec3 uCol;uniform float uHi;varying float vNear;
     void main(){vec3 c=mix(uCol*.5,uCol,vNear);gl_FragColor=vec4(mix(c,vec3(1.),uHi*.5),max(mix(.22,.62,vNear),uHi*.95));}`});}
 
@@ -582,8 +664,10 @@ const DRR_STEP=0.5;              // ray-march step in voxels
 //     square (1 = edge) and its corner radius
 // Tuned by eye against CC-BY cine angiograms on Wikimedia Commons (RAO caudal LAD, LAO RCA).
 //   cath: guide catheter attenuation, 1/cm: mu over the whole tube, wall extra in the braided wall
+//   chestFade: cm inside the CT's faces over which it blends into the synthetic chest (when chest.u8.gz is loaded)
+//   stream: cine contrast, mix = length of the diluted leading edge (mm), speed = front speed at full flow (mm/s)
 const TUNE={body:[-3,-1.7,17,12],fadeIn:1,fadeOut:3,win:[0.05,0.95],gamma:1.2,sharp:0.95,noise:0.028,
-  iod:15000,floor:0.08,shutter:[0.97,0.12],cath:{mu:0.9,wall:4}};
+  iod:15000,floor:0.08,shutter:[0.97,0.12],cath:{mu:0.9,wall:4},chestFade:1.5,stream:{mix:10,speed:520}};
 
 const DRR_VS=`#version 300 es
 out vec2 uv;
@@ -599,7 +683,11 @@ vec3 rayDir(){vec3 P=uC+uR*((uv.x*2.0-1.0)*uH)+uT*((uv.y*2.0-1.0)*uH);
   vec3 rd=normalize(P-uS);return mix(rd,vec3(1e-6),vec3(lessThan(abs(rd),vec3(1e-6))));}
 vec2 hitBox(vec3 ro,vec3 rd,vec3 lo,vec3 hi){vec3 inv=1.0/rd,a=(lo-ro)*inv,b=(hi-ro)*inv,mn=min(a,b),mx=max(a,b);
   return vec2(max(max(mn.x,mn.y),mn.z),min(min(mx.x,mx.y),mx.z));}
-vec3 tc(vec3 p){return ((p-uOrg)/uSp+0.5)/uDim;}
+// cardiac motion (HEART_CORE): hw() maps a point of the moving heart back to the reference volumes, by two
+// fixed-point steps of q = p − hdisp(q)
+${HEART_CORE}
+vec3 hw(vec3 p){if(uHm.x<=0.0)return p;vec3 q=p-hdisp(p);q=p-hdisp(q);return p-hdisp(q);}
+vec3 tc(vec3 p){return ((hw(p)-uOrg)/uSp+0.5)/uDim;}
 // guide catheter: a polyline of straight tube pieces (anatomy frame, cm); uCatN = 0 when there is none
 uniform vec4 uCat[64];uniform int uCatN;
 // length of the ray inside the tube of radius r, summed over its pieces (each an infinite cylinder clipped to the piece)
@@ -618,14 +706,39 @@ float catChord(vec3 ro,vec3 rd,float r){float L=0.0;
 // (clamped sampling) and fade into flat soft tissue inside an elliptical body outline, so the
 // volume's edges don't show as seams.
 const DRR_FS_CT=DRR_RAY+`
-uniform float uMuBg,uFin,uFout,uCatRo,uCatRi,uCatMu,uCatWall;uniform vec4 uBody;
+uniform float uMuBg,uFin,uFout,uCatRo,uCatRi,uCatMu,uCatWall,uChFade;uniform vec4 uBody;
+// synthetic chest around the CT (chest.u8.gz), if loaded: sampled outside the CT, blended over the CT's outer uChFade cm
+uniform int uChest;uniform sampler3D uChVol;uniform vec3 uChOrg,uChSp,uChDim,uChLo,uChHi;
+float muCT(vec3 p){return ${MU_W.toFixed(3)}*max(0.0,2.55*texture(uVol,tc(p)).r-0.024);}   // HU = 2550 v - 1024
+float muCh(vec3 p){return ${MU_W.toFixed(3)}*max(0.0,2.55*texture(uChVol,((p-uChOrg)/uChSp+0.5)/uChDim).r-0.024);}
+float chestSeg(vec3 ro,vec3 rd,float a,float b){float L=0.0;if(b<=a)return 0.0;
+  float n=ceil((b-a)/0.15),ds=(b-a)/n;
+  for(int i=0;i<512;i++){if(float(i)>=n)break;L+=muCh(ro+rd*(a+(float(i)+0.5)*ds))*ds;}return L;}
 float sdBox(vec3 p){vec3 q=abs(p-0.5*(uLo+uHi))-0.5*(uHi-uLo);return length(max(q,0.0))+min(max(q.x,max(q.y,q.z)),0.0);}
 vec2 hitBody(vec3 ro,vec3 rd){vec2 q=(ro.xy-uBody.xy)/uBody.zw,k=rd.xy/uBody.zw;
   float A=dot(k,k),B=dot(q,k),C=dot(q,q)-1.0,D=B*B-A*C;
   if(D<=0.0||A<1e-8)return vec2(0.0);float s=sqrt(D);return vec2(-B-s,-B+s)/A;}
 float inBody(vec3 p){vec2 q=(p.xy-uBody.xy)/uBody.zw;return 1.0-smoothstep(0.94,1.06,dot(q,q));}
 void main(){
-  vec3 rd=rayDir();vec2 tb=hitBox(uS,rd,uLo-uFout,uHi+uFout),te=hitBody(uS,rd);
+  vec3 rd=rayDir();
+  if(uChest==1){
+    // fine steps through the CT (blending into the chest near its faces), coarse steps through the chest elsewhere
+    vec2 tcx=hitBox(uS,rd,uChLo,uChHi),tb=hitBox(uS,rd,uLo,uHi);float L=0.0;
+    if(tcx.x<tcx.y){
+      if(tb.x<tb.y){
+        float a=max(tb.x,tcx.x),b=min(tb.y,tcx.y);
+        L+=chestSeg(uS,rd,tcx.x,a)+chestSeg(uS,rd,b,tcx.y);
+        float n=ceil((b-a)/uStep),ds=(b-a)/n;
+        for(int i=0;i<4096;i++){if(float(i)>=n)break;
+          vec3 p=uS+rd*(a+(float(i)+0.5)*ds);
+          float w=smoothstep(0.0,uChFade,-sdBox(p));
+          L+=(w>0.999?muCT(p):w*muCT(p)+(1.0-w)*muCh(p))*ds;}
+      }else L+=chestSeg(uS,rd,tcx.x,tcx.y);
+    }
+    if(uCatN>1){float co=catChord(uS,rd,uCatRo),ci=catChord(uS,rd,uCatRi);L+=uCatMu*co+uCatWall*(co-ci);}
+    o=vec4(L,0.0,0.0,1.0);return;
+  }
+  vec2 tb=hitBox(uS,rd,uLo-uFout,uHi+uFout),te=hitBody(uS,rd);
   bool hit=tb.x<tb.y;
   float ov=hit?max(0.0,min(te.y,tb.y)-max(te.x,tb.x)):0.0;
   float L=uMuBg*(te.y-te.x-ov);
@@ -634,7 +747,7 @@ void main(){
     for(int i=0;i<4096;i++){if(float(i)>=n)break;
       vec3 p=uS+rd*(tb.x+(float(i)+0.5)*ds);
       float w=1.0-smoothstep(-uFin,uFout,sdBox(p)),mu=0.0;
-      if(w>0.0)mu=${MU_W.toFixed(3)}*max(0.0,2.55*texture(uVol,tc(p)).r-0.024);   // HU = 2550 v - 1024
+      if(w>0.0)mu=muCT(p);
       L+=(w*mu+(1.0-w)*uMuBg*inBody(p))*ds;}
   }
   // catheter: a radiopaque tube, denser in its braided wall (so its edges read slightly darker)
@@ -644,7 +757,19 @@ void main(){
 
 // Pass B: iodine path (cm of full-occupancy lumen) for one side, filled up to uFill mm from the ostium.
 const DRR_FS_IOD=DRR_RAY+`
-uniform float uSide,uFill,uCatRi;
+uniform float uSide,uFill,uCatRi,uWashF,uMixMM,uTime;
+// contrast streaming: concentration by distance from the ostium d (mm). The leading edge is diluted over uMixMM and
+// mottled just behind it (contrast and blood stream unevenly); in washout, unopacified blood clears it from the
+// ostium outward (uWashF mm), again with an uneven edge. uTime (s) moves the mottling down the vessel.
+float h1(float x){return fract(sin(x*127.1)*43758.5453);}
+float n1(float x){float i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);return mix(h1(i),h1(i+1.0),f);}
+float conc(float d){
+  float c=1.0-smoothstep(uFill-uMixMM,uFill,d);
+  float m=1.0-smoothstep(uFill-3.0*uMixMM,uFill-0.3*uMixMM,d);
+  c*=1.0-0.5*m*(1.0-n1(d*0.11-uTime*2.2));
+  if(uWashF>0.0){float w=smoothstep(uWashF-18.0,uWashF+4.0,d);
+    float mw=1.0-abs(2.0*w-1.0);c*=w*(1.0-0.45*mw*(1.0-n1(d*0.09+uTime*1.7+5.0)));}
+  return c;}
 void main(){
   vec3 rd=rayDir();vec2 tb=hitBox(uS,rd,uLo,uHi);float L=0.0;
   // the catheter's lumen is full of contrast while the tree is
@@ -654,7 +779,7 @@ void main(){
     for(int i=0;i<2048;i++){if(float(i)>=n)break;
       vec4 c=texture(uVol,tc(uS+rd*(tb.x+(float(i)+0.5)*ds)));
       float occ=mix(c.r,c.g,uSide);
-      if(occ>0.0)L+=occ*(1.0-smoothstep(uFill-6.0,uFill,c.b*255.0))*ds;}
+      if(occ>0.0)L+=occ*conc(c.b*255.0)*ds;}
   }
   o=vec4(L,0.0,0.0,1.0);
 }`;
@@ -727,7 +852,7 @@ function addSynthetic(base,syn){const out=base.slice();
   return out;}
 
 // Builds the GL resources; throws if a shader or float target fails. Returns render(view, fill, wash, frame).
-function createDRR(gl,cv,meta,ct,cor,syn,cath){
+function createDRR(gl,cv,meta,ct,cor,syn,cath,chest){
   function program(fs){
     const mk=(type,src)=>{const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);
       if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error('Shader: '+gl.getShaderInfoLog(s));return s;};
@@ -754,16 +879,21 @@ function createDRR(gl,cv,meta,ct,cor,syn,cath){
   }
   const linear=!!gl.getExtension('OES_texture_float_linear');
   const fmt=linear?[gl.R32F,gl.FLOAT]:[gl.R16F,gl.HALF_FLOAT];
-  const gCT=volGrid(meta.ct),gCor=volGrid(meta.coronary);
+  const gCT=volGrid(meta.ct),gCor=volGrid(meta.coronary),gCh=chest?volGrid(chest.info):null;
   const corBase=splitCoronary(cor,gCor.dim,meta.coronary.right_segments);
   const corData=on=>on&&syn?addSynthetic(corBase,syn):corBase;
   // catheter polylines per side, packed for the uCat uniform array (vec4, w unused)
   const catPack={};
   if(cath)for(const s of ['L','R'])if(cath[s]){const p=cath[s].pts.slice(0,64),a=new Float32Array(64*4);p.forEach((q,i)=>a.set(q,4*i));catPack[s]={a,n:p.length};}
-  const setCath=(pr,v,on)=>{const c=on&&catPack[v.inj];gl.uniform4fv(pr.u('uCat[0]'),c?c.a:new Float32Array(256));gl.uniform1i(pr.u('uCatN'),c?c.n:0);
+  const catMoved=new Float32Array(256),cp=new V3(),cq=new V3();
+  const catPoints=c=>{if(HEART_U.uHm.value.x<=0)return c.a;   // moving heart: carry the tip along with the ostium
+    for(let i=0;i<c.n;i++){cp.set(c.a[4*i],c.a[4*i+1],c.a[4*i+2]);heartForward(cp,cq);catMoved[4*i]=cq.x;catMoved[4*i+1]=cq.y;catMoved[4*i+2]=cq.z;}
+    return catMoved;};
+  const setCath=(pr,v,on)=>{const c=on&&catPack[v.inj];gl.uniform4fv(pr.u('uCat[0]'),c?catPoints(c):new Float32Array(256));gl.uniform1i(pr.u('uCatN'),c?c.n:0);
     if(cath){gl.uniform1f(pr.u('uCatRo'),cath.outer_radius_cm);gl.uniform1f(pr.u('uCatRi'),cath.inner_radius_cm);}};
   const R={pCT:program(DRR_FS_CT),pIod:program(DRR_FS_IOD),pOut:program(DRR_FS_OUT),
     ct:tex3D(ct,gCT.dim,gl.R8,gl.RED),
+    chest:chest?tex3D(chest.data,chest.info.dims,gl.R8,gl.RED):null,
     cor:tex3D(corData(state.fine),gCor.dim,gl.RGBA8,gl.RGBA),
     tA:target(DRR_N,fmt[0],fmt[1],gl.LINEAR),tB:target(DRR_N,fmt[0],fmt[1],gl.LINEAR),
     tS:target(DRR_NA,gl.R32F,gl.FLOAT,gl.NEAREST),small:new Float32Array(DRR_NA*DRR_NA*4),muBg:shellMu(ct,gCT)};
@@ -779,7 +909,11 @@ function createDRR(gl,cv,meta,ct,cor,syn,cath){
   function renderCT(v){
     const pr=R.pCT;gl.useProgram(pr.p);setRay(pr,v,gCT);
     gl.uniform1f(pr.u('uMuBg'),R.muBg);gl.uniform1f(pr.u('uFin'),TUNE.fadeIn);gl.uniform1f(pr.u('uFout'),TUNE.fadeOut);gl.uniform4fv(pr.u('uBody'),TUNE.body);
-    setCath(pr,v,state.cath);gl.uniform1f(pr.u('uCatMu'),TUNE.cath.mu);gl.uniform1f(pr.u('uCatWall'),TUNE.cath.wall);
+    setCath(pr,v,state.cath);setHeart(pr);gl.uniform1f(pr.u('uCatMu'),TUNE.cath.mu);gl.uniform1f(pr.u('uCatWall'),TUNE.cath.wall);
+    gl.uniform1i(pr.u('uChest'),R.chest?1:0);
+    if(R.chest){gl.uniform3fv(pr.u('uChOrg'),gCh.org);gl.uniform3fv(pr.u('uChSp'),gCh.sp);gl.uniform3fv(pr.u('uChDim'),gCh.dim);
+      gl.uniform3fv(pr.u('uChLo'),gCh.lo);gl.uniform3fv(pr.u('uChHi'),gCh.hi);gl.uniform1f(pr.u('uChFade'),TUNE.chestFade);
+      gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_3D,R.chest);gl.uniform1i(pr.u('uChVol'),1);}
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_3D,R.ct);
     const t0=performance.now();drawTo(R.tA);gl.readPixels(0,0,1,1,gl.RGBA,gl.FLOAT,px);stats.drrMs=performance.now()-t0;
     // automatic brightness: window from percentiles of the central image, like a fluoro system's ABC
@@ -789,9 +923,13 @@ function createDRR(gl,cv,meta,ct,cor,syn,cath){
     win.tlo=q(TUNE.win[0]);win.thi=Math.max(q(TUNE.win[1]),win.tlo+0.8);
     if(!win.ready||reduce){win.lo=win.tlo;win.hi=win.thi;win.ready=true;}
   }
-  function renderIodine(v,fill){
+  function setHeart(pr){const H=HEART_U;gl.uniform3fv(pr.u('uHc'),H.uHc.value.toArray());gl.uniform3fv(pr.u('uHax'),H.uHax.value.toArray());
+    gl.uniform3fv(pr.u('uHk'),H.uHk.value.toArray());gl.uniform4fv(pr.u('uHm'),H.uHm.value.toArray());
+    gl.uniform4fv(pr.u('uHt'),H.uHt.value.toArray());gl.uniform3fv(pr.u('uHtr'),H.uHtr.value.toArray());gl.uniform2fv(pr.u('uHb'),H.uHb.value.toArray());}
+  function renderIodine(v,cs){
     const pr=R.pIod;gl.useProgram(pr.p);setRay(pr,v,gCor);
-    gl.uniform1f(pr.u('uSide'),v.inj==='R'?1:0);gl.uniform1f(pr.u('uFill'),fill);setCath(pr,v,state.cath);
+    gl.uniform1f(pr.u('uSide'),v.inj==='R'?1:0);gl.uniform1f(pr.u('uFill'),cs.fill);gl.uniform1f(pr.u('uWashF'),cs.washF);
+    gl.uniform1f(pr.u('uMixMM'),TUNE.stream.mix);gl.uniform1f(pr.u('uTime'),cs.t);setCath(pr,v,state.cath);setHeart(pr);
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_3D,R.cor);
     const t0=performance.now();drawTo(R.tB);gl.readPixels(0,0,1,1,gl.RGBA,gl.FLOAT,px);stats.iodMs=performance.now()-t0;
   }
@@ -808,14 +946,17 @@ function createDRR(gl,cv,meta,ct,cor,syn,cath){
   let lastG='',lastI='';
   return {stats,win,
     // view: tube S, detector centre C, screen right r and up t, half-FOV h (anatomy frame), injection side, cache key
-    render(v,fill,wash,frame){
-      const ik=`${v.key}|${v.inj}|${fill.toFixed(1)}`;
-      if(v.key!==lastG){renderCT(v);lastG=v.key;}
-      if(ik!==lastI){renderIodine(v,fill);lastI=ik;}
+    // cs: cine state {fill, washF (mm), wash (0..1), t (s), hm (contraction 0..1)}
+    render(v,cs,frame){
+      heartPhase(cs.ht,cs.hm>0);
+      const gk=`${v.key}|${cs.hm>0?cs.ht.toFixed(3):'still'}`,moving=cs.fill<999||cs.washF>0;
+      const ik=`${gk}|${cs.fill.toFixed(1)}|${cs.washF.toFixed(1)}|${moving?cs.t.toFixed(2):''}`;
+      if(gk!==lastG){renderCT(v);lastG=gk;}
+      if(ik!==lastI){renderIodine(v,cs);lastI=ik;}
       win.lo+=(win.tlo-win.lo)*0.3;win.hi+=(win.thi-win.hi)*0.3;   // ABC settles over a few frames
-      renderOut(frame,wash);},
+      renderOut(frame,cs.wash);},
     invalidate(){lastG=lastI='';},
-    hasFine:!!syn,
+    hasFine:!!syn,hasChest:!!chest,
     // swap the coronary texture with or without the illustrative fine branches
     setFine(on){gl.bindTexture(gl.TEXTURE_3D,R.cor);gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
       gl.texSubImage3D(gl.TEXTURE_3D,0,0,0,0,gCor.dim[0],gCor.dim[1],gCor.dim[2],gl.RGBA,gl.UNSIGNED_BYTE,corData(on));lastI='';},
@@ -847,7 +988,10 @@ async function startDRR(){
     if(sm)try{syn=await fetchBytes(DRR_DATA+sm.file);if(syn.length!==prod(meta.coronary.dims))syn=null;}catch(e){console.info('No synthetic fine branches:',e.message||e);}
     // guide catheter, optional like the fine branches
     let cath=null;try{cath=await fetchJSON(DRR_DATA+'catheter.json');}catch(e){console.info('No guide catheter:',e.message||e);}
-    drr=createDRR(gl,drrCv,meta,ct,cor,syn,cath);
+    // synthetic chest beyond the CT, optional: without it the CT fades into flat soft tissue
+    let chest=null;try{const info=await fetchJSON(DRR_DATA+'chest.json'),data=await fetchBytes(DRR_DATA+info.file);
+      if(data.length===prod(info.dims))chest={info,data};}catch(e){console.info('No synthetic chest:',e.message||e);}
+    drr=createDRR(gl,drrCv,meta,ct,cor,syn,cath,chest);
     if(cath)for(const s of ['L','R'])if(cath[s]){const pts=cath[s].pts.map(p=>new V3(...p));
       const m=new THREE.Mesh(taperTube(pts,0.12,0.12,0).geo,roomCathMat);m.userData.side=s;roomCTTree.add(m);roomCath.push(m);catName[s]=cath[s].name;}
   }catch(e){console.warn('DRR unavailable, using the model renderer:',e);return fail('the CT couldn’t be loaded ('+String(e.message||e)+')');}
@@ -883,6 +1027,7 @@ async function startDRR(){
       if(!myo){const el=document.createElement('span');el.className='lbl ch';el.textContent=s.id;el.hidden=true;labelsEl.appendChild(el);
         LABELS.push({el,p:new V3(...s.centroid_cm),kind:'cc',ch:s.id});}});
     if(ci.attribution)drrAttr+=' · '+ci.attribution;
+    heartFrame();
   }catch(e){console.info('CT chambers unavailable; showing the coronary tree only:',e.message||e);}
   mode='drr';setMode();
 }
@@ -940,7 +1085,7 @@ document.querySelectorAll('#fovSeg button').forEach(b=>b.addEventListener('click
 document.querySelectorAll('#roomViewSeg button').forEach(b=>b.addEventListener('click',()=>setRoomView(b.dataset.rv)));
 function toggle(id,key,after){const b=$(id);b.addEventListener('click',()=>{state[key]=!state[key];b.setAttribute('aria-pressed',String(state[key]));after&&after();});}
 toggle('tOvV','ovV',refreshOverlayUI);toggle('tOvC','ovC',refreshOverlayUI);toggle('tSegN','segN');
-toggle('tLabels','labels');toggle('tBones','bones');toggle('tFine','fine',()=>{if(drr&&drr.hasFine)drr.setFine(state.fine);setMode();});toggle('tCath','cath',()=>syncUI());
+toggle('tLabels','labels');toggle('tBones','bones');toggle('tFine','fine',()=>{if(drr&&drr.hasFine)drr.setFine(state.fine);setMode();});toggle('tCath','cath',()=>syncUI());toggle('tMotion','motion');
 // legend: segment colours with the coronary overlay; with the chamber overlay, one chip per chamber to show or hide it
 function refreshOverlayUI(){
   const drrOn=mode==='drr',lg=$('ovLegend');
@@ -957,16 +1102,29 @@ $('tblReset').addEventListener('click',()=>{state.tx=state.ty=state.tz=0;syncUI(
 // cine injection: contrast fills from the ostium, holds, washes out
 let cine=null;
 $('cine').addEventListener('click',()=>{cine={t0:performance.now()};});
-// DRR version: fill in mm along the real tree
+// DRR version, along the real tree in mm, timed to a 72/min heartbeat:
+//  - injection: the front advances with coronary flow, which is mostly diastolic, so it surges between beats
+//  - hold, then washout: unopacified blood clears the tree from the ostium outward, also in pulses
+//  - the heart beats only during the run (unless motion is off), like recording on a real system; outside it the
+//    image holds still. Heart time ht starts at end-diastole (the CT's own shape) when the run starts, and the run
+//    ends only once the last beat has come back to end-diastole, so neither end jumps
+//  - everything is sampled at 15 pulses/s (t)
 function drrCine(now){
-  if(!cine)return {fill:999,wash:1};
-  const e=(now-cine.t0)/1000;
-  if(e<1.8)return {fill:4+200*(1-Math.pow(1-e/1.8,2)),wash:1};
-  if(e<3.6)return {fill:999,wash:1};
-  if(e<4.8)return {fill:999,wash:1-(e-3.6)/1.2};
-  if(e<5.3)return {fill:999,wash:0};
-  if(e<5.7)return {fill:999,wash:(e-5.3)/0.4};
-  cine=null;return {fill:999,wash:1};
+  const tq=Math.floor(now/1000*15)/15;
+  const full={fill:999,washF:0,wash:1,t:tq,ht:0,hm:0};
+  if(!cine)return full;
+  const e=tq-cine.t0/1000,ht=Math.max(0,e),hm=state.motion?1:0,f=(ht%CYCLE)/CYCLE;
+  const dt=Math.min(0.1,Math.max(0,tq-(cine.last??tq)));cine.last=tq;
+  const flow=0.3+0.7*(1-lvCurve(f)),v=TUNE.stream.speed,at=o=>Object.assign({fill:999,washF:0,wash:1,t:tq,ht,hm},o);
+  if(cine.fill===undefined){cine.fill=4;cine.washF=0;}
+  if(e<2.6){cine.fill=Math.min(999,cine.fill+v*flow*dt);if(cine.fill>300)cine.fill=999;return at({fill:cine.fill});}
+  if(e<3.8)return at({});
+  if(cine.washF<260){cine.washF+=1.3*v*flow*dt;if(cine.washF>=260)cine.cleared=tq;return at({washF:Math.max(1,cine.washF)});}
+  const k=(tq-cine.cleared)/0.5;   // tree clear; fade the static view back in
+  if(k<1)return at({wash:Math.max(0,k)});
+  // finish the beat: keep going until the next beat would start, where the heart is back at end-diastole
+  if(hm){cine.endAt??=Math.ceil(ht/CYCLE-1e-6)*CYCLE;if(ht<cine.endAt)return at({});}
+  cine=null;return full;
 }
 function cineStep(now){
   if(!cine){matV.uniforms.fill.value=999;matV.uniforms.wash.value=1;return;}
@@ -1000,7 +1158,8 @@ function pickVessel(cam,el,cx,cy,only,tol=12){
   const rc=el.getBoundingClientRect(),px=cx-rc.left,py=cy-rc.top,W=rc.width,H=rc.height,off=tableG.position;
   let best=null,bd=tol*tol;   // best: {i: vessel index, j: centreline point nearest the pointer}
   VES.forEach((e,i)=>{if(only&&!only(e))return;let ax=0,ay=0,ok=false;
-    e.pts.forEach((p,j)=>{pv.copy(p).add(off).project(cam);const ins=pv.z<1;const x=(pv.x+1)/2*W,y=(1-pv.y)/2*H;
+    e.pts.forEach((p,j)=>{heartForward(p,pv).add(off).project(cam);   // where the beating heart has it now
+const ins=pv.z<1;const x=(pv.x+1)/2*W,y=(1-pv.y)/2*H;
       if(ok&&ins){const dx=x-ax,dy=y-ay,l2=dx*dx+dy*dy,t=l2?Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/l2)):0;
         const qx=ax+t*dx-px,qy=ay+t*dy-py,d2=qx*qx+qy*qy;if(d2<bd){bd=d2;best={i,j:t<0.5?j-1:j};}}
       ax=x;ay=y;ok=ins;});});
@@ -1081,7 +1240,7 @@ function placeLabels(){
       (l.kind===(drrOn?'cc':'c')&&state.ovC&&(!l.ch||chOn[l.ch]!==false));
     if(!show){l.el.hidden=true;return;}
     for(const p of l.cands||[l.p]){
-      tmp.copy(p).add(anat.position).project(fcam);
+      heartForward(p,tmp).add(anat.position).project(fcam);   // labels ride with the beating heart
       const x=(tmp.x+1)/2*W,y=(1-tmp.y)/2*H;
       if(x<14||x>W-14||y<14||y>H-14)continue;
       l.el.hidden=false;l.el.style.left=x+'px';l.el.style.top=y+'px';return;}
@@ -1099,7 +1258,7 @@ function step(now){
   fr.autoClear=true;
   if(mode==='drr'){
     const cs=drrCine(now);
-    drr.render(drrView(),cs.fill,cs.wash,reduce?0:Math.floor(now/1000*15));   // noise refreshes at 15 pulses/s
+    drr.render(drrView(),cs,reduce?0:Math.floor(now/1000*15));   // noise and motion refresh at 15 pulses/s
     if(state.ovV||state.ovC||hover!==null)fr.render(oScene,fcam);else fr.clear();   // transparent over the DRR
   }else{
     cineStep(now);
@@ -1125,13 +1284,15 @@ function setMode(){
   $('tOvV').hidden=$('tSegN').hidden=!on;           // the model heart has no separate coronary overlay or segments
   $('tFine').hidden=!(on&&drr&&drr.hasFine);
   $('tCath').hidden=!(on&&roomCath.length);
+  $('tMotion').hidden=!on;
   refreshOverlayUI();
   $('srcNote').innerHTML=on
     ?`<strong>Fluoro image:</strong> X-rays traced through a real coronary CT (ImageCAS scan 814), with contrast only in the injected tree. `+
       `The labelled vessels and a few small branches found in the CT are this patient's.`+
       (drr&&drr.hasFine&&state.fine?` <strong>Branches finer than about 1 mm are illustrative</strong>: generated along the heart's surface to look realistic, not this patient's anatomy (switch them off with “Fine branches”).`:'')+
       (roomCath.length?` The guide catheter (JL4 or JR4, femoral approach) is shaped along this CT's aorta; the arch above the scan is extrapolated.`:'')+
-      ` No heart motion yet. Data: ${esc(drrAttr)}. Non-commercial use only.`
+      (drr&&drr.hasChest?` Beyond the 23 × 23 × 14 cm scan, the lungs, ribs, spine and diaphragm come from a synthetic chest fitted to this scan's landmarks (illustrative).`:'')+
+      ` During a cine run the heart beats at 72/min, then holds still when the run ends: a modelled motion (long-axis shortening, squeeze, twist, swing, buckling, each on its own time course), not this heart's measured motion. Data: ${esc(drrAttr)}. Non-commercial use only.`
     :mode==='loading'?'Loading a real coronary CT for the fluoro image. Until then it shows a simplified model heart.'
     :modeWhy==='file'?'<strong>Fluoro image:</strong> simplified model heart. For the image computed from a real coronary CT, serve this folder (<code>python3 -m http.server</code>) and open it from localhost.'
     :`<strong>Fluoro image:</strong> simplified model heart, because ${esc(modeWhy)}.`;
@@ -1139,9 +1300,10 @@ function setMode(){
 }
 
 // for automated checks; frame() renders one frame without rAF, which stops while the page is hidden
-window.sim={state,tune:TUNE,get mode(){return mode;},get drr(){return drr;},
+window.sim={state,tune:TUNE,heart:HEART_U,heartForward,get mode(){return mode;},get drr(){return drr;},get cine(){return cine;},
   set(o){Object.assign(state,o);tween=null;syncUI();if(drr)drr.invalidate();},
-  frame(){const t0=performance.now();step(t0);if(drr)drr.finish();return performance.now()-t0;}};
+  // frame(at): render one frame as if the clock read `at` ms (default now), for deterministic checks
+  frame(at){const t0=performance.now();step(at??t0);if(drr)drr.finish();return performance.now()-t0;}};
 setMode();window.sim.ready=startDRR();requestAnimationFrame(loop);
 })();
 </script>

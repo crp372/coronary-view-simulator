@@ -1,0 +1,86 @@
+{
+ "file": "chest.u8.gz",
+ "dims": [
+  147,
+  114,
+  177
+ ],
+ "spacing_cm": [
+  0.3,
+  0.3,
+  0.3
+ ],
+ "origin_cm": [
+  -27.0,
+  -19.0,
+  -27.0
+ ],
+ "encoding": "uint8, HU = v*10 - 1024",
+ "note": "synthetic chest beyond the CT (lungs, ribs, spine, diaphragm, sternum, clavicles), fitted to this scan's landmarks; illustrative",
+ "params": {
+  "voxel_cm": 0.3,
+  "x": [
+   -27.0,
+   17.0
+  ],
+  "y": [
+   -19.0,
+   15.0
+  ],
+  "z": [
+   -27.0,
+   26.0
+  ],
+  "midline_x": -5.0,
+  "body_y": -2.6,
+  "body_a": 20.5,
+  "body_b": 14.0,
+  "wall_cm": 2.2,
+  "fat_cm": 1.5,
+  "spine_y": -9.0,
+  "vb_r": 2.0,
+  "vb_pitch": 2.9,
+  "disc_cm": 0.7,
+  "t1_z": -16.0,
+  "rib_r": 0.55,
+  "rib_drop": [
+   3.0,
+   8.0
+  ],
+  "ribs": 12,
+  "sternum": {
+   "z": [
+    -15.0,
+    4.0
+   ],
+   "y_off": 1.6,
+   "w": 3.0,
+   "t": 1.2
+  },
+  "dome_r": [
+   3.0,
+   -7.0
+  ],
+  "dome_l": [
+   6.0,
+   7.0
+  ],
+  "dome_k": 0.035,
+  "hu": {
+   "soft": 10,
+   "fat": -90,
+   "lung": -880,
+   "bone": 420,
+   "rib": 700,
+   "cartilage": 140,
+   "disc": 80,
+   "liver": 55,
+   "clavicle": 700
+  },
+  "markings": {
+   "hu": 55,
+   "sigma_vox": 1.2,
+   "seed": 814
+  }
+ }
+}

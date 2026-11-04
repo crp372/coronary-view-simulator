@@ -54,6 +54,18 @@ Single dark "cath lab console" theme by choice. Colour tokens on `:root` (`--bg`
    - **Web export** (`data/web/<id>/`, from `tools/export_scan.py`): de-contrasted CT plus a coronary volume (occupancy, segment, distance from ostium) plus `vessels.json`, all in the patient coordinates above (cm, tree centred at the isocentre), x-fastest. Source frames differ: NIfTI files are RAS → sim `(−x, y, −z)`; ImageCAS-X `.vtk` centrelines and meshes are LPS → sim `(x, −y, −z)`. Always convert through the export, never ad hoc.
    - **Small branches:**
    - **Guide catheter:** `catheter.json` from `tools/export_catheter.py`.
+   - **Chest beyond the scan:** `chest.u8.gz` from `tools/export_chest.py`.
+   - **Cardiac motion and streaming:**
+     - **Displacement:** `HEART_CORE` holds `hdisp(q)`, the displacement of a reference point: shortening, squeeze, twist, swing `uHtr`, uneven field and buckling `uHb`. `heartDisp()` is its exact CPU twin; keep the two in step.
+     - **Where it's applied:** `hw()` in `DRR_RAY` is the backward warp (fixed-point inverse), applied in `tc()`. `hfw()` moves the overlay. `heartForward()` moves the catheter points, labels and picking.
+     - **Timing:** `heartPhase(ht)` sets the per-frame phases from `lvCurve()`. The heart only moves during a cine run (`state.motion`). Heart time `ht` starts at 0 (end-diastole) with the run, and `drrCine` ends the run on the next beat boundary. Every component is zero at f = 0, so start and end don't jump. Both DRR passes re-render on every pulse during a run.
+     - **Check it with a filmstrip, not single screenshots:** call `sim.frame(at)` at successive 1/15 s times and draw the DRR canvas into an overlay canvas. A single capture can't show the time course.
+     - The shared uniforms live in `HEART_U`; `heartFrame()` sets them from the CT chambers.
+     - `drrCine()` returns `{fill, washF, wash, t, hm}`. It integrates the fill and washout fronts with diastolic-weighted flow, on 15 pulses/s time. `conc()` in the iodine pass gives the diluted, mottled front and the proximal-first washout.
+     - Both passes re-render on every pulse during a run, because the cache keys include `hm` and the front positions.
+     - `window.sim` exposes `heart`, `heartForward` and `cine` for checks.
+     - With it loaded (`uChest = 1`), pass A steps finely through the CT box and in 0.15 cm steps through the chest elsewhere (`chestSeg`). It blends CT → chest over the CT's outer `TUNE.chestFade` cm.
+     - Without it, the older path applies: CT edge voxels extended outward, fading to flat tissue in the body ellipse.
      - `catChord()` in `DRR_RAY` sums the ray's length inside the tube's straight pieces (`uCat[64]`, `uCatN`). Pass A adds the radiopaque tube (`TUNE.cath`); pass B adds its contrast-filled lumen.
      - The CT pass cache key includes `inj` and `cath`, because the catheter changes with the side.
      - **Grown from the CT:** coronary G channel = parent segment + 16 (`CT_BRANCH`), so always take `seg & 15` for the segment or side. They're this patient's anatomy.
@@ -64,6 +76,13 @@ Single dark "cath lab console" theme by choice. Colour tokens on `:root` (`--bg`
    - Licensed glTF models remain optional.
 4. Quiz mode: random projection, name the angle or a highlighted vessel.
 
+**Current plan (owner's phases, in order):**
+1. Heart motion + contrast streaming.
+2. Code health: modules, one shared DRR engine, automatic screenshot checks.
+3. Layout: no scrolling, full screen, collapsible controls, a "choose heart" dropdown.
+4. A written protocol for preparing new hearts from ImageCAS.
+
+See README "Current plan". Older notes follow.
 Suggested order: ~~pick a CTCA dataset~~ → ~~DRR in `index.html`~~ (done, model renderer kept as fallback) → ~~CT coronary overlay with hover~~ → ~~CT chambers (TotalSegmentator)~~ → ~~room polish~~ (done) → quiz mode (roadmap item 4). A refinement backlog from the first demo (realism, overlay clarity, per-view teaching and framing, code split, more scans) is parked in README "Refinement backlog"; don't start it unless asked. Older order for reference: per-preset table framing → realism (catheter, motion, chest background) → quiz mode. Data-prep scripts (Python) go in `tools/`. Raw data goes in the git-ignored `data/raw/`, and only small web-ready derived files are committed. Once the project grows, consider splitting `index.html` into modules (e.g. Vite).
 
 ## Notes
