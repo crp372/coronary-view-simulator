@@ -4,6 +4,14 @@ An interactive browser tool for learning coronary angiography projections. You m
 
 **Live page:** published as a private Claude artifact ("Coronary View Simulator"). Source: `index.html` (single self-contained file, Three.js r128).
 
+**DRR prototype:** `drr.html` renders simulated fluoro from a real CT scan (see [below](#drr-prototype-drrhtml)). It needs a local server:
+
+```bash
+python3 -m http.server
+```
+
+Then open http://localhost:8000/drr.html. It won't load from `file://`.
+
 ---
 
 ## What it does (version 1)
@@ -107,6 +115,25 @@ Decision: "realistic fluoro" means synthetic DRR images from CT, so the C-arm st
 
 ### Other ideas
 - Quiz mode: show a random projection and ask the learner to name the angle or a highlighted vessel.
+
+---
+
+## DRR prototype (`drr.html`)
+
+A standalone WebGL2 page, kept separate from `index.html` until it's integrated. It renders a digitally reconstructed radiograph (DRR) of ImageCAS scan 814 at any C-arm angle, using the same geometry and conventions as `index.html`.
+
+- **Three passes.**
+  1. Cone-beam ray march through the de-contrasted CT, at half-voxel steps: μ = 0.2/cm × (1 + HU/1000).
+  2. Ray march through the coronary volume, adding iodine for the injected side only, weighted by lumen occupancy. Its cine fill is driven by distance from the ostium.
+  3. Display: I = e^(−∫μ) on a log window with automatic brightness from the central image, then edge enhancement, quantum noise (σ ∝ 1/√I) at 15 pulses/s, and a vignette.
+- **Controls:** LAO/RAO and cranial/caudal sliders, the same presets as `index.html`, left/right injection, field of view (25/20/15 cm), and iodine strength (default +25 000 HU at full lumen). Also a cine run, vessel labels and centrelines from `vessels.json`, and drag-to-pan of the table.
+- **Speed (Apple M5, Chrome):** about 6 ms for the 512² DRR pass, about 1 ms for the iodine pass, and about 3 ms per display frame at 1520². The CT pass only reruns when the geometry changes.
+- **Checked views:** AP, RAO 30 CAU 25, LAO 45 CAU 30 (spider), LAO 40 right (RCA "C") and RAO 30 right (RCA "L"). In AP the RCA is on screen left and the LAD runs to the apex at lower right.
+- **Limits:**
+  - The CT covers only 23 × 23 × 14 cm. Past its faces the edge voxels are extended and fade over 3 cm into flat soft tissue inside an elliptical body outline, so there's no full rib cage, and no lung edge outside the scan.
+  - The right hemidiaphragm is inside the scan and shows in caudal views.
+  - No guide catheter, heart motion or breathing yet.
+  - The export's bone mask kept the contrast-filled descending aorta (~350 HU), so it shows faintly along the spine.
 
 ---
 

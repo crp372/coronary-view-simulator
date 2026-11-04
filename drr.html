@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DRR Fluoro Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Same cath-lab console look as index.html: fluoro monitor on the left, controls in the right rail. */
+:root{
+  --bg:#0e1215; --panel:#151a1f; --panel2:#1c232a; --line:#2b343c; --fg:#e3e7ea; --muted:#8b97a1;
+  --accent:#e8b450; --cool:#74b8c8; --screen:#050607; --ink:#0b0e10; --warn:#e07a5f;
+  --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Barlow",system-ui,-apple-system,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--bg);color:var(--fg)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.45;margin:0;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+.wrap{max-width:1320px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 24px;border-bottom:1px solid var(--line);padding-bottom:14px}
+h1{font-family:var(--f-display);font-weight:700;font-size:clamp(28px,4vw,40px);letter-spacing:.01em;margin:0;line-height:1;text-wrap:balance}
+h1 span{color:var(--accent)}
+.sub{color:var(--muted);margin:0;max-width:62ch}
+.sub a{color:var(--cool)}
+h2{font-family:var(--f-display);font-weight:600;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0}
+.grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:920px){.grid{grid-template-columns:minmax(0,1fr)}}
+.col{display:flex;flex-direction:column;gap:14px;min-width:0}
+
+.monitor{position:relative;width:100%;max-width:100%;aspect-ratio:1/1;background:var(--screen);border-radius:4px;overflow:hidden;border:1px solid var(--line);touch-action:none;cursor:grab}
+.monitor.drag{cursor:grabbing}
+.monitor canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.ro{position:absolute;font-family:var(--f-mono);font-size:clamp(11px,1.5vw,13px);color:var(--accent);text-shadow:0 0 3px var(--ink),0 0 1px var(--ink);pointer-events:none;line-height:1.35;font-variant-numeric:tabular-nums}
+.ro.tl{top:10px;left:12px}.ro.tr{top:10px;right:12px;text-align:right}.ro.bl{bottom:10px;left:12px}.ro.br{bottom:10px;right:12px;text-align:right}
+.ro b{font-weight:500;font-size:1.25em}
+.labels{position:absolute;inset:0;pointer-events:none}
+.lbl{position:absolute;transform:translate(-50%,-50%);font-family:var(--f-display);font-weight:600;font-size:clamp(11px,1.6vw,14px);letter-spacing:.04em;color:var(--accent);text-shadow:0 0 3px var(--ink),0 0 2px var(--ink),0 0 1px var(--ink);white-space:nowrap}
+.lbl.r{color:var(--cool)}
+.status{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;color:var(--muted);font-family:var(--f-mono);font-size:13px;background:var(--screen)}
+.status[hidden]{display:none}
+.status.err{color:var(--warn)}
+.status code{color:var(--fg)}
+
+.now{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:12px 14px}
+.now .ang{font-family:var(--f-mono);color:var(--accent);font-variant-numeric:tabular-nums}
+.now .nm{font-family:var(--f-display);font-weight:600;font-size:18px}
+.now .bf{color:var(--muted);flex-basis:100%}
+.now .bf strong{color:var(--fg);font-weight:500}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:14px;display:flex;flex-direction:column;gap:12px}
+.panel p{margin:0;color:var(--muted);font-size:13.5px}
+.panel p strong{color:var(--fg);font-weight:500}
+.panel ul{margin:0;padding-left:18px;color:var(--muted);font-size:13.5px}
+.mono{font-family:var(--f-mono);font-size:12.5px;color:var(--accent);font-variant-numeric:tabular-nums}
+
+.ctl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:center}
+.ctl label{font-weight:500}
+.ctl output{font-family:var(--f-mono);color:var(--accent);font-variant-numeric:tabular-nums;font-size:14px}
+.ctl input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--accent);margin:4px 0 0}
+.ctl .ends{grid-column:1/-1;display:flex;justify-content:space-between;font-size:11px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+button{font:inherit;color:var(--fg);background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:7px 12px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button[aria-pressed=true]{background:var(--accent);color:var(--ink);border-color:var(--accent);font-weight:600}
+button.go{border-color:var(--accent);color:var(--accent)}
+.row{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between}
+
+.presets{display:flex;flex-direction:column;gap:10px}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}
+.pre{text-align:left;display:flex;flex-direction:column;gap:2px;padding:10px 12px}
+.pre .pn{font-family:var(--f-display);font-weight:600;font-size:16px}
+.pre .pa{font-family:var(--f-mono);font-size:12px;color:var(--accent)}
+.pre .pb{font-size:12.5px;color:var(--muted);line-height:1.35}
+.pre[aria-pressed=true] .pa,.pre[aria-pressed=true] .pb{color:var(--ink)}
+.attr{color:var(--muted);font-size:12.5px;border-top:1px solid var(--line);padding-top:12px;margin:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>DRR <span>Fluoro</span> Prototype</h1>
+    <p class="sub">Simulated fluoroscopy ray-traced through a real coronary CT (ImageCAS scan 814) at any C-arm angle, with contrast added back only to the injected coronary tree. A prototype for the <a href="index.html">Coronary View Simulator</a>.</p>
+  </header>
+
+  <div class="grid">
+    <div class="col">
+      <div class="monitor" id="monitor" aria-label="Simulated fluoroscopy image computed from a CT scan">
+        <canvas id="gl"></canvas>
+        <canvas id="ov"></canvas>
+        <div class="labels" id="labels"></div>
+        <div class="ro tl" id="roAng"></div>
+        <div class="ro tr" id="roFov"></div>
+        <div class="ro bl" id="roInj"></div>
+        <div class="ro br" id="roSrc"></div>
+        <div class="status" id="status">Loading CT volume…</div>
+      </div>
+      <div class="now" aria-live="polite">
+        <span class="ang" id="nowAng"></span>
+        <span class="nm" id="nowName"></span>
+        <span class="bf" id="nowBest"></span>
+      </div>
+      <section class="presets">
+        <h2>Standard views · left coronary</h2>
+        <div class="pgrid" id="presetsL"></div>
+        <h2>Standard views · right coronary</h2>
+        <div class="pgrid" id="presetsR"></div>
+      </section>
+    </div>
+
+    <div class="col">
+      <div class="panel">
+        <h2>C-arm</h2>
+        <div class="ctl">
+          <label for="sLao">Rotation</label><output id="oLao"></output>
+          <input type="range" id="sLao" min="-90" max="90" step="1">
+          <div class="ends"><span>RAO 90°</span><span>AP</span><span>LAO 90°</span></div>
+        </div>
+        <div class="ctl">
+          <label for="sCra">Angulation</label><output id="oCra"></output>
+          <input type="range" id="sCra" min="-45" max="45" step="1">
+          <div class="ends"><span>Caudal 45°</span><span>0°</span><span>Cranial 45°</span></div>
+        </div>
+        <div class="row">
+          <span>Field of view</span>
+          <div class="seg" id="fovSeg">
+            <button type="button" data-fov="25">25 cm</button>
+            <button type="button" data-fov="20">20 cm</button>
+            <button type="button" data-fov="15">15 cm</button>
+          </div>
+        </div>
+        <div class="row">
+          <p>Drag the image to pan the table.</p>
+          <button type="button" id="tblReset">Centre table</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Injection and display</h2>
+        <div class="row">
+          <div class="seg" id="injSeg">
+            <button type="button" data-inj="L">Left coronary</button>
+            <button type="button" data-inj="R">Right coronary</button>
+          </div>
+          <button type="button" class="go" id="cine">Run cine injection</button>
+        </div>
+        <div class="ctl">
+          <label for="sIod">Iodine strength</label><output id="oIod"></output>
+          <input type="range" id="sIod" min="0" max="40000" step="500">
+          <div class="ends"><span>None</span><span>HU equivalent at full lumen</span></div>
+        </div>
+        <div class="seg">
+          <button type="button" id="tLabels" aria-pressed="true">Vessel labels</button>
+          <button type="button" id="tLines" aria-pressed="false">Centrelines</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>How this image is made</h2>
+        <p>Each pixel's ray runs from the X-ray tube (70 cm from the isocentre) to its point on the detector (110 cm), summing attenuation through the CT: <strong>μ = 0.2/cm × (1 + HU/1000)</strong>. The CT angiogram's blood-pool contrast was removed during export. Iodine is added back only in the injected tree's lumen, so the image shows <strong>I = e<sup>−∫μ</sup></strong> on a log scale with automatic brightness, quantum noise, edge enhancement and a vignette.</p>
+        <p class="mono" id="perf">—</p>
+        <h2>Known limits</h2>
+        <ul>
+          <li>The CT covers only 23 × 23 × 14 cm around the heart. Beyond it the image fades into flat soft tissue, so there's no full rib cage, diaphragm or lung edge.</li>
+          <li>No guide catheter, heart motion or breathing yet.</li>
+          <li>One real, right-dominant heart. Its best angles can differ by a few degrees from the textbook ones.</li>
+          <li>The thinnest distal vessels are about one voxel (0.9 mm) wide, so they look slightly thicker than they are.</li>
+        </ul>
+        <p class="attr" id="attr">CT: ImageCAS (CC BY-NC 4.0). Labels: ImageCAS-X (CC BY 4.0). Non-commercial use only.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+const SOD=70, SID=110;           // source–isocentre and source–image distances, cm
+const MU_W=0.2;                  // water attenuation, 1/cm
+const N=512, NA=64;              // DRR resolution; low-res copy for automatic brightness
+const STEP_VOX=0.5;              // ray-march step in voxels
+// Body outline beyond the CT (elliptical cylinder along z): centre x, y and semi-axes, cm.
+// Estimated from scan 814's anterior skin and the midline of its sternum and spine.
+// Image tuning (window.drr.tune for experiments):
+//   fadeIn/fadeOut: cm inside/outside the CT faces over which it fades into flat soft tissue
+//   win: display window percentiles of the central image; gamma: LUT steepness toward black
+//   sharp: unsharp-mask gain; noise: quantum noise in attenuation units at the bright end
+const TUNE={body:[-3,-1.7,17,12],fadeIn:1,fadeOut:3,win:[0.05,0.95],gamma:1.2,sharp:0.7,noise:0.028};
+const DATA='data/web/814/';
+const deg=Math.PI/180;
+const reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $=id=>document.getElementById(id);
+
+// tbl: table offset in cm (patient x, y, z); the anatomy moves with it
+const state={lao:-30,cra:-25,fov:20,inj:'L',iod:25000,labels:true,lines:false,tbl:[0,0,0]};
+
+/* ---------- Vectors and projection geometry (same conventions as index.html) ---------- */
+const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]], scl=(a,s)=>[a[0]*s,a[1]*s,a[2]*s];
+const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+const norm=a=>scl(a,1/Math.hypot(...a));
+// d = detector direction; t = image up (head, orthogonalised to d); r = screen right as seen from the detector
+function dirs(lao,cra){const a=lao*deg,b=cra*deg;
+  const d=norm([Math.sin(a)*Math.cos(b),Math.cos(a)*Math.cos(b),-Math.sin(b)]);
+  const hd=[0,0,-1],t=norm(sub(hd,scl(d,dot(hd,d))));
+  return {d,t,r:cross(t,d)};}
+// tube S and detector centre C, expressed in the anatomy's frame (so the table offset is subtracted)
+function geom(){const {d,t,r}=dirs(state.lao,state.cra);
+  return {d,t,r,S:sub(scl(d,-SOD),state.tbl),C:sub(scl(d,SID-SOD),state.tbl),h:state.fov/2};}
+// cone-beam projection of a patient point to screen coords in [-1,1] (x right, y up)
+function project(g,p){const v=sub(p,g.S),k=SID/dot(v,g.d);const q=sub([g.S[0]+v[0]*k,g.S[1]+v[1]*k,g.S[2]+v[2]*k],g.C);
+  return [dot(q,g.r)/g.h,dot(q,g.t)/g.h];}
+
+/* ---------- WebGL2 ---------- */
+const cv=$('gl');
+const gl=cv.getContext('webgl2',{antialias:false,depth:false,preserveDrawingBuffer:true});
+
+const VS=`#version 300 es
+out vec2 uv;
+void main(){vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));uv=p;gl_Position=vec4(p*2.0-1.0,0.0,1.0);}`;
+
+// Shared ray setup: each pixel's ray runs from the tube S to its point on the detector.
+const RAY=`#version 300 es
+precision highp float;precision highp sampler3D;
+in vec2 uv;out vec4 o;
+uniform vec3 uS,uC,uR,uT;uniform float uH;
+uniform sampler3D uVol;uniform vec3 uOrg,uSp,uDim,uLo,uHi;uniform float uStep;
+vec3 rayDir(){vec3 P=uC+uR*((uv.x*2.0-1.0)*uH)+uT*((uv.y*2.0-1.0)*uH);
+  vec3 rd=normalize(P-uS);return mix(rd,vec3(1e-6),vec3(lessThan(abs(rd),vec3(1e-6))));}
+vec2 hitBox(vec3 ro,vec3 rd,vec3 lo,vec3 hi){vec3 inv=1.0/rd,a=(lo-ro)*inv,b=(hi-ro)*inv,mn=min(a,b),mx=max(a,b);
+  return vec2(max(max(mn.x,mn.y),mn.z),min(min(mx.x,mx.y),mx.z));}
+vec3 tc(vec3 p){return ((p-uOrg)/uSp+0.5)/uDim;}
+`;
+
+// Pass A: CT line integral (cm × 1/cm). Past the CT faces the edge voxels are extended outward
+// (clamped sampling) and fade into flat soft tissue inside an elliptical body outline, so the
+// volume's edges don't show as seams.
+const FS_CT=RAY+`
+uniform float uMuBg,uFin,uFout;uniform vec4 uBody;
+float sdBox(vec3 p){vec3 q=abs(p-0.5*(uLo+uHi))-0.5*(uHi-uLo);return length(max(q,0.0))+min(max(q.x,max(q.y,q.z)),0.0);}
+vec2 hitBody(vec3 ro,vec3 rd){vec2 q=(ro.xy-uBody.xy)/uBody.zw,k=rd.xy/uBody.zw;
+  float A=dot(k,k),B=dot(q,k),C=dot(q,q)-1.0,D=B*B-A*C;
+  if(D<=0.0||A<1e-8)return vec2(0.0);float s=sqrt(D);return vec2(-B-s,-B+s)/A;}
+float inBody(vec3 p){vec2 q=(p.xy-uBody.xy)/uBody.zw;return 1.0-smoothstep(0.94,1.06,dot(q,q));}
+void main(){
+  vec3 rd=rayDir();vec2 tb=hitBox(uS,rd,uLo-uFout,uHi+uFout),te=hitBody(uS,rd);
+  bool hit=tb.x<tb.y;
+  float ov=hit?max(0.0,min(te.y,tb.y)-max(te.x,tb.x)):0.0;
+  float L=uMuBg*(te.y-te.x-ov);
+  if(hit){
+    float n=ceil((tb.y-tb.x)/uStep),ds=(tb.y-tb.x)/n;
+    for(int i=0;i<4096;i++){if(float(i)>=n)break;
+      vec3 p=uS+rd*(tb.x+(float(i)+0.5)*ds);
+      float w=1.0-smoothstep(-uFin,uFout,sdBox(p)),mu=0.0;
+      if(w>0.0)mu=${MU_W.toFixed(3)}*max(0.0,2.55*texture(uVol,tc(p)).r-0.024);   // HU = 2550 v - 1024
+      L+=(w*mu+(1.0-w)*uMuBg*inBody(p))*ds;}
+  }
+  o=vec4(L,0.0,0.0,1.0);
+}`;
+
+// Pass B: iodine path (cm of full-occupancy lumen) for one side, filled up to uFill mm from the ostium.
+const FS_IOD=RAY+`
+uniform float uSide,uFill;
+void main(){
+  vec3 rd=rayDir();vec2 tb=hitBox(uS,rd,uLo,uHi);float L=0.0;
+  if(tb.x<tb.y){
+    float n=ceil((tb.y-tb.x)/uStep),ds=(tb.y-tb.x)/n;
+    for(int i=0;i<2048;i++){if(float(i)>=n)break;
+      vec4 c=texture(uVol,tc(uS+rd*(tb.x+(float(i)+0.5)*ds)));
+      float occ=mix(c.r,c.g,uSide);
+      if(occ>0.0)L+=occ*(1.0-smoothstep(uFill-6.0,uFill,c.b*255.0))*ds;}
+  }
+  o=vec4(L,0.0,0.0,1.0);
+}`;
+
+// Pass C: combine, unsharp mask, quantum noise, log/gamma display, vignette.
+const FS_OUT=`#version 300 es
+precision highp float;
+in vec2 uv;out vec4 o;
+uniform sampler2D uA,uB;uniform float uK,uLo,uHi,uGam,uSharp,uNoise,uFrame;uniform vec2 uTex;
+// iodine gets a slight blur (focal spot, motion) so the voxelised lumen doesn't stair-step
+float iod(vec2 q){vec2 e=uTex*1.3;return 0.36*texture(uB,q).r+0.16*(texture(uB,q+vec2(e.x,e.y)).r+texture(uB,q+vec2(-e.x,e.y)).r+texture(uB,q+vec2(e.x,-e.y)).r+texture(uB,q-e).r);}
+float tot(vec2 q){return texture(uA,q).r+uK*iod(q);}
+float hash(vec3 p){p=fract(p*vec3(.1031,.1030,.0973));p+=dot(p,p.yxz+33.33);return fract((p.x+p.y)*p.z);}
+float vnoise(vec2 g,float f){vec2 i=floor(g),u=fract(g);u=u*u*(3.0-2.0*u);
+  float a=hash(vec3(i,f)),b=hash(vec3(i+vec2(1,0),f)),c=hash(vec3(i+vec2(0,1),f)),d=hash(vec3(i+vec2(1,1),f));
+  return mix(mix(a,b,u.x),mix(c,d,u.x),u.y)-0.5;}
+void main(){
+  float L=tot(uv),bl=0.0;
+  for(int i=0;i<8;i++){float a=float(i)*0.7853982+0.3927;vec2 dir=vec2(cos(a),sin(a))*uTex;
+    bl+=0.55*tot(uv+dir*1.6)+0.45*tot(uv+dir*3.6);}
+  bl/=8.0;
+  float Ls=L+uSharp*(L-bl);
+  // Poisson noise in the log domain grows as fewer photons get through (σ ∝ 1/√I)
+  vec2 g=uv/uTex*0.9;
+  float n=(vnoise(g,uFrame)+vnoise(g+17.3,uFrame+0.5))*1.7;
+  Ls+=uNoise*exp(0.5*clamp(L-uLo,-1.0,4.0))*n;
+  float x=(Ls-uLo)/max(uHi-uLo,0.3);
+  // log window, exponential toward black, with a soft shoulder above the bright end (C1 at x = 0)
+  float y=x>=0.0?0.02+0.78*exp(-uGam*x):0.8+0.17*(1.0-exp(0.78*uGam/0.17*x));
+  float r=length(uv-0.5)*2.0;
+  y*=mix(1.0,0.62,smoothstep(0.45,1.45,r));
+  o=vec4(vec3(clamp(y,0.0,1.0)),1.0);
+}`;
+
+function program(fs){
+  const mk=(type,src)=>{const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);
+    if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error('Shader: '+gl.getShaderInfoLog(s));return s;};
+  const p=gl.createProgram();gl.attachShader(p,mk(gl.VERTEX_SHADER,VS));gl.attachShader(p,mk(gl.FRAGMENT_SHADER,fs));gl.linkProgram(p);
+  if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw new Error('Link: '+gl.getProgramInfoLog(p));
+  const loc={};
+  return {p,u(name){if(!(name in loc))loc[name]=gl.getUniformLocation(p,name);return loc[name];}};
+}
+function target(n,internal,type,filter){
+  const t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);
+  gl.texImage2D(gl.TEXTURE_2D,0,internal,n,n,0,gl.RED,type,null);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,filter);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,filter);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  const f=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,f);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,t,0);
+  if(gl.checkFramebufferStatus(gl.FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE)throw new Error('This browser cannot render to float textures.');
+  return {t,f,n};
+}
+function tex3D(data,dims,internal,format){
+  const t=gl.createTexture();gl.bindTexture(gl.TEXTURE_3D,t);gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
+  gl.texImage3D(gl.TEXTURE_3D,0,internal,dims[0],dims[1],dims[2],0,format,gl.UNSIGNED_BYTE,data);
+  for(const [k,v] of [[gl.TEXTURE_MIN_FILTER,gl.LINEAR],[gl.TEXTURE_MAG_FILTER,gl.LINEAR],[gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE],[gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE],[gl.TEXTURE_WRAP_R,gl.CLAMP_TO_EDGE]])gl.texParameteri(gl.TEXTURE_3D,k,v);
+  return t;
+}
+
+/* ---------- Data loading ---------- */
+async function fetchBytes(url){
+  const r=await fetch(url);if(!r.ok)throw new Error(`${url}: HTTP ${r.status}`);
+  let b=new Uint8Array(await r.arrayBuffer());
+  // some servers already decode .gz (Content-Encoding); only gunzip if the magic bytes are still there
+  if(b[0]===0x1f&&b[1]===0x8b)b=new Uint8Array(await new Response(new Blob([b]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());
+  return b;
+}
+const prod=a=>a[0]*a[1]*a[2];
+// bounds (voxel edges), centre-of-voxel-0 origin, spacing and dims for one grid
+function grid(m){const o=m.origin_cm,s=m.spacing_cm,n=m.dims;
+  return {org:o,sp:s,dim:n,lo:o.map((v,i)=>v-s[i]/2),hi:o.map((v,i)=>v+s[i]*(n[i]-0.5))};}
+
+// Mean μ of body voxels in the outer 1.5 cm of the CT: the flat tissue the volume fades into.
+function shellMu(ct,g){const [nx,ny,nz]=g.dim,k=g.sp.map(s=>Math.round(1.5/s));let sum=0,cnt=0;
+  for(let z=0;z<nz;z++)for(let y=0;y<ny;y++){const edgeYZ=z<k[2]||z>=nz-k[2]||y<k[1]||y>=ny-k[1];const row=(z*ny+y)*nx;
+    for(let x=0;x<nx;x++){if(!edgeYZ&&x>=k[0]&&x<nx-k[0])continue;const v=ct[row+x];if(v*10-1024>-950){sum+=Math.max(0,2.55*v/255-0.024);cnt++;}}}
+  return MU_W*sum/Math.max(1,cnt);}
+
+// Coronary RGB → RGBA: R = left-tree occupancy, G = right-tree occupancy, B = ostium distance (mm).
+// Labels can't be interpolated, so the side split happens here. B is dilated by one voxel so
+// trilinear sampling at the lumen edge doesn't drag the distance toward 0.
+function splitCoronary(c,dims,right){const [nx,ny,nz]=dims,n=prod(dims),out=new Uint8Array(n*4);
+  for(let i=0;i<n;i++){const occ=c[3*i],seg=c[3*i+1];
+    if(occ&&seg)out[4*i+(right.includes(seg)?1:0)]=occ;out[4*i+2]=c[3*i+2];}
+  const sx=1,sy=nx,sz=nx*ny;
+  for(let z=1;z<nz-1;z++)for(let y=1;y<ny-1;y++)for(let x=1;x<nx-1;x++){const i=(z*ny+y)*nx+x;if(c[3*i])continue;
+    let m=0;for(const o of [sx,-sx,sy,-sy,sz,-sz]){const j=i+o;if(c[3*j]&&c[3*j+2]>m)m=c[3*j+2];}if(m)out[4*i+2]=m;}
+  return out;}
+
+/* ---------- Renderer ---------- */
+let R=null;   // GL resources once loaded
+const stats={drrMs:0,iodMs:0,frameMs:0};
+let win={lo:2,hi:5,tlo:2,thi:5,ready:false};
+
+function setRayUniforms(pr,g,grd){
+  gl.uniform3fv(pr.u('uS'),g.S);gl.uniform3fv(pr.u('uC'),g.C);gl.uniform3fv(pr.u('uR'),g.r);gl.uniform3fv(pr.u('uT'),g.t);gl.uniform1f(pr.u('uH'),g.h);
+  gl.uniform3fv(pr.u('uOrg'),grd.org);gl.uniform3fv(pr.u('uSp'),grd.sp);gl.uniform3fv(pr.u('uDim'),grd.dim);
+  gl.uniform3fv(pr.u('uLo'),grd.lo);gl.uniform3fv(pr.u('uHi'),grd.hi);gl.uniform1f(pr.u('uStep'),STEP_VOX*Math.min(...grd.sp));
+  gl.uniform1i(pr.u('uVol'),0);
+}
+function drawTo(t){gl.bindFramebuffer(gl.FRAMEBUFFER,t.f);gl.viewport(0,0,t.n,t.n);gl.drawArrays(gl.TRIANGLES,0,3);}
+const px=new Float32Array(4);
+
+function renderCT(g){
+  const pr=R.pCT;gl.useProgram(pr.p);setRayUniforms(pr,g,R.gCT);
+  gl.uniform1f(pr.u('uMuBg'),R.muBg);gl.uniform1f(pr.u('uFin'),TUNE.fadeIn);gl.uniform1f(pr.u('uFout'),TUNE.fadeOut);gl.uniform4fv(pr.u('uBody'),TUNE.body);
+  gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_3D,R.ct);
+  const t0=performance.now();drawTo(R.tA);gl.readPixels(0,0,1,1,gl.RGBA,gl.FLOAT,px);stats.drrMs=performance.now()-t0;
+  // automatic brightness: window from percentiles of the central image, like a fluoro system's ABC
+  drawTo(R.tS);gl.readPixels(0,0,NA,NA,gl.RGBA,gl.FLOAT,R.small);
+  const v=[];for(let y=0;y<NA;y++)for(let x=0;x<NA;x++){const dx=(x+0.5)/NA-0.5,dy=(y+0.5)/NA-0.5;if(dx*dx+dy*dy<0.16)v.push(R.small[4*(y*NA+x)]);}
+  v.sort((a,b)=>a-b);const q=f=>v[Math.min(v.length-1,Math.floor(f*v.length))];
+  win.tlo=q(TUNE.win[0]);win.thi=Math.max(q(TUNE.win[1]),win.tlo+0.8);
+  if(!win.ready||reduce){win.lo=win.tlo;win.hi=win.thi;win.ready=true;}
+}
+function renderIodine(g,fill){
+  const pr=R.pIod;gl.useProgram(pr.p);setRayUniforms(pr,g,R.gCor);
+  gl.uniform1f(pr.u('uSide'),state.inj==='R'?1:0);gl.uniform1f(pr.u('uFill'),fill);
+  gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_3D,R.cor);
+  const t0=performance.now();drawTo(R.tB);gl.readPixels(0,0,1,1,gl.RGBA,gl.FLOAT,px);stats.iodMs=performance.now()-t0;
+}
+function renderOut(frame,wash){
+  const pr=R.pOut;gl.useProgram(pr.p);gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,cv.width,cv.height);
+  gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,R.tA.t);gl.uniform1i(pr.u('uA'),0);
+  gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,R.tB.t);gl.uniform1i(pr.u('uB'),1);
+  gl.uniform1f(pr.u('uK'),MU_W*state.iod/1000*wash);
+  gl.uniform1f(pr.u('uLo'),win.lo);gl.uniform1f(pr.u('uHi'),win.hi);
+  gl.uniform1f(pr.u('uGam'),TUNE.gamma);gl.uniform1f(pr.u('uSharp'),TUNE.sharp);gl.uniform1f(pr.u('uNoise'),TUNE.noise);gl.uniform1f(pr.u('uFrame'),frame);
+  gl.uniform2f(pr.u('uTex'),1/N,1/N);
+  gl.drawArrays(gl.TRIANGLES,0,3);
+}
+
+/* ---------- Vessel labels and centrelines (vessels.json) ---------- */
+const ov=$('ov'),ctx=ov.getContext('2d'),labelsEl=$('labels');
+let VESSELS=[],LABELS=[];
+function buildLabels(){
+  VESSELS.forEach(v=>{const el=document.createElement('span');el.className='lbl'+(v.sys==='R'?' r':'');el.textContent=v.lab;el.hidden=true;labelsEl.appendChild(el);
+    LABELS.push({el,v,p:v.pts[Math.floor(v.pts.length*(v.pts.length<20?0.5:0.45))]});});
+}
+function drawOverlay(g){
+  const W=ov.width,H=ov.height,cw=ov.clientWidth,ch=ov.clientHeight;ctx.clearRect(0,0,W,H);
+  const toPx=(p,w,h)=>{const s=project(g,p);return [(s[0]+1)/2*w,(1-s[1])/2*h];};
+  if(state.lines){const css=getComputedStyle(document.documentElement);
+    ctx.lineWidth=1.5*W/cw;ctx.lineJoin='round';ctx.globalAlpha=0.85;
+    VESSELS.forEach(v=>{if(v.sys!==state.inj)return;ctx.strokeStyle=css.getPropertyValue(v.sys==='R'?'--cool':'--accent');ctx.beginPath();
+      v.pts.forEach((p,i)=>{const [x,y]=toPx(p,W,H);i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.stroke();});
+    ctx.globalAlpha=1;}
+  LABELS.forEach(l=>{if(!state.labels||l.v.sys!==state.inj){l.el.hidden=true;return;}
+    const [x,y]=toPx(l.p,cw,ch);
+    if(x<14||x>cw-14||y<14||y>ch-14){l.el.hidden=true;return;}
+    l.el.hidden=false;l.el.style.left=x+'px';l.el.style.top=y+'px';});
+}
+
+/* ---------- Presets (from index.html) ---------- */
+const PRESETS=[
+ {name:'RAO caudal',lao:-30,cra:-25,inj:'L',best:'LM, proximal LAD and LCx, OM branches'},
+ {name:'AP caudal',lao:0,cra:-30,inj:'L',best:'LM body and bifurcation, proximal LCx'},
+ {name:'LAO caudal (spider)',lao:45,cra:-30,inj:'L',best:'LM bifurcation and the LAD and LCx ostia'},
+ {name:'RAO cranial',lao:-30,cra:30,inj:'L',best:'Mid and distal LAD, diagonal origins'},
+ {name:'AP cranial',lao:0,cra:35,inj:'L',best:'Mid LAD, diagonals pulled away from the LAD'},
+ {name:'LAO cranial',lao:40,cra:30,inj:'L',best:'LAD with diagonals and septals separated'},
+ {name:'Left lateral',lao:90,cra:0,inj:'L',best:'Mid LAD and LCx, LIMA graft course'},
+ {name:'LAO',lao:40,cra:0,inj:'R',best:'RCA as a "C": ostium, proximal and mid RCA'},
+ {name:'RAO',lao:-30,cra:0,inj:'R',best:'RCA as an "L": mid RCA and PDA length'},
+ {name:'LAO cranial',lao:30,cra:25,inj:'R',best:'Crux: distal RCA splitting into PDA and PLV'},
+];
+const angTxt=(lao,cra)=>{const a=Math.round(lao),c=Math.round(cra);
+  return (a===0?'AP 0°':(a>0?'LAO ':'RAO ')+Math.abs(a)+'°')+'  '+(c===0?'0°':(c>0?'CRA ':'CAU ')+Math.abs(c)+'°');};
+const presetBtns=[];
+PRESETS.forEach(p=>{const b=document.createElement('button');b.type='button';b.className='pre';b.setAttribute('aria-pressed','false');
+  b.innerHTML=`<span class="pn">${p.name}</span><span class="pa">${angTxt(p.lao,p.cra)}</span><span class="pb">${p.best}</span>`;
+  b.addEventListener('click',()=>goTo(p));$(p.inj==='L'?'presetsL':'presetsR').appendChild(b);presetBtns.push({b,p});});
+
+let tween=null;
+function goTo(p){setInj(p.inj);if(reduce){state.lao=p.lao;state.cra=p.cra;syncUI();return;}
+  tween={t0:performance.now(),dur:850,from:{lao:state.lao,cra:state.cra},to:{lao:p.lao,cra:p.cra}};}
+
+/* ---------- UI wiring ---------- */
+const sliders={lao:$('sLao'),cra:$('sCra'),iod:$('sIod')};
+Object.entries(sliders).forEach(([k,el])=>el.addEventListener('input',()=>{state[k]=parseFloat(el.value);if(k!=='iod')tween=null;syncUI(true);}));
+let dirty=true;
+function syncUI(fromSlider){
+  dirty=true;
+  if(!fromSlider){for(const k in sliders)sliders[k].value=state[k];}
+  $('oLao').textContent=Math.round(state.lao)===0?'AP':(state.lao>0?'LAO ':'RAO ')+Math.abs(Math.round(state.lao))+'°';
+  $('oCra').textContent=Math.round(state.cra)===0?'0°':(state.cra>0?'Cranial ':'Caudal ')+Math.abs(Math.round(state.cra))+'°';
+  $('oIod').textContent=state.iod===0?'off':`+${(state.iod/1000).toFixed(1)}k HU`;
+  document.querySelectorAll('#fovSeg button').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.fov===state.fov)));
+  document.querySelectorAll('#injSeg button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.inj===state.inj)));
+  const a=angTxt(state.lao,state.cra);
+  $('roAng').innerHTML=`<b>${a.replace('  ','<br>')}</b>`;
+  $('roFov').innerHTML=`FOV ${state.fov} cm<br>SID ${SID} cm`;
+  $('roInj').textContent=state.inj==='L'?'LCA injection':'RCA injection';
+  const tb=state.tbl.map(v=>(v>=0?'+':'')+v.toFixed(1));
+  $('roSrc').innerHTML=`TBL ${tb[0]} / ${tb[2]} / ${tb[1]}<br>DRR · CT 814`;
+  $('nowAng').textContent=a;
+  let hit=null;presetBtns.forEach(({b,p})=>{const on=p.inj===state.inj&&Math.abs(p.lao-state.lao)<=5&&Math.abs(p.cra-state.cra)<=5;b.setAttribute('aria-pressed',String(on));if(on)hit=p;});
+  $('nowName').textContent=hit?hit.name:'Custom view';
+  $('nowBest').innerHTML=hit?`<strong>Best for:</strong> ${hit.best}`:'Not a standard view. Pick a preset below, or keep adjusting and watch which segments separate or overlap.';
+}
+function setInj(s){state.inj=s;syncUI();}
+document.querySelectorAll('#injSeg button').forEach(b=>b.addEventListener('click',()=>setInj(b.dataset.inj)));
+document.querySelectorAll('#fovSeg button').forEach(b=>b.addEventListener('click',()=>{state.fov=+b.dataset.fov;syncUI();}));
+function toggle(id,key){const b=$(id);b.addEventListener('click',()=>{state[key]=!state[key];b.setAttribute('aria-pressed',String(state[key]));dirty=true;});}
+toggle('tLabels','labels');toggle('tLines','lines');
+
+// cine injection: contrast fills outward from the ostium (mm), holds, washes out, then returns to the resting full view
+let cine=null;
+$('cine').addEventListener('click',()=>{cine={t0:performance.now()};});
+function cineState(now){
+  if(!cine)return {fill:999,wash:1};
+  const e=(now-cine.t0)/1000;
+  if(e<1.8)return {fill:4+200*(1-Math.pow(1-e/1.8,2)),wash:1};
+  if(e<3.6)return {fill:999,wash:1};
+  if(e<4.8)return {fill:999,wash:1-(e-3.6)/1.2};
+  if(e<5.3)return {fill:999,wash:0};
+  if(e<5.7)return {fill:999,wash:(e-5.3)/0.4};
+  cine=null;return {fill:999,wash:1};
+}
+
+// drag the image to pan the table (the anatomy follows the pointer), as in index.html
+const mon=$('monitor');let drag=null;
+mon.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};mon.setPointerCapture(e.pointerId);mon.classList.add('drag');});
+mon.addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag={x:e.clientX,y:e.clientY};
+  const {t,r}=dirs(state.lao,state.cra),cpp=state.fov/(SID/SOD)/mon.clientWidth;
+  const lim=[12,10,15];state.tbl=state.tbl.map((v,i)=>Math.max(-lim[i],Math.min(lim[i],v+r[i]*dx*cpp-t[i]*dy*cpp)));
+  syncUI();});
+const endDrag=()=>{drag=null;mon.classList.remove('drag');};
+mon.addEventListener('pointerup',endDrag);mon.addEventListener('pointercancel',endDrag);
+$('tblReset').addEventListener('click',()=>{state.tbl=[0,0,0];syncUI();});
+
+/* ---------- Sizing ---------- */
+function size(){const dpr=Math.min(window.devicePixelRatio||1,2),w=Math.max(1,Math.min(1600,Math.round(mon.clientWidth*dpr)));
+  cv.width=cv.height=ov.width=ov.height=w;dirty=true;}
+new ResizeObserver(size).observe(mon);size();
+
+/* ---------- Loop ---------- */
+let lastGeomKey='',lastIodKey='',lastNow=0;
+function step(now){
+  if(tween){const k=Math.min(1,(now-tween.t0)/tween.dur),e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
+    state.lao=tween.from.lao+(tween.to.lao-tween.from.lao)*e;state.cra=tween.from.cra+(tween.to.cra-tween.from.cra)*e;
+    if(k>=1){state.lao=tween.to.lao;state.cra=tween.to.cra;tween=null;}syncUI();}
+  const g=geom(),cs=cineState(now);
+  const gk=`${state.lao}|${state.cra}|${state.fov}|${state.tbl}`,ik=`${gk}|${state.inj}|${cs.fill.toFixed(1)}`;
+  if(gk!==lastGeomKey){renderCT(g);lastGeomKey=gk;}
+  if(ik!==lastIodKey){renderIodine(g,cs.fill);lastIodKey=ik;}
+  win.lo+=(win.tlo-win.lo)*0.3;win.hi+=(win.thi-win.hi)*0.3;   // ABC settles over a few frames
+  renderOut(reduce?0:Math.floor(now/1000*15),cs.wash);           // noise refreshes at 15 pulses/s
+  if(dirty){drawOverlay(g);dirty=false;}
+}
+function loop(now){step(now);if(lastNow)stats.frameMs+=((now-lastNow)-stats.frameMs)*0.1;lastNow=now;requestAnimationFrame(loop);}
+let perfT=0;
+setInterval(()=>{if(!R)return;$('perf').textContent=`DRR pass ${stats.drrMs.toFixed(1)} ms · iodine pass ${stats.iodMs.toFixed(1)} ms · ${N}² rays · ${stats.frameMs?Math.round(1000/stats.frameMs):'–'} fps`;},500);
+
+/* ---------- Start ---------- */
+function fail(msg){const s=$('status');s.hidden=false;s.classList.add('err');s.innerHTML=msg;}
+async function start(){
+  syncUI();
+  if(!gl){fail('This browser has no WebGL2, which the DRR renderer needs.');return;}
+  if(!gl.getExtension('EXT_color_buffer_float')){fail('This browser cannot render to float textures (EXT_color_buffer_float), which the DRR renderer needs.');return;}
+  if(typeof DecompressionStream==='undefined'){fail('This browser has no DecompressionStream, which is needed to unpack the CT.');return;}
+  let meta,vessels,ct,cor;
+  try{
+    meta=await (await fetch(DATA+'meta.json')).json();
+    [vessels,ct,cor]=await Promise.all([fetch(DATA+meta.vessels).then(r=>r.json()),fetchBytes(DATA+meta.ct.file),fetchBytes(DATA+meta.coronary.file)]);
+  }catch(e){
+    console.error(e);
+    fail(location.protocol==='file:'
+      ?'The CT can’t be loaded from a file:// page. Serve the project folder instead, e.g. <code>python3 -m http.server</code>, then open <code>http://localhost:8000/drr.html</code>.'
+      :'Couldn’t load the CT data from <code>'+DATA+'</code>: '+String(e.message||e));
+    return;}
+  if(ct.length!==prod(meta.ct.dims)||cor.length!==3*prod(meta.coronary.dims)){fail('CT data has an unexpected size.');return;}
+  try{
+    const linear=!!gl.getExtension('OES_texture_float_linear');
+    const gCT=grid(meta.ct),gCor=grid(meta.coronary);
+    R={gCT,gCor,
+      pCT:program(FS_CT),pIod:program(FS_IOD),pOut:program(FS_OUT),
+      ct:tex3D(ct,gCT.dim,gl.R8,gl.RED),
+      cor:tex3D(splitCoronary(cor,gCor.dim,meta.coronary.right_segments),gCor.dim,gl.RGBA8,gl.RGBA),
+      tA:target(N,linear?gl.R32F:gl.R16F,linear?gl.FLOAT:gl.HALF_FLOAT,gl.LINEAR),
+      tB:target(N,linear?gl.R32F:gl.R16F,linear?gl.FLOAT:gl.HALF_FLOAT,gl.LINEAR),
+      tS:target(NA,gl.R32F,gl.FLOAT,gl.NEAREST),
+      small:new Float32Array(NA*NA*4),muBg:shellMu(ct,gCT)};
+    gl.bindVertexArray(gl.createVertexArray());
+  }catch(e){console.error(e);fail(String(e.message||e));return;}
+  VESSELS=vessels;buildLabels();
+  if(meta.attribution)$('attr').textContent='Data: '+meta.attribution.join(' · ')+'. Non-commercial use only.';
+  $('status').hidden=true;
+  // for automated checks
+  window.drr={state,stats,win,R,tune:TUNE,set(o){Object.assign(state,o);tween=null;lastGeomKey=lastIodKey='';syncUI();},
+    // render one frame now and time the display pass (rAF stops in background tabs)
+    frame(){const t0=performance.now();step(t0);gl.readPixels(0,0,1,1,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array(4));return performance.now()-t0;}};
+  requestAnimationFrame(loop);
+}
+start();
+})();
+</script>
+</body>
+</html>
