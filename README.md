@@ -4,13 +4,13 @@ An interactive browser tool for learning coronary angiography projections. You m
 
 **Live page:** published as a private Claude artifact ("Coronary View Simulator"). Source: `index.html` (single self-contained file, Three.js r128).
 
-**DRR prototype:** `drr.html` renders simulated fluoro from a real CT scan (see [below](#drr-prototype-drrhtml)). It needs a local server:
+**Run it from a local server** so the fluoro image can be computed from a real CT scan (see [below](#drr-fluoro-from-ct-scan-814)):
 
 ```bash
 python3 -m http.server
 ```
 
-Then open http://localhost:8000/drr.html. It won't load from `file://`.
+Then open http://localhost:8000/. Opened from `file://` (or anywhere the CT can't load), the page falls back to the original model-heart image and says why under the monitor. `drr.html` is the standalone DRR prototype, with an extra iodine-strength slider and centreline toggle.
 
 ---
 
@@ -18,9 +18,9 @@ Then open http://localhost:8000/drr.html. It won't load from `file://`.
 
 ### Fluoro monitor
 - Simulated fluoroscopy image rendered from the X-ray tube's position, displayed as seen from the detector (head up; patient's left on screen right in AP).
-- Contrast-filled vessels darken in proportion to their thickness, so overlapping vessels look darker, as in a real angiogram.
-- Faint background structures: cardiac silhouette, spine, ribs, diaphragm domes, and the guide catheter (JL4 for left, JR4 for right) running up the aorta into the ostium.
-- Animated quantum-noise grain and vignette.
+- **Default: DRR from a real CT.** X-rays are traced through ImageCAS scan 814 at the current angle, with iodine only in the injected tree (see [DRR fluoro](#drr-fluoro-from-ct-scan-814)). Vessel labels come from the scan's own centrelines. The data attribution is shown under the monitor.
+- **Fallback: model heart** (no WebGL2 or float render targets, `file://`, or the data can't load). Contrast-filled vessels darken in proportion to their thickness; faint cardiac silhouette, spine, ribs, diaphragm domes and the guide catheter (JL4 for left, JR4 for right).
+- Animated quantum-noise grain and vignette (drawn by the DRR's display pass, or as CSS layers over the model image).
 - Monitor-style readouts in the corners: angulation (e.g. `RAO 30° CAU 25°`), field of view, source-to-image distance, injection side, and table position.
 - **Drag the image to pan the table**; the anatomy follows the pointer.
 
@@ -35,14 +35,15 @@ Then open http://localhost:8000/drr.html. It won't load from `file://`.
 - "Centre table" reset.
 
 ### Room view
-- 3D view of the C-arm, tube, detector, X-ray beam cone, table and a translucent patient with the heart and coronary tree visible inside.
+- 3D view of the C-arm, tube, detector, X-ray beam cone, table and a translucent patient with the heart and coronary tree visible inside. In DRR mode the tree is the CT's real tree (from `vessels.json`); the chambers are still the model's ellipsoids.
 - Left coronary in amber, right coronary in cyan.
 - Drag to orbit, scroll to zoom.
 
 ### Injection and display
 - Switch between left and right coronary injection.
 - **Cine injection**: contrast fills from the ostium, holds, then washes out.
-- Toggles: anatomy overlay (LV, RV, LA, RA, aorta, pulmonary artery), vessel labels, spine and ribs.
+- Toggles: anatomy overlay (LV, RV, LA, RA, aorta, pulmonary artery), vessel labels, and spine and ribs (model image only; hidden in DRR mode, where the CT has its own bones).
+- The anatomy overlay is still drawn on the model heart, so in DRR mode it only roughly lines up with the CT. The UI says so.
 
 ### Standard views (one-click presets)
 Each preset animates the C-arm to the angle and shows what the view is best for.
@@ -118,17 +119,18 @@ Decision: "realistic fluoro" means synthetic DRR images from CT, so the C-arm st
 
 ---
 
-## DRR prototype (`drr.html`)
+## DRR fluoro from CT scan 814
 
-A standalone WebGL2 page, kept separate from `index.html` until it's integrated. It renders a digitally reconstructed radiograph (DRR) of ImageCAS scan 814 at any C-arm angle, using the same geometry and conventions as `index.html`.
+`index.html` renders a digitally reconstructed radiograph (DRR) of ImageCAS scan 814 at any C-arm angle, in its own WebGL2 canvas under the Three.js canvas. In DRR mode the Three.js canvas is cleared to transparent and only draws the anatomy overlay. `drr.html` is the standalone prototype with the same engine (shaders and `TUNE` are duplicated; keep them in step).
 
 - **Three passes.**
   1. Cone-beam ray march through the de-contrasted CT, at half-voxel steps: μ = 0.2/cm × (1 + HU/1000).
   2. Ray march through the coronary volume, adding iodine for the injected side only, weighted by lumen occupancy. Its cine fill is driven by distance from the ostium.
   3. Display: I = e^(−∫μ) on a log window with automatic brightness from the central image, then edge enhancement, quantum noise (σ ∝ 1/√I) at 15 pulses/s, and a vignette.
-- **Controls:** LAO/RAO and cranial/caudal sliders, the same presets as `index.html`, left/right injection, field of view (25/20/15 cm), and iodine strength (default +25 000 HU at full lumen). Also a cine run, vessel labels and centrelines from `vessels.json`, and drag-to-pan of the table.
+- **Controls in `index.html`:** all the existing ones. The table sliders and drag-to-pan move the anatomy (the offset is subtracted from tube and detector), and cine fills by distance from the ostium in mm. Iodine is fixed at +25 000 HU at full lumen. `drr.html` adds an iodine-strength slider and a centreline toggle.
+- **Labels:** from `vessels.json` centrelines, at 45% along each vessel. If that point is off-screen, the nearest on-screen point along the centreline is used instead.
 - **Speed (Apple M5, Chrome):** about 6 ms for the 512² DRR pass, about 1 ms for the iodine pass, and about 3 ms per display frame at 1520². The CT pass only reruns when the geometry changes.
-- **Checked views:** AP, RAO 30 CAU 25, LAO 45 CAU 30 (spider), LAO 40 right (RCA "C") and RAO 30 right (RCA "L"). In AP the RCA is on screen left and the LAD runs to the apex at lower right.
+- **Checked views:** AP, RAO 30 CAU 25, LAO 45 CAU 30 (spider), LAO 40 right (RCA "C") and RAO 30 right (RCA "L"). In AP the RCA is on screen left and the LAD runs to the apex at lower right. In `index.html`, all ten presets, cine, table pan, FOV and the overlay were checked, plus the fallback when the data is missing.
 - **Limits:**
   - The CT covers only 23 × 23 × 14 cm. Past its faces the edge voxels are extended and fade over 3 cm into flat soft tissue inside an elliptical body outline, so there's no full rib cage, and no lung edge outside the scan.
   - The right hemidiaphragm is inside the scan and shows in caudal views.

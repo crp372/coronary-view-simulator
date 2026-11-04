@@ -5,15 +5,18 @@ Project briefing for Claude Code. Read README.md for the full feature list and r
 ## What this is
 A browser-based teaching tool for coronary angiography projections, built by Chiran (4th-year medical student, Humanitas, Italy) as a med-ed portfolio project. Users move a virtual C-arm and table, see a simulated fluoro image, and overlay cardiac anatomy.
 
-## Current state (v1)
+## Current state
 - Single self-contained file: `index.html` (HTML + CSS + JS, no build step).
 - Three.js r128 from cdnjs, OrbitControls from jsDelivr (`three@0.128.0/examples/js/controls/OrbitControls.js`).
 - Fonts: Barlow Condensed (display), Barlow (body), IBM Plex Mono (readouts) from Google Fonts.
-- Run locally: open `index.html` in a browser, or `npx serve .` / `python3 -m http.server`.
-- **DRR prototype:** `drr.html` is a standalone WebGL2 page (no libraries) that ray-marches `data/web/814/` into a simulated fluoro image at any C-arm angle. It reuses `index.html`'s geometry, presets and styling, and doesn't touch `index.html`.
-  - It needs a server (`python3 -m http.server`, then `/drr.html`), because `fetch` fails from `file://`.
-  - Passes: CT line integral (reruns only on geometry change), iodine line integral for the injected side (reruns on cine fill), and display (log window with auto brightness, unsharp mask, noise, vignette).
-  - Image constants are in `TUNE`. `window.drr` exposes `state`, `stats`, `tune`, `set()` and `frame()` for automated checks; `frame()` renders without rAF, for hidden tabs.
+- Run locally with a server: `python3 -m http.server`, then `/`. From `file://` it still works, but with the model-heart fluoro.
+- **Fluoro is a DRR** (WebGL2, no libraries) that ray-marches `data/web/814/` at any C-arm angle, on its own `#drr` canvas under the Three.js `#fluoro` canvas.
+  - `mode` is `'loading'` (model shown meanwhile), `'drr'` or `'model'` (fallback: no WebGL2 / `EXT_color_buffer_float` / `DecompressionStream`, not http(s), or fetch/shader failure; the reason shows in `#srcNote`). `setMode()` applies it.
+  - In DRR mode, `fr` clears to transparent and draws only the overlay `oScene`; the CSS noise and vignette are hidden (the DRR draws its own); the bones toggle is hidden; vessel labels come from `vessels.json` (`LABELS` kind `'d'`, vs `'v'` for the model); the room shows `roomCTTree` instead of `roomModelTree`.
+  - `densMat` leaves alpha untouched (`blendEquationAlpha`), because the fluoro renderer has `alpha:true`.
+  - Passes: CT line integral (reruns only on geometry change), iodine line integral for the injected side (reruns on cine fill), and display (log window with auto brightness, unsharp mask, noise, vignette). Image constants are in `TUNE`.
+  - `window.sim` exposes `state`, `mode`, `drr` (its `stats`, `win`), `tune`, `set()`, `ready` (promise for DRR start-up) and `frame()`, which renders one frame without rAF (rAF stops when the page is hidden).
+- **`drr.html`** is the standalone DRR prototype (`window.drr` hook). Its shaders, `TUNE` and data helpers are duplicated in `index.html`; change both together.
 
 ## Key conventions (don't break these)
 - **Patient coordinates:** x = patient's left, y = anterior (up, patient supine), z = feet. Right-handed. Isocentre at origin. Units are cm.
@@ -36,8 +39,8 @@ Single dark "cath lab console" theme by choice. Colour tokens on `:root` (`--bg`
 3. **Better room view:** improved geometry/lighting or licensed glTF models.
 4. Quiz mode: random projection, name the angle or a highlighted vessel.
 
-Suggested order: ~~pick a CTCA dataset~~ → DRR (prototype in `drr.html`; next, integrate it into `index.html` with the old renderer as a fallback) + CT-derived overlay → room polish. Data-prep scripts (Python) go in `tools/`. Raw data goes in the git-ignored `data/raw/`, and only small web-ready derived files are committed. Once the project grows, consider splitting `index.html` into modules (e.g. Vite).
+Suggested order: ~~pick a CTCA dataset~~ → ~~DRR in `index.html`~~ (done, model renderer kept as fallback) → CT-derived chamber overlay (the current overlay is still the model's) → room polish. Data-prep scripts (Python) go in `tools/`. Raw data goes in the git-ignored `data/raw/`, and only small web-ready derived files are committed. Once the project grows, consider splitting `index.html` into modules (e.g. Vite).
 
 ## Notes
-- Anatomy is simplified and right-dominant; say so in the UI.
+- The DRR is one real, right-dominant heart; the overlay, room chambers and fallback image are a simplified right-dominant model. Say so in the UI (the "How the views are named" notes and `#srcNote` do).
 - The original was published as a claude.ai artifact; that copy relied on the artifact host adding the html/head/body skeleton. `index.html` here is a complete standalone document.

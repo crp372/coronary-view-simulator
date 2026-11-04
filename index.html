@@ -36,6 +36,8 @@ h2{font-family:var(--f-display);font-weight:600;font-size:13px;letter-spacing:.1
 .monitor canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 #noise{mix-blend-mode:overlay;opacity:.28;pointer-events:none}
 .vig{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 50%,transparent 58%,var(--screen) 104%)}
+/* DRR mode: the CT image draws its own noise and vignette; the model canvas only carries the overlay */
+.monitor:not(.drr) #drr,.monitor.drr #noise,.monitor.drr .vig{display:none}
 .ro{position:absolute;font-family:var(--f-mono);font-size:clamp(11px,1.5vw,13px);color:var(--accent);text-shadow:0 0 3px var(--ink),0 0 1px var(--ink);pointer-events:none;line-height:1.35;font-variant-numeric:tabular-nums}
 .ro.tl{top:10px;left:12px}.ro.tr{top:10px;right:12px;text-align:right}.ro.bl{bottom:10px;left:12px}.ro.br{bottom:10px;right:12px;text-align:right}
 .ro b{font-weight:500;font-size:1.25em}
@@ -56,6 +58,8 @@ h2{font-family:var(--f-display);font-weight:600;font-size:13px;letter-spacing:.1
 .room .hint{position:absolute;left:10px;bottom:8px;font-size:12px;color:var(--muted);pointer-events:none}
 .legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--muted)}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.note{color:var(--muted);font-size:12.5px;margin:0;max-width:68ch}
+.note strong{color:var(--fg);font-weight:500}.note code{color:var(--fg);font-family:var(--f-mono);font-size:12px}
 
 .ctl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:center}
 .ctl label{font-weight:500}
@@ -96,6 +100,7 @@ details strong{color:var(--fg);font-weight:500}
   <div class="grid">
     <div class="col">
       <div class="monitor" id="monitor" aria-label="Simulated fluoroscopy image. Drag to pan the table.">
+        <canvas id="drr"></canvas>
         <canvas id="fluoro"></canvas>
         <canvas id="noise" width="110" height="110"></canvas>
         <div class="vig"></div>
@@ -110,6 +115,7 @@ details strong{color:var(--fg);font-weight:500}
         <span class="nm" id="nowName"></span>
         <span class="bf" id="nowBest"></span>
       </div>
+      <p class="note" id="srcNote"></p>
       <section class="presets">
         <h2>Standard views · left coronary</h2>
         <div class="pgrid" id="presetsL"></div>
@@ -181,6 +187,7 @@ details strong{color:var(--fg);font-weight:500}
           <button type="button" id="tBones" aria-pressed="true">Spine and ribs</button>
         </div>
         <div class="legend" id="ovLegend" hidden></div>
+        <p class="note" id="ovNote" hidden>The chambers and great vessels are drawn on the simplified model heart, so they only roughly line up with this CT.</p>
       </div>
     </div>
   </div>
@@ -193,7 +200,8 @@ details strong{color:var(--fg);font-weight:500}
       <li><strong>RAO separates left from right along the AV groove.</strong> The AV groove (RCA and LCx) is seen edge-on, so the RCA looks like an "L" and the LAD runs along the front of the heart.</li>
       <li><strong>LAO looks down the septum.</strong> The AV groove opens into a ring, so the RCA looks like a "C", and the LAD and LCx split to either side of the septum.</li>
       <li><strong>Cranial views open the LAD and diagonals; caudal views open the LM, LCx and OMs.</strong> LAO caudal, the "spider", looks up the long axis from the apex onto the LM bifurcation.</li>
-      <li>This is a teaching model with simplified, right-dominant anatomy. Real hearts vary in orientation, so the best angles differ between patients.</li>
+      <li><strong>The fluoro image is computed from one real coronary CT</strong> (a right-dominant heart), by tracing X-rays through it at the current angle. Real hearts vary in orientation, so this heart's best angles can differ by a few degrees from the textbook ones.</li>
+      <li>The anatomy overlay, the room view's chambers and the fallback image (used when the CT can't load) come from a simplified, right-dominant model heart.</li>
     </ul>
   </details>
 </div>
@@ -277,7 +285,9 @@ function densMat(dens,useFill){
     vertexShader:'attribute float rad;attribute float sdist;varying vec3 vN;varying vec3 vP;varying float vR;varying float vS;void main(){vec4 mv=modelViewMatrix*vec4(position,1.0);vN=normalMatrix*normal;vP=mv.xyz;vR=rad;vS=sdist;gl_Position=projectionMatrix*mv;}',
     fragmentShader:'uniform float dens;uniform float fill;uniform float wash;uniform float useFill;varying vec3 vN;varying vec3 vP;varying float vR;varying float vS;void main(){float f=abs(dot(normalize(vN),normalize(-vP)));float d=dens*(0.025+vR)*f;if(useFill>0.5){d*=1.0-smoothstep(fill-0.8,fill,vS);d*=wash;}gl_FragColor=vec4(vec3(d),1.0);}',
     transparent:true,depthTest:false,depthWrite:false,side:THREE.DoubleSide,
-    blending:THREE.CustomBlending,blendEquation:THREE.ReverseSubtractEquation,blendSrc:THREE.OneFactor,blendDst:THREE.OneFactor
+    blending:THREE.CustomBlending,blendEquation:THREE.ReverseSubtractEquation,blendSrc:THREE.OneFactor,blendDst:THREE.OneFactor,
+    // leave alpha alone: the canvas has an alpha channel so it can sit transparently over the DRR
+    blendEquationAlpha:THREE.AddEquation,blendSrcAlpha:THREE.ZeroFactor,blendDstAlpha:THREE.OneFactor
   });
 }
 
@@ -293,9 +303,10 @@ VESSELS.forEach(v=>{
 
 /* ---------- Fluoro scene ---------- */
 const fCanvas=document.getElementById('fluoro');
-const fr=new THREE.WebGLRenderer({canvas:fCanvas,antialias:true,preserveDrawingBuffer:true});
+// alpha: in DRR mode this canvas is cleared to transparent and only carries the anatomy overlay
+const fr=new THREE.WebGLRenderer({canvas:fCanvas,antialias:true,alpha:true,preserveDrawingBuffer:true});
 fr.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
-fr.setClearColor(new THREE.Color('#cdcdc7'));
+const fluoroBg=new THREE.Color('#cdcdc7');fr.setClearColor(fluoroBg,1);
 const fScene=new THREE.Scene(), oScene=new THREE.Scene();
 const fcam=new THREE.PerspectiveCamera(10,1,1,300);
 const anat=new THREE.Group(); fScene.add(anat);
@@ -365,7 +376,9 @@ const head=new THREE.Mesh(new THREE.SphereGeometry(9,24,16),skin);head.position.
 [-8,8].forEach(x=>{const l=new THREE.Mesh(new THREE.CylinderGeometry(6.5,5,85,18).rotateX(Math.PI/2),skin);l.position.set(x,-5,83);tableG.add(l);});
 CHAMBERS.forEach(c=>tableG.add(ellMesh(new THREE.MeshBasicMaterial({color:c.col,transparent:true,opacity:0.45,depthWrite:false}),c.c,c.r)));
 const roomVesselMat={L:new THREE.MeshBasicMaterial({color:tok('--accent')}),R:new THREE.MeshBasicMaterial({color:tok('--cool')})};
-Object.values(built).forEach(b=>{const g=b.geo.clone();tableG.add(new THREE.Mesh(g,roomVesselMat[b.v.sys]));});
+// model tree; swapped for the CT's tree (roomCTTree) once the DRR is running
+const roomModelTree=new THREE.Group(),roomCTTree=new THREE.Group();roomCTTree.visible=false;tableG.add(roomModelTree,roomCTTree);
+Object.values(built).forEach(b=>{const g=b.geo.clone();roomModelTree.add(new THREE.Mesh(g,roomVesselMat[b.v.sys]));});
 tableG.add(new THREE.Mesh(taperTube(ao,1.45,1.2,0).geo,new THREE.MeshBasicMaterial({color:'#c97fb6',transparent:true,opacity:.5,depthWrite:false})));
 document.getElementById('roomLegend').innerHTML=`<span><i style="background:var(--accent)"></i>Left coronary</span><span><i style="background:var(--cool)"></i>Right coronary</span>`;
 
@@ -408,6 +421,258 @@ function updateGeometry(){
   bones.visible=state.bones;
 }
 
+/* ---------- DRR fluoro: X-rays traced through a real CT (scan 814) ---------- */
+// Same engine as drr.html (the standalone prototype); keep the shaders and TUNE in step.
+// Pass A: CT line integral; pass B: iodine line integral in the injected tree (cine fill by distance
+// from the ostium); pass C: combine with automatic brightness, unsharp mask, quantum noise and vignette.
+// If it can't start (no WebGL2 or float targets, file://, fetch failure), the model renderer above stays on.
+const DRR_DATA='data/web/814/';
+const MU_W=0.2;                  // water attenuation, 1/cm
+const DRR_N=512, DRR_NA=64;      // DRR resolution; low-res copy for automatic brightness
+const DRR_STEP=0.5;              // ray-march step in voxels
+const DRR_IOD=25000;             // iodine, HU equivalent at full lumen
+// Body outline beyond the CT (elliptical cylinder along z): centre x, y and semi-axes, cm.
+// Estimated from scan 814's anterior skin and the midline of its sternum and spine.
+//   fadeIn/fadeOut: cm inside/outside the CT faces over which it fades into flat soft tissue
+//   win: display window percentiles of the central image; gamma: LUT steepness toward black
+//   sharp: unsharp-mask gain; noise: quantum noise in attenuation units at the bright end
+const TUNE={body:[-3,-1.7,17,12],fadeIn:1,fadeOut:3,win:[0.05,0.95],gamma:1.2,sharp:0.7,noise:0.028};
+
+const DRR_VS=`#version 300 es
+out vec2 uv;
+void main(){vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));uv=p;gl_Position=vec4(p*2.0-1.0,0.0,1.0);}`;
+
+// Shared ray setup: each pixel's ray runs from the tube S to its point on the detector.
+const DRR_RAY=`#version 300 es
+precision highp float;precision highp sampler3D;
+in vec2 uv;out vec4 o;
+uniform vec3 uS,uC,uR,uT;uniform float uH;
+uniform sampler3D uVol;uniform vec3 uOrg,uSp,uDim,uLo,uHi;uniform float uStep;
+vec3 rayDir(){vec3 P=uC+uR*((uv.x*2.0-1.0)*uH)+uT*((uv.y*2.0-1.0)*uH);
+  vec3 rd=normalize(P-uS);return mix(rd,vec3(1e-6),vec3(lessThan(abs(rd),vec3(1e-6))));}
+vec2 hitBox(vec3 ro,vec3 rd,vec3 lo,vec3 hi){vec3 inv=1.0/rd,a=(lo-ro)*inv,b=(hi-ro)*inv,mn=min(a,b),mx=max(a,b);
+  return vec2(max(max(mn.x,mn.y),mn.z),min(min(mx.x,mx.y),mx.z));}
+vec3 tc(vec3 p){return ((p-uOrg)/uSp+0.5)/uDim;}
+`;
+
+// Pass A: CT line integral (cm × 1/cm). Past the CT faces the edge voxels are extended outward
+// (clamped sampling) and fade into flat soft tissue inside an elliptical body outline, so the
+// volume's edges don't show as seams.
+const DRR_FS_CT=DRR_RAY+`
+uniform float uMuBg,uFin,uFout;uniform vec4 uBody;
+float sdBox(vec3 p){vec3 q=abs(p-0.5*(uLo+uHi))-0.5*(uHi-uLo);return length(max(q,0.0))+min(max(q.x,max(q.y,q.z)),0.0);}
+vec2 hitBody(vec3 ro,vec3 rd){vec2 q=(ro.xy-uBody.xy)/uBody.zw,k=rd.xy/uBody.zw;
+  float A=dot(k,k),B=dot(q,k),C=dot(q,q)-1.0,D=B*B-A*C;
+  if(D<=0.0||A<1e-8)return vec2(0.0);float s=sqrt(D);return vec2(-B-s,-B+s)/A;}
+float inBody(vec3 p){vec2 q=(p.xy-uBody.xy)/uBody.zw;return 1.0-smoothstep(0.94,1.06,dot(q,q));}
+void main(){
+  vec3 rd=rayDir();vec2 tb=hitBox(uS,rd,uLo-uFout,uHi+uFout),te=hitBody(uS,rd);
+  bool hit=tb.x<tb.y;
+  float ov=hit?max(0.0,min(te.y,tb.y)-max(te.x,tb.x)):0.0;
+  float L=uMuBg*(te.y-te.x-ov);
+  if(hit){
+    float n=ceil((tb.y-tb.x)/uStep),ds=(tb.y-tb.x)/n;
+    for(int i=0;i<4096;i++){if(float(i)>=n)break;
+      vec3 p=uS+rd*(tb.x+(float(i)+0.5)*ds);
+      float w=1.0-smoothstep(-uFin,uFout,sdBox(p)),mu=0.0;
+      if(w>0.0)mu=${MU_W.toFixed(3)}*max(0.0,2.55*texture(uVol,tc(p)).r-0.024);   // HU = 2550 v - 1024
+      L+=(w*mu+(1.0-w)*uMuBg*inBody(p))*ds;}
+  }
+  o=vec4(L,0.0,0.0,1.0);
+}`;
+
+// Pass B: iodine path (cm of full-occupancy lumen) for one side, filled up to uFill mm from the ostium.
+const DRR_FS_IOD=DRR_RAY+`
+uniform float uSide,uFill;
+void main(){
+  vec3 rd=rayDir();vec2 tb=hitBox(uS,rd,uLo,uHi);float L=0.0;
+  if(tb.x<tb.y){
+    float n=ceil((tb.y-tb.x)/uStep),ds=(tb.y-tb.x)/n;
+    for(int i=0;i<2048;i++){if(float(i)>=n)break;
+      vec4 c=texture(uVol,tc(uS+rd*(tb.x+(float(i)+0.5)*ds)));
+      float occ=mix(c.r,c.g,uSide);
+      if(occ>0.0)L+=occ*(1.0-smoothstep(uFill-6.0,uFill,c.b*255.0))*ds;}
+  }
+  o=vec4(L,0.0,0.0,1.0);
+}`;
+
+// Pass C: combine, unsharp mask, quantum noise, log/gamma display, vignette.
+const DRR_FS_OUT=`#version 300 es
+precision highp float;
+in vec2 uv;out vec4 o;
+uniform sampler2D uA,uB;uniform float uK,uLo,uHi,uGam,uSharp,uNoise,uFrame;uniform vec2 uTex;
+// iodine gets a slight blur (focal spot, motion) so the voxelised lumen doesn't stair-step
+float iod(vec2 q){vec2 e=uTex*1.3;return 0.36*texture(uB,q).r+0.16*(texture(uB,q+vec2(e.x,e.y)).r+texture(uB,q+vec2(-e.x,e.y)).r+texture(uB,q+vec2(e.x,-e.y)).r+texture(uB,q-e).r);}
+float tot(vec2 q){return texture(uA,q).r+uK*iod(q);}
+float hash(vec3 p){p=fract(p*vec3(.1031,.1030,.0973));p+=dot(p,p.yxz+33.33);return fract((p.x+p.y)*p.z);}
+float vnoise(vec2 g,float f){vec2 i=floor(g),u=fract(g);u=u*u*(3.0-2.0*u);
+  float a=hash(vec3(i,f)),b=hash(vec3(i+vec2(1,0),f)),c=hash(vec3(i+vec2(0,1),f)),d=hash(vec3(i+vec2(1,1),f));
+  return mix(mix(a,b,u.x),mix(c,d,u.x),u.y)-0.5;}
+void main(){
+  float L=tot(uv),bl=0.0;
+  for(int i=0;i<8;i++){float a=float(i)*0.7853982+0.3927;vec2 dir=vec2(cos(a),sin(a))*uTex;
+    bl+=0.55*tot(uv+dir*1.6)+0.45*tot(uv+dir*3.6);}
+  bl/=8.0;
+  float Ls=L+uSharp*(L-bl);
+  // Poisson noise in the log domain grows as fewer photons get through (σ ∝ 1/√I)
+  vec2 g=uv/uTex*0.9;
+  float n=(vnoise(g,uFrame)+vnoise(g+17.3,uFrame+0.5))*1.7;
+  Ls+=uNoise*exp(0.5*clamp(L-uLo,-1.0,4.0))*n;
+  float x=(Ls-uLo)/max(uHi-uLo,0.3);
+  // log window, exponential toward black, with a soft shoulder above the bright end (C1 at x = 0)
+  float y=x>=0.0?0.02+0.78*exp(-uGam*x):0.8+0.17*(1.0-exp(0.78*uGam/0.17*x));
+  float r=length(uv-0.5)*2.0;
+  y*=mix(1.0,0.62,smoothstep(0.45,1.45,r));
+  o=vec4(vec3(clamp(y,0.0,1.0)),1.0);
+}`;
+
+async function fetchBytes(url){
+  const r=await fetch(url);if(!r.ok)throw new Error(`${url}: HTTP ${r.status}`);
+  let b=new Uint8Array(await r.arrayBuffer());
+  // some servers already decode .gz (Content-Encoding); only gunzip if the magic bytes are still there
+  if(b[0]===0x1f&&b[1]===0x8b)b=new Uint8Array(await new Response(new Blob([b]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());
+  return b;
+}
+async function fetchJSON(url){const r=await fetch(url);if(!r.ok)throw new Error(`${url}: HTTP ${r.status}`);return r.json();}
+const prod=a=>a[0]*a[1]*a[2];
+// bounds (voxel edges), centre-of-voxel-0 origin, spacing and dims for one grid
+function volGrid(m){const o=m.origin_cm,s=m.spacing_cm,n=m.dims;
+  return {org:o,sp:s,dim:n,lo:o.map((v,i)=>v-s[i]/2),hi:o.map((v,i)=>v+s[i]*(n[i]-0.5))};}
+// Mean μ of body voxels in the outer 1.5 cm of the CT: the flat tissue the volume fades into.
+function shellMu(ct,g){const [nx,ny,nz]=g.dim,k=g.sp.map(s=>Math.round(1.5/s));let sum=0,cnt=0;
+  for(let z=0;z<nz;z++)for(let y=0;y<ny;y++){const edgeYZ=z<k[2]||z>=nz-k[2]||y<k[1]||y>=ny-k[1];const row=(z*ny+y)*nx;
+    for(let x=0;x<nx;x++){if(!edgeYZ&&x>=k[0]&&x<nx-k[0])continue;const v=ct[row+x];if(v*10-1024>-950){sum+=Math.max(0,2.55*v/255-0.024);cnt++;}}}
+  return MU_W*sum/Math.max(1,cnt);}
+// Coronary RGB → RGBA: R = left-tree occupancy, G = right-tree occupancy, B = ostium distance (mm).
+// Labels can't be interpolated, so the side split happens here. B is dilated by one voxel so
+// trilinear sampling at the lumen edge doesn't drag the distance toward 0.
+function splitCoronary(c,dims,right){const [nx,ny,nz]=dims,n=prod(dims),out=new Uint8Array(n*4);
+  for(let i=0;i<n;i++){const occ=c[3*i],seg=c[3*i+1];
+    if(occ&&seg)out[4*i+(right.includes(seg)?1:0)]=occ;out[4*i+2]=c[3*i+2];}
+  const sx=1,sy=nx,sz=nx*ny;
+  for(let z=1;z<nz-1;z++)for(let y=1;y<ny-1;y++)for(let x=1;x<nx-1;x++){const i=(z*ny+y)*nx+x;if(c[3*i])continue;
+    let m=0;for(const o of [sx,-sx,sy,-sy,sz,-sz]){const j=i+o;if(c[3*j]&&c[3*j+2]>m)m=c[3*j+2];}if(m)out[4*i+2]=m;}
+  return out;}
+
+// Builds the GL resources; throws if a shader or float target fails. Returns render(view, fill, wash, frame).
+function createDRR(gl,cv,meta,ct,cor){
+  function program(fs){
+    const mk=(type,src)=>{const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);
+      if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error('Shader: '+gl.getShaderInfoLog(s));return s;};
+    const p=gl.createProgram();gl.attachShader(p,mk(gl.VERTEX_SHADER,DRR_VS));gl.attachShader(p,mk(gl.FRAGMENT_SHADER,fs));gl.linkProgram(p);
+    if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw new Error('Link: '+gl.getProgramInfoLog(p));
+    const loc={};
+    return {p,u(name){if(!(name in loc))loc[name]=gl.getUniformLocation(p,name);return loc[name];}};
+  }
+  function target(n,internal,type,filter){
+    const t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);
+    gl.texImage2D(gl.TEXTURE_2D,0,internal,n,n,0,gl.RED,type,null);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,filter);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,filter);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+    const f=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,f);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,t,0);
+    if(gl.checkFramebufferStatus(gl.FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE)throw new Error('This browser cannot render to float textures.');
+    return {t,f,n};
+  }
+  function tex3D(data,dims,internal,format){
+    const t=gl.createTexture();gl.bindTexture(gl.TEXTURE_3D,t);gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
+    gl.texImage3D(gl.TEXTURE_3D,0,internal,dims[0],dims[1],dims[2],0,format,gl.UNSIGNED_BYTE,data);
+    for(const [k,v] of [[gl.TEXTURE_MIN_FILTER,gl.LINEAR],[gl.TEXTURE_MAG_FILTER,gl.LINEAR],[gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE],[gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE],[gl.TEXTURE_WRAP_R,gl.CLAMP_TO_EDGE]])gl.texParameteri(gl.TEXTURE_3D,k,v);
+    return t;
+  }
+  const linear=!!gl.getExtension('OES_texture_float_linear');
+  const fmt=linear?[gl.R32F,gl.FLOAT]:[gl.R16F,gl.HALF_FLOAT];
+  const gCT=volGrid(meta.ct),gCor=volGrid(meta.coronary);
+  const R={pCT:program(DRR_FS_CT),pIod:program(DRR_FS_IOD),pOut:program(DRR_FS_OUT),
+    ct:tex3D(ct,gCT.dim,gl.R8,gl.RED),
+    cor:tex3D(splitCoronary(cor,gCor.dim,meta.coronary.right_segments),gCor.dim,gl.RGBA8,gl.RGBA),
+    tA:target(DRR_N,fmt[0],fmt[1],gl.LINEAR),tB:target(DRR_N,fmt[0],fmt[1],gl.LINEAR),
+    tS:target(DRR_NA,gl.R32F,gl.FLOAT,gl.NEAREST),small:new Float32Array(DRR_NA*DRR_NA*4),muBg:shellMu(ct,gCT)};
+  gl.bindVertexArray(gl.createVertexArray());
+  const stats={drrMs:0,iodMs:0},win={lo:2,hi:5,tlo:2,thi:5,ready:false},px=new Float32Array(4);
+  function setRay(pr,v,grd){
+    gl.uniform3fv(pr.u('uS'),v.S);gl.uniform3fv(pr.u('uC'),v.C);gl.uniform3fv(pr.u('uR'),v.r);gl.uniform3fv(pr.u('uT'),v.t);gl.uniform1f(pr.u('uH'),v.h);
+    gl.uniform3fv(pr.u('uOrg'),grd.org);gl.uniform3fv(pr.u('uSp'),grd.sp);gl.uniform3fv(pr.u('uDim'),grd.dim);
+    gl.uniform3fv(pr.u('uLo'),grd.lo);gl.uniform3fv(pr.u('uHi'),grd.hi);gl.uniform1f(pr.u('uStep'),DRR_STEP*Math.min(...grd.sp));
+    gl.uniform1i(pr.u('uVol'),0);
+  }
+  const drawTo=t=>{gl.bindFramebuffer(gl.FRAMEBUFFER,t.f);gl.viewport(0,0,t.n,t.n);gl.drawArrays(gl.TRIANGLES,0,3);};
+  function renderCT(v){
+    const pr=R.pCT;gl.useProgram(pr.p);setRay(pr,v,gCT);
+    gl.uniform1f(pr.u('uMuBg'),R.muBg);gl.uniform1f(pr.u('uFin'),TUNE.fadeIn);gl.uniform1f(pr.u('uFout'),TUNE.fadeOut);gl.uniform4fv(pr.u('uBody'),TUNE.body);
+    gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_3D,R.ct);
+    const t0=performance.now();drawTo(R.tA);gl.readPixels(0,0,1,1,gl.RGBA,gl.FLOAT,px);stats.drrMs=performance.now()-t0;
+    // automatic brightness: window from percentiles of the central image, like a fluoro system's ABC
+    drawTo(R.tS);gl.readPixels(0,0,DRR_NA,DRR_NA,gl.RGBA,gl.FLOAT,R.small);
+    const a=[];for(let y=0;y<DRR_NA;y++)for(let x=0;x<DRR_NA;x++){const dx=(x+0.5)/DRR_NA-0.5,dy=(y+0.5)/DRR_NA-0.5;if(dx*dx+dy*dy<0.16)a.push(R.small[4*(y*DRR_NA+x)]);}
+    a.sort((p,q)=>p-q);const q=f=>a[Math.min(a.length-1,Math.floor(f*a.length))];
+    win.tlo=q(TUNE.win[0]);win.thi=Math.max(q(TUNE.win[1]),win.tlo+0.8);
+    if(!win.ready||reduce){win.lo=win.tlo;win.hi=win.thi;win.ready=true;}
+  }
+  function renderIodine(v,fill){
+    const pr=R.pIod;gl.useProgram(pr.p);setRay(pr,v,gCor);
+    gl.uniform1f(pr.u('uSide'),v.inj==='R'?1:0);gl.uniform1f(pr.u('uFill'),fill);
+    gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_3D,R.cor);
+    const t0=performance.now();drawTo(R.tB);gl.readPixels(0,0,1,1,gl.RGBA,gl.FLOAT,px);stats.iodMs=performance.now()-t0;
+  }
+  function renderOut(frame,wash){
+    const pr=R.pOut;gl.useProgram(pr.p);gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,cv.width,cv.height);
+    gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,R.tA.t);gl.uniform1i(pr.u('uA'),0);
+    gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,R.tB.t);gl.uniform1i(pr.u('uB'),1);
+    gl.uniform1f(pr.u('uK'),MU_W*DRR_IOD/1000*wash);
+    gl.uniform1f(pr.u('uLo'),win.lo);gl.uniform1f(pr.u('uHi'),win.hi);
+    gl.uniform1f(pr.u('uGam'),TUNE.gamma);gl.uniform1f(pr.u('uSharp'),TUNE.sharp);gl.uniform1f(pr.u('uNoise'),TUNE.noise);gl.uniform1f(pr.u('uFrame'),frame);
+    gl.uniform2f(pr.u('uTex'),1/DRR_N,1/DRR_N);
+    gl.drawArrays(gl.TRIANGLES,0,3);
+  }
+  let lastG='',lastI='';
+  return {stats,win,
+    // view: tube S, detector centre C, screen right r and up t, half-FOV h (anatomy frame), injection side, cache key
+    render(v,fill,wash,frame){
+      const ik=`${v.key}|${v.inj}|${fill.toFixed(1)}`;
+      if(v.key!==lastG){renderCT(v);lastG=v.key;}
+      if(ik!==lastI){renderIodine(v,fill);lastI=ik;}
+      win.lo+=(win.tlo-win.lo)*0.3;win.hi+=(win.thi-win.hi)*0.3;   // ABC settles over a few frames
+      renderOut(frame,wash);},
+    invalidate(){lastG=lastI='';},
+    finish(){gl.readPixels(0,0,1,1,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array(4));}};
+}
+
+const drrCv=document.getElementById('drr');
+let drr=null, mode='loading', modeWhy='', drrAttr='';   // mode: 'loading' (model shown meanwhile), 'drr' or 'model'
+// tube and detector in the anatomy's frame: the table offset moves the anatomy, so it's subtracted
+function drrView(){const {d,t}=dirs(state.lao,state.cra),r=new V3().crossVectors(t,d),off=new V3(state.tx,state.ty,state.tz);
+  return {S:d.clone().multiplyScalar(-SOD).sub(off).toArray(),C:d.clone().multiplyScalar(SID-SOD).sub(off).toArray(),r:r.toArray(),t:t.toArray(),h:state.fov/2,inj:state.inj,
+    key:`${state.lao}|${state.cra}|${state.fov}|${state.tx}|${state.ty}|${state.tz}`};}
+
+async function startDRR(){
+  const fail=why=>{modeWhy=why;mode='model';setMode();};
+  // fetch can't read local files (file://, or a data: snapshot), so don't try
+  if(!/^https?:$/.test(location.protocol))return fail('file');
+  const gl=drrCv.getContext('webgl2',{antialias:false,depth:false,preserveDrawingBuffer:true});
+  if(!gl)return fail('this browser has no WebGL2');
+  if(!gl.getExtension('EXT_color_buffer_float'))return fail('this browser can’t render to float textures (EXT_color_buffer_float)');
+  if(typeof DecompressionStream==='undefined')return fail('this browser has no DecompressionStream to unpack the CT');
+  let meta,vessels,ct,cor;
+  try{
+    meta=await fetchJSON(DRR_DATA+'meta.json');
+    [vessels,ct,cor]=await Promise.all([fetchJSON(DRR_DATA+meta.vessels),fetchBytes(DRR_DATA+meta.ct.file),fetchBytes(DRR_DATA+meta.coronary.file)]);
+    if(ct.length!==prod(meta.ct.dims)||cor.length!==3*prod(meta.coronary.dims))throw new Error('CT data has an unexpected size');
+    drr=createDRR(gl,drrCv,meta,ct,cor);
+  }catch(e){console.warn('DRR unavailable, using the model renderer:',e);return fail('the CT couldn’t be loaded ('+String(e.message||e)+')');}
+  // labels near the same spot along each centreline as drr.html; other points along it, nearest first, are
+  // fallbacks for when that spot is off-screen
+  vessels.forEach(v=>{const el=document.createElement('span');el.className='lbl'+(v.sys==='R'?' r':'');el.textContent=v.lab;el.hidden=true;labelsEl.appendChild(el);
+    const n=v.pts.length,k=Math.floor(n*(n<20?0.5:0.45)),every=Math.max(1,Math.round(n/20));
+    const idx=[...Array(n).keys()].filter(i=>i===k||i%every===0).sort((a,b)=>Math.abs(a-k)-Math.abs(b-k));
+    LABELS.push({el,cands:idx.map(i=>new V3(...v.pts[i])),kind:'d',sys:v.sys});});
+  // room view: the CT's own coronary tree
+  vessels.forEach(v=>{const pts=v.pts.map(p=>new V3(...p));if(pts.length<2)return;
+    roomCTTree.add(new THREE.Mesh(taperTube(pts,Math.max(0.08,v.r[0]),Math.max(0.05,v.r[v.r.length-1]),0).geo,roomVesselMat[v.sys]));});
+  drrAttr=meta.attribution?meta.attribution.join(' · '):'ImageCAS (CC BY-NC 4.0) · ImageCAS-X (CC BY 4.0)';
+  mode='drr';setMode();
+}
+
 /* ---------- Presets ---------- */
 const PRESETS=[
  {name:'RAO caudal',lao:-30,cra:-25,inj:'L',best:'LM, proximal LAD and LCx, OM branches'},
@@ -447,8 +712,8 @@ function syncUI(fromSlider){
   const a=angTxt(state.lao,state.cra);
   $('roAng').innerHTML=`<b>${a.replace('  ','<br>')}</b>`;
   $('roFov').innerHTML=`FOV ${state.fov} cm<br>SID ${SID} cm`;
-  $('roInj').textContent=state.inj==='L'?'LCA injection · JL4':'RCA injection · JR4';
-  $('roTbl').innerHTML=`TBL ${state.tx>=0?'+':''}${state.tx.toFixed(1)} / ${state.tz>=0?'+':''}${state.tz.toFixed(1)} / ${state.ty>=0?'+':''}${state.ty.toFixed(1)}`;
+  $('roInj').textContent=(state.inj==='L'?'LCA injection':'RCA injection')+(mode==='drr'?'':state.inj==='L'?' · JL4':' · JR4');
+  $('roTbl').innerHTML=`TBL ${state.tx>=0?'+':''}${state.tx.toFixed(1)} / ${state.tz>=0?'+':''}${state.tz.toFixed(1)} / ${state.ty>=0?'+':''}${state.ty.toFixed(1)}<br>${mode==='drr'?'DRR · CT 814':mode==='loading'?'Loading CT…':'Model heart'}`;
   $('nowAng').textContent=a;
   let hit=null;presetBtns.forEach(({b,p})=>{const on=p.inj===state.inj&&Math.abs(p.lao-state.lao)<=5&&Math.abs(p.cra-state.cra)<=5;b.setAttribute('aria-pressed',String(on));if(on)hit=p;});
   $('nowName').textContent=hit?hit.name:'Custom view';
@@ -458,13 +723,24 @@ function setInj(s){state.inj=s;syncUI();}
 document.querySelectorAll('#injSeg button').forEach(b=>b.addEventListener('click',()=>setInj(b.dataset.inj)));
 document.querySelectorAll('#fovSeg button').forEach(b=>b.addEventListener('click',()=>{state.fov=+b.dataset.fov;syncUI();}));
 function toggle(id,key,after){const b=$(id);b.addEventListener('click',()=>{state[key]=!state[key];b.setAttribute('aria-pressed',String(state[key]));after&&after();});}
-toggle('tOverlay','overlay',()=>{$('ovLegend').hidden=!state.overlay;});
+toggle('tOverlay','overlay',()=>{$('ovLegend').hidden=!state.overlay;$('ovNote').hidden=!(state.overlay&&mode==='drr');});
 toggle('tLabels','labels');toggle('tBones','bones');
 $('tblReset').addEventListener('click',()=>{state.tx=state.ty=state.tz=0;syncUI();});
 
 // cine injection: contrast fills from the ostium, holds, washes out
 let cine=null;
 $('cine').addEventListener('click',()=>{cine={t0:performance.now()};});
+// DRR version: fill in mm along the real tree
+function drrCine(now){
+  if(!cine)return {fill:999,wash:1};
+  const e=(now-cine.t0)/1000;
+  if(e<1.8)return {fill:4+200*(1-Math.pow(1-e/1.8,2)),wash:1};
+  if(e<3.6)return {fill:999,wash:1};
+  if(e<4.8)return {fill:999,wash:1-(e-3.6)/1.2};
+  if(e<5.3)return {fill:999,wash:0};
+  if(e<5.7)return {fill:999,wash:(e-5.3)/0.4};
+  cine=null;return {fill:999,wash:1};
+}
 function cineStep(now){
   if(!cine){matV.uniforms.fill.value=999;matV.uniforms.wash.value=1;return;}
   const e=(now-cine.t0)/1000;let fill=999,wash=1;
@@ -493,6 +769,7 @@ mon.addEventListener('pointerup',endDrag);mon.addEventListener('pointercancel',e
 /* ---------- Sizing ---------- */
 function sizeAll(){
   const m=mon.clientWidth;fr.setSize(m,m,false);
+  const dw=Math.max(1,Math.min(1600,Math.round(m*Math.min(window.devicePixelRatio||1,2))));if(drrCv.width!==dw)drrCv.width=drrCv.height=dw;
   const room=$('room');rr.setSize(room.clientWidth,room.clientHeight,false);rcam.aspect=room.clientWidth/Math.max(1,room.clientHeight);rcam.updateProjectionMatrix();
 }
 new ResizeObserver(sizeAll).observe(mon);new ResizeObserver(sizeAll).observe($('room'));sizeAll();
@@ -507,31 +784,63 @@ const tmp=new V3();
 function placeLabels(){
   const W=mon.clientWidth,H=mon.clientHeight;
   LABELS.forEach(l=>{
-    const show=(l.kind==='v'&&state.labels&&l.sys===state.inj)||(l.kind==='c'&&state.overlay);
+    // vessel labels: the model's ('v') or, in DRR mode, the CT centrelines' ('d')
+    const show=(l.kind===(mode==='drr'?'d':'v')&&state.labels&&l.sys===state.inj)||(l.kind==='c'&&state.overlay);
     if(!show){l.el.hidden=true;return;}
-    tmp.copy(l.p).add(anat.position).project(fcam);
-    const x=(tmp.x+1)/2*W,y=(1-tmp.y)/2*H;
-    if(x<14||x>W-14||y<14||y>H-14){l.el.hidden=true;return;}
-    l.el.hidden=false;l.el.style.left=x+'px';l.el.style.top=y+'px';
+    for(const p of l.cands||[l.p]){
+      tmp.copy(p).add(anat.position).project(fcam);
+      const x=(tmp.x+1)/2*W,y=(1-tmp.y)/2*H;
+      if(x<14||x>W-14||y<14||y>H-14)continue;
+      l.el.hidden=false;l.el.style.left=x+'px';l.el.style.top=y+'px';return;}
+    l.el.hidden=true;
   });
 }
 
 /* ---------- Loop ---------- */
 let frame=0;
-function loop(now){
+function step(now){
   if(tween){const k=Math.min(1,(now-tween.t0)/tween.dur),e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
     state.lao=tween.from.lao+(tween.to.lao-tween.from.lao)*e;state.cra=tween.from.cra+(tween.to.cra-tween.from.cra)*e;
     if(k>=1){state.lao=tween.to.lao;state.cra=tween.to.cra;tween=null;}syncUI();}
-  cineStep(now);
   updateGeometry();
-  fr.autoClear=true;fr.render(fScene,fcam);
-  if(state.overlay){fr.autoClear=false;fr.render(oScene,fcam);fr.autoClear=true;}
+  fr.autoClear=true;
+  if(mode==='drr'){
+    const cs=drrCine(now);
+    drr.render(drrView(),cs.fill,cs.wash,reduce?0:Math.floor(now/1000*15));   // noise refreshes at 15 pulses/s
+    if(state.overlay)fr.render(oScene,fcam);else fr.clear();                   // transparent over the DRR
+  }else{
+    cineStep(now);
+    fr.render(fScene,fcam);
+    if(state.overlay){fr.autoClear=false;fr.render(oScene,fcam);fr.autoClear=true;}
+    if(!reduce&&(frame++%2===0))noise();
+  }
   placeLabels();
-  if(!reduce&&(frame++%2===0))noise();
   orbit.update();rr.render(rScene,rcam);
-  requestAnimationFrame(loop);
 }
-syncUI();requestAnimationFrame(loop);
+function loop(now){step(now);requestAnimationFrame(loop);}
+
+/* ---------- Fluoro source: DRR when it starts, model otherwise ---------- */
+const esc=t=>String(t).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+function setMode(){
+  const on=mode==='drr';
+  mon.classList.toggle('drr',on);
+  $('tBones').hidden=on;                          // the CT has its own bones
+  roomModelTree.visible=!on;roomCTTree.visible=on;
+  fr.setClearColor(fluoroBg,on?0:1);
+  $('ovNote').hidden=!(on&&state.overlay);
+  $('srcNote').innerHTML=on
+    ?`<strong>Fluoro image:</strong> X-rays traced through a real coronary CT (ImageCAS scan 814), with contrast only in the injected tree. No catheter or heart motion yet. Data: ${esc(drrAttr)}. Non-commercial use only.`
+    :mode==='loading'?'Loading a real coronary CT for the fluoro image. Until then it shows a simplified model heart.'
+    :modeWhy==='file'?'<strong>Fluoro image:</strong> simplified model heart. For the image computed from a real coronary CT, serve this folder (<code>python3 -m http.server</code>) and open it from localhost.'
+    :`<strong>Fluoro image:</strong> simplified model heart, because ${esc(modeWhy)}.`;
+  syncUI();
+}
+
+// for automated checks; frame() renders one frame without rAF, which stops while the page is hidden
+window.sim={state,tune:TUNE,get mode(){return mode;},get drr(){return drr;},
+  set(o){Object.assign(state,o);tween=null;syncUI();if(drr)drr.invalidate();},
+  frame(){const t0=performance.now();step(t0);if(drr)drr.finish();return performance.now()-t0;}};
+setMode();window.sim.ready=startDRR();requestAnimationFrame(loop);
 })();
 </script>
 
