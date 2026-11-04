@@ -88,10 +88,10 @@ Single dark "cath lab console" theme by choice. Colour tokens on `:root` (`--bg`
 1. Heart motion + contrast streaming.
 2. ~~Code health: modules, one shared DRR engine, automatic screenshot checks.~~ Done.
 3. ~~Layout: no scrolling, full screen, collapsible controls, a "choose heart" dropdown.~~ Done.
-4. A written protocol for preparing new hearts from ImageCAS.
+4. ~~A written protocol for preparing new hearts from ImageCAS.~~ Done: `tools/PROTOCOL.md`. Keep it in step with the scripts: when a tool's arguments, outputs or checkpoints change, update the protocol too.
 
 See README "Current plan". Older notes follow.
-Suggested order: ~~pick a CTCA dataset~~ → ~~DRR in `index.html`~~ (done, model renderer kept as fallback) → ~~CT coronary overlay with hover~~ → ~~CT chambers (TotalSegmentator)~~ → ~~room polish~~ (done) → quiz mode (roadmap item 4). A refinement backlog from the first demo (realism, overlay clarity, per-view teaching and framing, code split, more scans) is parked in README "Refinement backlog"; don't start it unless asked. Older order for reference: per-preset table framing → realism (catheter, motion, chest background) → quiz mode. Data-prep scripts (Python) go in `tools/`. Raw data goes in the git-ignored `data/raw/`, and only small web-ready derived files are committed.
+Suggested order: ~~pick a CTCA dataset~~ → ~~DRR in `index.html`~~ (done, model renderer kept as fallback) → ~~CT coronary overlay with hover~~ → ~~CT chambers (TotalSegmentator)~~ → ~~room polish~~ (done) → quiz mode (roadmap item 4). A refinement backlog from the first demo (realism, overlay clarity, per-view teaching and framing, code split, more scans) is parked in README "Refinement backlog"; don't start it unless asked. Older order for reference: per-preset table framing → realism (catheter, motion, chest background) → quiz mode. Data-prep scripts (Python) go in `tools/`; new hearts follow `tools/PROTOCOL.md`, with per-heart settings (block, dominance, chest landmarks) in `tools/hearts/<id>.json`. Raw data goes in the git-ignored `data/raw/`, and only small web-ready derived files are committed.
 
 ## Notes
 - The DRR and its coronary overlay are one real, right-dominant heart. The chambers and the fallback image are a simplified right-dominant model, and the chambers are only shown in model mode. Say so in the UI (the "How the views are named" notes and `#srcNote` do).

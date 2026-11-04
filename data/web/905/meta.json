@@ -1,0 +1,152 @@
+{
+ "scan": 905,
+ "source": "ImageCAS volume + ImageCAS-X labels",
+ "attribution": [
+  "Zeng A, Xu X, et al. ImageCAS. Comput Med Imaging Graph 2023 (CC BY-NC 4.0)",
+  "Bransby KM, et al. ImageCAS-X. arXiv:2608.30404, 2026 (CC BY 4.0)"
+ ],
+ "frame": "simulator patient coords, cm: x = patient left, y = anterior, z = feet; arrays x-fastest; origin = centre of voxel (0,0,0)",
+ "centre_subtracted_cm": [
+  3.8789,
+  16.4702,
+  119.455
+ ],
+ "ct": {
+  "file": "ct.u8.gz",
+  "dims": [
+   256,
+   256,
+   137
+  ],
+  "spacing_cm": [
+   0.0801,
+   0.0801,
+   0.1
+  ],
+  "origin_cm": [
+   -9.0889,
+   -10.4302,
+   -6.175
+  ],
+  "encoding": "uint8, HU = v*10 - 1024",
+  "decontrast": "non-bone voxels above 50 HU set to 50"
+ },
+ "coronary": {
+  "file": "coronary.rgb8.gz",
+  "dims": [
+   328,
+   242,
+   230
+  ],
+  "spacing_cm": [
+   0.04,
+   0.04,
+   0.05
+  ],
+  "origin_cm": [
+   -6.5864,
+   -4.9248,
+   -6.2
+  ],
+  "channels": [
+   "occupancy 0-255",
+   "segment label 0-14, or parent segment + 16 for branches grown from the CT",
+   "distance from ostium, mm"
+  ],
+  "segments": {
+   "1": "LM",
+   "2": "LAD",
+   "3": "LCx",
+   "4": "D1",
+   "5": "D2",
+   "6": "OM1",
+   "7": "OM2",
+   "8": "IM",
+   "9": "RCA",
+   "10": "R-PDA",
+   "11": "R-PLA",
+   "12": "L-PDA",
+   "13": "L-PLA",
+   "14": "Other"
+  },
+  "right_segments": [
+   9,
+   10,
+   11
+  ],
+  "ct_branch_offset": 16,
+  "ct_branch_ml": 0.46,
+  "ct_branch_params": {
+   "vness": 0.002,
+   "hu": 110,
+   "rmax_mm": 1.4,
+   "bridge": 2,
+   "min_vox": 40,
+   "margin_mm": 15,
+   "sigmas": [
+    0.8,
+    1.2,
+    1.8
+   ]
+  },
+  "synthetic": {
+   "file": "synthetic.u8.gz",
+   "dims": [
+    328,
+    242,
+    230
+   ],
+   "note": "illustrative fine branches, not this patient's anatomy",
+   "encoding": "uint8 on the coronary grid: 1-127 left-tree occupancy (v/127), 129-255 right-tree (v-128)/127",
+   "twigs": 165,
+   "kinds": {
+    "epicardial": 123,
+    "septal": 12,
+    "terminal": 30
+   },
+   "length_cm": 272.3,
+   "lumen_ml": 0.541,
+   "params": {
+    "seed": 814,
+    "spacing_mm": 6.5,
+    "length_mm": [
+     8,
+     30
+    ],
+    "r0_mm": [
+     0.25,
+     0.55
+    ],
+    "r0_frac": 0.55,
+    "r_tip_mm": 0.12,
+    "taper": 1.4,
+    "step_mm": 0.5,
+    "angle_deg": [
+     45,
+     80
+    ],
+    "wiggle": 0.14,
+    "gap_mm": [
+     0.6,
+     4.0
+    ],
+    "leave_mm": 10.0,
+    "septal_spacing_mm": 8.0,
+    "septal_length_mm": [
+     12,
+     26
+    ],
+    "septal_r0_mm": [
+     0.25,
+     0.5
+    ],
+    "septal_extent": 0.66,
+    "tip_twigs": 3,
+    "second_order_p": 0.55,
+    "min_parent_r_mm": 0.3,
+    "smooth": 0.35
+   }
+  }
+ },
+ "vessels": "vessels.json"
+}

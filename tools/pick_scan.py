@@ -1,17 +1,20 @@
 """Rank ImageCAS-X scans as candidates for the simulator.
 
-Filters to excellent image quality (4), right dominance and no disease, then
+Filters to excellent image quality (4), the chosen dominance (right by default) and no disease, then
 ranks by how many key segments have a centreline and by field of view.
 Standard library only.
 
-    python3 tools/pick_scan.py [data/raw/imagecas-x/ImageCAS-X_dataset] [-n 25]
+    python3 tools/pick_scan.py [data/raw/imagecas-x/ImageCAS-X_dataset] [-n 25] [--dominance R|L|Co]
 """
 import argparse, csv, gzip, io, math, os, re, struct, sys, zipfile
 import xml.etree.ElementTree as ET
 
 SEGMENTS = {1: 'LM', 2: 'LAD', 3: 'LCx', 4: 'D1', 5: 'D2', 6: 'OM1', 7: 'OM2', 8: 'IM',
             9: 'RCA', 10: 'R-PDA', 11: 'R-PLA', 12: 'L-PDA', 13: 'L-PLA', 14: 'Other'}
-KEY = [1, 2, 3, 4, 6, 9, 10, 11]  # LM LAD LCx D1 OM1 RCA R-PDA R-PLA
+# key segments by dominance: the PDA and posterolateral branch come from the RCA (R), the LCx (L), or one each (Co)
+KEY = {'R': [1, 2, 3, 4, 6, 9, 10, 11],   # LM LAD LCx D1 OM1 RCA R-PDA R-PLA
+       'L': [1, 2, 3, 4, 6, 9, 12, 13],   # ... RCA L-PDA L-PLA
+       'Co': [1, 2, 3, 4, 6, 9, 10, 13]}  # ... RCA R-PDA L-PLA
 
 
 def read_xlsx(path):
@@ -82,10 +85,11 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('root', nargs='?', default='data/raw/imagecas-x/ImageCAS-X_dataset')
     ap.add_argument('-n', type=int, default=25)
+    ap.add_argument('--dominance', choices=sorted(KEY), default='R', help='R (right), L (left) or Co (co-dominant)')
     args = ap.parse_args()
     out = []
     for r in read_xlsx(os.path.join(args.root, 'Descriptors.xlsx')):
-        if (r['Image Quality'], r['Dominance'], r['Disease']) != ('4', 'R', 'no'):
+        if (r['Image Quality'], r['Dominance'], r['Disease']) != ('4', args.dominance, 'no'):
             continue
         i = r['Scan ID']
         seg = os.path.join(args.root, 'segmentations', f'{i}.coronary.nii.gz')
@@ -96,13 +100,14 @@ def main():
             p = os.path.join(args.root, 'centerlines', f'{i}.coronary_{side}_centerline.vtk')
             for k, v in centreline_lengths_mm(p).items():
                 lengths[k] = lengths.get(k, 0) + v
-        have = sum(lengths.get(k, 0) > 5 for k in KEY)
+        have = sum(lengths.get(k, 0) > 5 for k in KEY[args.dominance])
         out.append((int(i), nifti_extent_cm(seg), have, lengths))
     out.sort(key=lambda t: (-t[2], -t[1][0] * t[1][2]))
-    print(f'{len(out)} candidates (quality 4, right-dominant, no disease)')
+    dom = {'R': 'right-dominant', 'L': 'left-dominant', 'Co': 'co-dominant'}[args.dominance]
+    print(f'{len(out)} candidates (quality 4, {dom}, no disease)')
     for i, ext, have, L in out[:args.n]:
         segs = ' '.join(f'{SEGMENTS.get(k, k)}:{v / 10:.1f}' for k, v in sorted(L.items()))
-        print(f'{i:4d} {block(i):9s} FOV {ext[0]:.1f}x{ext[1]:.1f}x{ext[2]:.1f} cm  key {have}/{len(KEY)}  {segs}')
+        print(f'{i:4d} {block(i):9s} FOV {ext[0]:.1f}x{ext[1]:.1f}x{ext[2]:.1f} cm  key {have}/{len(KEY[args.dominance])}  {segs}')
 
 
 if __name__ == '__main__':

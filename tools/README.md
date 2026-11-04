@@ -2,15 +2,17 @@
 
 Data-prep scripts (Python) that turn raw CT and labels into small web-ready files for `index.html`.
 
+**To prepare a new heart, follow [PROTOCOL.md](PROTOCOL.md)**: the order to run these in, what to check after each step, and how to add the heart to the app. `--block` defaults to the scan's 200-case block (814 → `801-1000`). Per-heart settings live in `hearts/<id>.json`.
+
 | Script | Does |
 |---|---|
-| `pick_scan.py` | Ranks ImageCAS-X scans: quality 4, right-dominant, no disease. Ordered by key-segment coverage, then field of view. Standard library only. |
+| `pick_scan.py` | Ranks ImageCAS-X scans: quality 4, no disease, and the dominance asked for (`--dominance R`, `L` or `Co`; right by default). Ordered by key-segment coverage, then field of view. Standard library only. |
 | `preview_scan.py` | Renders PNGs of a scan with its labels into `data/raw/preview/`: slab MIPs, AP and lateral MIPs, a rough DRR, and the coronary tree. |
 | `export_scan.py` | Writes the web-ready files for a scan to `data/web/<id>/` (format below). |
 | `export_chambers.py` | Turns TotalSegmentator heart-chamber masks into meshes in `data/web/<id>/chambers.*` (see "Heart chambers" below). |
 | `synth_branches.py` | Illustrative fine branches below CT resolution, grown from the real tree along the heart's surface. Used by `export_scan.py`; parameters and seed in `P`, copied into `meta.json`. |
 | `export_catheter.py` | JL4 and JR4 guide-catheter paths shaped along the TotalSegmentator aorta, written to `data/web/<id>/catheter.json`. Run after `export_scan.py`: it reads `meta.json` and `vessels.json`. |
-| `export_chest.py` | Synthetic chest around the CT (3 mm voxels), written to `data/web/<id>/chest.u8.gz` and `chest.json`: lungs, ribs, spine, diaphragm, sternum, clavicles, fitted to the scan's landmarks and continuing the CT's own lung pattern across its faces. Run after `export_scan.py`. |
+| `export_chest.py` | Synthetic chest around the CT (3 mm voxels), written to `data/web/<id>/chest.u8.gz` and `chest.json`: lungs, ribs, spine, diaphragm, sternum, clavicles, fitted to the scan's landmarks (from `hearts/<id>.json`; `--measure` suggests them from the CT) and continuing the CT's own lung pattern across its faces. Run after `export_scan.py`. |
 | `check_export.py` | Renders AP and lateral DRRs from the exported files only: de-contrasted, left injection, right injection, and `vessels.json`. |
 
 ## Web export format (`data/web/<id>/`)

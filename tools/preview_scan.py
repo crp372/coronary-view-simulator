@@ -20,6 +20,8 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 from matplotlib.patches import Patch
 
+from export_scan import block_of
+
 SEGMENTS = {1: 'LM', 2: 'LAD', 3: 'LCx', 4: 'D1', 5: 'D2', 6: 'OM1', 7: 'OM2', 8: 'IM',
             9: 'RCA', 10: 'R-PDA', 11: 'R-PLA', 12: 'L-PDA', 13: 'L-PLA', 14: 'Other'}
 # Left system warm, right system cool (matches the simulator's amber LCA / cyan RCA)
@@ -65,10 +67,11 @@ def top_label(lab):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('scan')
-    ap.add_argument('--block', default='801-1000')
+    ap.add_argument('--block', help='ImageCAS block (default: from the scan number)')
     ap.add_argument('--raw', default='data/raw')
     ap.add_argument('--out', default='data/raw/preview')
     args = ap.parse_args()
+    args.block = args.block or block_of(args.scan)
     ct, z = load_ras(f'{args.raw}/imagecas/extracted/{args.block}/{args.scan}.img.nii.gz')
     lab, _ = load_ras(f'{args.raw}/imagecas-x/ImageCAS-X_dataset/segmentations/{args.scan}.coronary.nii.gz')
     lab = lab.astype(np.uint8)

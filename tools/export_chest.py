@@ -1,16 +1,19 @@
 """A coarse synthetic chest around the cropped CT, so the DRR shows lungs, ribs, spine and the
 diaphragm beyond the scan's 23 × 23 × 13.8 cm.
 
-    .venv/bin/python tools/export_chest.py 814 [--web data/web]
+    .venv/bin/python tools/export_chest.py 814 [--web data/web] [--fit tools/hearts/814.json] [--measure]
 
 Writes data/web/<id>/chest.u8.gz (uint8, HU = v*10 - 1024, x-fastest, 3 mm voxels) and chest.json
 (grid in the centred simulator frame, cm, plus the parameters). The app samples it outside the CT and
 blends into it over the CT's outer 1.5 cm, so everything inside the scan is still the patient's own.
 
-Landmarks are fitted by hand to scan 814's de-contrasted CT (data/web/814/ct.u8.gz): midline x ≈ −5,
-vertebral bodies at y ≈ −9, anterior skin y ≈ 9–12, a wide chest (lung at the CT's left face), right
-diaphragm dome about 3 cm higher than the left. Near the CT, its own lung-or-tissue pattern is carried
-across each face and faded out over about 4 cm. The rest is a generic adult chest: illustrative, not this patient's anatomy.
+Landmarks are fitted per heart: tools/hearts/<id>.json ("chest": {...}) overrides the defaults in P (which
+are scan 814's fit) for one scan; --fit picks another file. For scan 814, fitted by hand to
+its de-contrasted CT: midline x ≈ −5, vertebral bodies at y ≈ −9, anterior skin y ≈ 9–12, a wide chest
+(lung at the CT's left face), right diaphragm dome about 3 cm higher than the left. --measure prints what
+the exported CT suggests for a new scan, to start the fit from. Near the CT, its own lung-or-tissue
+pattern is carried across each face and faded out over about 4 cm. The rest is a generic adult chest:
+illustrative, not this patient's anatomy.
 """
 import argparse, gzip, json, os
 import numpy as np
@@ -135,12 +138,9 @@ def ct_lung_field(web):
     """From the exported (de-contrasted) CT: a smoothed lung fraction, and a sampler that gives it at the
     nearest point of the CT box plus a weight that fades from 1 at the box to 0 about 4 cm away."""
     m = json.load(open(os.path.join(web, 'meta.json')))['ct']
-    nx, ny, nz = m['dims']
-    hu = np.frombuffer(gzip.open(os.path.join(web, m['file'])).read(), np.uint8).reshape(nz, ny, nx).transpose(2, 1, 0).astype(np.int16) * 10 - 1024
+    hu, _ = load_ct(web)
     air = hu < -500
-    lab, _ = ndi.label(air)
-    outside = np.isin(lab, np.unique(lab[:, -1, :])[1:])   # air touching the anterior face: outside the body
-    frac = ndi.gaussian_filter((air & ~outside).astype(np.float32), 4)
+    frac = ndi.gaussian_filter((air & ~outside_air(air)).astype(np.float32), 4)
     o, s, n = np.array(m['origin_cm']), np.array(m['spacing_cm']), np.array(m['dims'])
     lo, hi = o, o + s * (n - 1)
 
@@ -153,12 +153,84 @@ def ct_lung_field(web):
     return sample
 
 
+def load_ct(web):
+    """The exported CT in HU, indexed [x, y, z], and its centre-of-voxel coordinates (cm) along each axis."""
+    m = json.load(open(os.path.join(web, 'meta.json')))['ct']
+    nx, ny, nz = m['dims']
+    hu = np.frombuffer(gzip.open(os.path.join(web, m['file'])).read(), np.uint8).reshape(nz, ny, nx).transpose(2, 1, 0).astype(np.int16) * 10 - 1024
+    return hu, [o + s * np.arange(n) for o, s, n in zip(m['origin_cm'], m['spacing_cm'], m['dims'])]
+
+
+def outside_air(air):
+    """Air connected to the anterior face: in front of the patient, not lung. (Label 0 is non-air.)"""
+    lab, _ = ndi.label(air)
+    u = np.unique(lab[:, -1, :])
+    return np.isin(lab, u[u > 0])
+
+
+def measure(web):
+    """Landmark suggestions from the exported CT, to start a new scan's fit from (then check by eye).
+    On scan 814 it gives midline −6.4 (fitted −5.0), spine_y −7.1 (fitted −9.0) and anterior skin
+    9.7 (fitted 9–12)."""
+    hu, (xs, ys, zs) = load_ct(web)
+    air = hu < -500
+    body = ~outside_air(air)
+    lung = air & body
+    # spine: the densest bone along x in the CT's posterior 4 cm (ribs there are thin), then the front of
+    # the vertebral bodies: walking forward from the back, where that column runs out of bone (under 20% of
+    # its peak). The export clamped everything but bone to 50 HU, so 150 HU keeps cancellous bone too.
+    bone = hu > 150
+    post = bone & (ys[None, :, None] < ys.min() + 4)
+    cx = ndi.gaussian_filter1d(post.sum((1, 2)).astype(float), 3)
+    mid = float(xs[cx.argmax()]) if post.any() else float('nan')
+    prof = (bone & (np.abs(xs[:, None, None] - mid) < 2)).sum((0, 2)) * (ys < ys.mean())   # back half: not the sternum
+    front = float('nan')
+    if prof.any():
+        on = prof >= 0.2 * prof.max()
+        k = int(np.argmax(on))
+        while k + 1 < len(ys) and on[k + 1]:
+            k += 1
+        front = float(ys[k])
+    skin = [float(ys[np.flatnonzero(body[i, :, k]).max()]) for i in range(0, len(xs), 8) for k in range(0, len(zs), 8) if body[i, :, k].any()]
+    face = lambda sl: float(lung[sl].mean())
+    print(f'CT box: x {xs[0]:.1f}..{xs[-1]:.1f}, y {ys[0]:.1f}..{ys[-1]:.1f}, z {zs[0]:.1f}..{zs[-1]:.1f} cm')
+    print(f'midline_x: spine at x ≈ {mid:.1f}   (default {P["midline_x"]})')
+    print(f'spine_y:   vertebral bodies\' front at y ≈ {front:.1f}, so their centre (spine_y) ≈ {front - P["vb_r"]:.1f}   (default {P["spine_y"]})')
+    if skin:
+        lo, md, hi = np.percentile(skin, [5, 50, 95])
+        print(f'anterior skin y: {lo:.1f}..{hi:.1f} (median {md:.1f}); body_y + body_b should clear {hi:.1f} by about 0.5 '
+              f'(default {P["body_y"] + P["body_b"]:.1f})')
+    print(f'lung on the CT faces: right (x min) {face((0, slice(None), slice(None))):.0%}, left (x max) {face((-1, slice(None), slice(None))):.0%}, '
+          f'top (z min) {face((slice(None), slice(None), 0)):.0%}, bottom (z max) {face((slice(None), slice(None), -1)):.0%}')
+    print(f'  lung at a side face: that side must fall well inside the body, midline_x ± body_a (default body_a {P["body_a"]})')
+    for name, half in (('right', xs < mid), ('left', xs >= mid)):
+        l = lung[half]
+        zl = [zs[k] for k in range(len(zs)) if l[:, :, k].mean() > 0.02]
+        print(f'  {name} lung reaches down to z = {max(zl):.1f} in the scan' if zl else f'  no {name} lung in the scan')
+    print(f'  dome_r, dome_l = (z of each diaphragm dome\'s top, x offset from midline). The domes curve down to the sides, so '
+          f'set each top a few cm above (smaller z than) the lowest lung on that side; 814: lowest 6.8 / 8.2, tops 3.0 / 6.0 '
+          f'(defaults {P["dome_r"]}, {P["dome_l"]})')
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('scan')
     ap.add_argument('--web', default='data/web')
+    ap.add_argument('--fit', help='landmark file (default: tools/hearts/<scan>.json, if there)')
+    ap.add_argument('--measure', action='store_true', help='print landmark suggestions from the CT and stop')
     args = ap.parse_args()
     out = os.path.join(args.web, args.scan)
+    if args.measure:
+        return measure(out)
+    fit = args.fit or os.path.join(os.path.dirname(__file__), 'hearts', f'{args.scan}.json')
+    if os.path.exists(fit):
+        for k, v in json.load(open(fit)).get('chest', {}).items():
+            if k not in P:
+                raise SystemExit(f'{fit}: unknown chest parameter {k!r}')
+            P[k] = {**P[k], **v} if isinstance(P[k], dict) else (tuple(v) if isinstance(v, list) else v)
+        print('landmarks from', fit)
+    else:
+        print(f'no {fit}: using the default chest (fit one with --measure, see tools/PROTOCOL.md)')
     (xs, ys, zs), vol = build(ct_lung_field(out))
     u8 = np.clip(np.round((vol + 1024) / 10), 0, 255).astype(np.uint8)
     with gzip.open(os.path.join(out, 'chest.u8.gz'), 'wb', compresslevel=9) as f:

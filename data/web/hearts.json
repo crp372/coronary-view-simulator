@@ -3,11 +3,19 @@
   "hearts": [
     {
       "id": "814",
-      "name": "CT 814 · right-dominant",
+      "name": "CT 814 \u00b7 right-dominant",
       "short": "CT 814",
       "source": "ImageCAS scan 814",
       "dominance": "right",
       "dir": "data/web/814/"
+    },
+    {
+      "id": "905",
+      "name": "CT 905 \u00b7 left-dominant",
+      "short": "CT 905",
+      "source": "ImageCAS scan 905",
+      "dominance": "left",
+      "dir": "data/web/905/"
     }
   ]
 }

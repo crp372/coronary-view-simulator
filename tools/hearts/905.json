@@ -1,0 +1,24 @@
+{
+ "scan": 905,
+ "block": "801-1000",
+ "dominance": "L",
+ "note": "Per-heart settings for the data-prep tools. chest: landmarks for export_chest.py, started from --measure (see tools/PROTOCOL.md).",
+ "chest": {
+  "midline_x": -4.2,
+  "body_y": -4.2,
+  "body_a": 20.5,
+  "body_b": 14.0,
+  "spine_y": -6.3,
+  "dome_r": [
+   3.0,
+   -7.0
+  ],
+  "dome_l": [
+   6.0,
+   7.0
+  ],
+  "markings": {
+   "seed": 905
+  }
+ }
+}

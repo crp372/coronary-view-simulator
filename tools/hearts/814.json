@@ -1,0 +1,24 @@
+{
+ "scan": 814,
+ "block": "801-1000",
+ "dominance": "R",
+ "note": "Per-heart settings for the data-prep tools. chest: landmarks for export_chest.py, fitted by hand to this CT (see tools/PROTOCOL.md).",
+ "chest": {
+  "midline_x": -5.0,
+  "body_y": -2.6,
+  "body_a": 20.5,
+  "body_b": 14.0,
+  "spine_y": -9.0,
+  "dome_r": [
+   3.0,
+   -7.0
+  ],
+  "dome_l": [
+   6.0,
+   7.0
+  ],
+  "markings": {
+   "seed": 814
+  }
+ }
+}

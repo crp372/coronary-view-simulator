@@ -2,6 +2,7 @@
 // One page per file: loading the CT takes a few seconds, so the views are shown one after another on it.
 // WebGL runs in SwiftShader (software), so the images are the same on any machine.
 import {test, expect} from '@playwright/test';
+import {readFileSync} from 'node:fs';
 
 test.describe.configure({mode: 'serial'});
 test.use({launchOptions: {args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader']}});
@@ -199,7 +200,8 @@ test.describe('layout', () => {
 
   test('heart list: the CT hearts and the model; choosing reloads', async () => {
     const sel = page.locator('#heartSel');
-    await expect(sel.locator('option')).toHaveText(['CT 814 · right-dominant', 'Simplified model heart']);
+    const hearts = JSON.parse(readFileSync(new URL('../data/web/hearts.json', import.meta.url))).hearts;
+    await expect(sel.locator('option')).toHaveText([...hearts.map(h => h.name), 'Simplified model heart']);
     await expect(sel).toHaveValue('814');
     await sel.selectOption('model');
     await page.waitForURL(/\?model$/);

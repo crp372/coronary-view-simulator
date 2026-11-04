@@ -40,7 +40,7 @@ They open both pages in headless Chromium, show every preset, the overlays, a ci
 
 ### Choosing a heart
 - The **Heart** dropdown lists the hearts in `data/web/hearts.json`, plus the simplified model heart. Choosing one reloads the page with `?heart=<id>` (or `?model`). `drr.html` reads `?heart=` too.
-- To add a heart: export it with the tools (`data/web/<id>/`), then add an entry to `hearts.json`: `id`, `name` (dropdown), `short` (monitor readout), `source` (the scan, named in the notes), `dominance`, `dir`. Phase 4 will write the full preparation protocol.
+- To add a heart, follow [tools/PROTOCOL.md](tools/PROTOCOL.md): choosing a scan by dominance, the export steps with their checkpoints, fitting the chest, the `hearts.json` entry, and a checklist for the app.
 
 ### Fluoro monitor
 - Simulated fluoroscopy image rendered from the X-ray tube's position, displayed as seen from the detector (head up; patient's left on screen right in AP).
@@ -181,7 +181,7 @@ Decision: "realistic fluoro" means synthetic DRR images from CT, so the C-arm st
 1. ~~**Phase 1, realism in motion:**~~ done: heart motion during cine (a cardiac warp, with the coronaries moving as the heart contracts); contrast streaming (contrast layers and streams rather than filling evenly).
 2. ~~**Phase 2, code health:**~~ done: `index.html` split into ES modules (no build step); one DRR engine in `src/drr/`, shared with `drr.html`; automatic screenshot checks (`npm run check`).
 3. ~~**Phase 3, layout:**~~ done: one screen with no page scrolling (presets, monitor, rail); full screen (F); collapsible control groups; a "choose heart" dropdown from `data/web/hearts.json`. See [Layout](#layout).
-4. **Phase 4, protocol:** write up everything done for the first heart as a repeatable protocol, so new hearts from the Kaggle dataset can go through the same steps.
+4. ~~**Phase 4, protocol:**~~ done: [tools/PROTOCOL.md](tools/PROTOCOL.md), written from scan 814 and followed through on a second, left-dominant heart (scan 905).
 
 ### Refinement backlog (from the first full demo; parked, not started)
 Proposed order: start from the owner's own demo notes, then 1 + 2, and split the code (4) before larger work.

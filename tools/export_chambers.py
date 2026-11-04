@@ -17,7 +17,7 @@ import nibabel as nib
 from scipy import ndimage as ndi
 from skimage.measure import marching_cubes
 
-from export_scan import to_sim_grid, block_mean
+from export_scan import to_sim_grid, block_mean, block_of
 
 STRUCTURES = [  # file stem, id, name, colour (matches the model heart's CHAMBERS in index.html)
     ('heart_ventricle_left', 'LV', 'Left ventricle', '#e0645a'),
@@ -36,7 +36,7 @@ Q = 100           # vertex quantisation: 0.01 cm
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('scan')
-    ap.add_argument('--block', default='801-1000')
+    ap.add_argument('--block', help='ImageCAS block (default: from the scan number)')
     ap.add_argument('--raw', default='data/raw')
     ap.add_argument('--web', default='data/web')
     args = ap.parse_args()
@@ -44,6 +44,7 @@ def main():
     out = os.path.join(args.web, args.scan)
     meta = json.load(open(os.path.join(out, 'meta.json')))
     centre_mm = np.array(meta['centre_subtracted_cm']) * 10
+    args.block = args.block or block_of(args.scan)
     ct_img = nib.load(f'{args.raw}/imagecas/extracted/{args.block}/{args.scan}.img.nii.gz')
 
     blob, structures, offset = bytearray(), [], 0

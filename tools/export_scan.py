@@ -2,6 +2,8 @@
 
     .venv/bin/python tools/export_scan.py 814 [--block 801-1000] [--raw data/raw] [--out data/web]
 
+--block defaults to the 200-case ImageCAS block that holds the scan (814 → 801-1000).
+
 Writes data/web/<id>/:
   ct.u8.gz          De-contrasted CT, uint8, HU = v*10 - 1024. Blood pool, myocardium and
                     coronaries are clamped to unenhanced soft tissue, so iodine can be added
@@ -45,6 +47,12 @@ POOL_MASKS = ['heart_ventricle_left', 'heart_ventricle_right', 'heart_atrium_lef
               'aorta', 'pulmonary_artery']
 RAS_TO_SIM = np.diag([-1.0, 1.0, -1.0])  # NIfTI RAS mm → simulator axes (left, anterior, feet)
 LPS_TO_SIM = np.diag([1.0, -1.0, -1.0])  # VTK (ITK/DICOM LPS) mm → simulator axes
+
+
+def block_of(scan):
+    """The ImageCAS 200-case block holding a scan: 814 → '801-1000'."""
+    lo = (int(scan) - 1) // 200 * 200 + 1
+    return f'{lo}-{lo + 199}'
 
 
 # ---------- volumes ----------
@@ -221,10 +229,11 @@ def tree_paths(pts, lines, label, root):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('scan')
-    ap.add_argument('--block', default='801-1000')
+    ap.add_argument('--block', help='ImageCAS block, e.g. 801-1000 (default: from the scan number)')
     ap.add_argument('--raw', default='data/raw')
     ap.add_argument('--out', default='data/web')
     args = ap.parse_args()
+    args.block = args.block or block_of(args.scan)
     raw = args.raw
     xdir = f'{raw}/imagecas-x/ImageCAS-X_dataset'
     out = os.path.join(args.out, args.scan)
