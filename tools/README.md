@@ -6,6 +6,23 @@ Data-prep scripts (Python) that turn raw CT and labels into small web-ready file
 |---|---|
 | `pick_scan.py` | Ranks ImageCAS-X scans: quality 4, right-dominant, no disease. Ordered by key-segment coverage, then field of view. Standard library only. |
 | `preview_scan.py` | Renders PNGs of a scan with its labels into `data/raw/preview/`: slab MIPs, AP and lateral MIPs, a rough DRR, and the coronary tree. |
+| `export_scan.py` | Writes the web-ready files for a scan to `data/web/<id>/` (format below). |
+| `check_export.py` | Renders AP and lateral DRRs from the exported files only: de-contrasted, left injection, right injection, and `vessels.json`. |
+
+## Web export format (`data/web/<id>/`)
+
+- **Coordinates:** simulator patient coordinates in cm (x = patient's left, y = anterior, z = feet). The coronary tree's bounding-box centre sits at the isocentre.
+- **Volumes:** x varies fastest, then y, then z, so they upload directly as WebGL2 3D textures. Gzip-compressed; decompress in the browser with `DecompressionStream('gzip')`.
+- **Each `origin_cm`** in `meta.json` is the centre of voxel (0,0,0).
+
+| File | Contents |
+|---|---|
+| `ct.u8.gz` | De-contrasted CT, 0.91 × 0.91 × 1 mm. uint8, HU = v × 10 − 1024. Everything that isn't bone and is above 50 HU (blood pool, enhanced myocardium, coronaries, lung vessels) is set to 50 HU, so the scan looks unenhanced. The renderer adds iodine back only where the injection goes. |
+| `coronary.rgb8.gz` | Same spacing, cropped to the tree. R = lumen occupancy 0–255 (partial-volume fraction, so thin distal vessels keep their projected density). G = ImageCAS-X segment label 0–14. B = distance from the ostium in mm, for the cine fill. |
+| `vessels.json` | One entry per vessel path, in the `VESSELS` shape: `id`, `sys` (L/R), `seg`, `lab`, `parent`, `pts` (cm), `r` (radius in cm, from the mask's distance transform; minimum about one voxel), `sdist` (cm from the ostium). |
+| `meta.json` | Grid dims, spacing and origins, encodings, the offset that was subtracted to centre the tree, and attribution. |
+
+**How the bone mask is built:** take voxels above 150 HU and group them into connected pieces. A piece counts as bone if at least 3% of it lies within 3 voxels of cortex (above 700 HU); holes such as marrow are then filled slice by slice. Blood pool has no cortical shell, so it is left out of the mask and gets clamped. Metal also counts as bone, so the ECG leads stay visible.
 
 Set up the Python environment once:
 

@@ -28,6 +28,7 @@ Single dark "cath lab console" theme by choice. Colour tokens on `:root` (`--bg`
 1. **Realistic fluoro via DRR** (digitally reconstructed radiograph): ray-march a CT volume in WebGL2 at any C-arm angle; add heart motion, noise, edge enhancement.
 2. **Precise anatomy overlay** from segmentations of the same CTCA scan (chambers + real coronary tree), drawn as contours, with near/far walls and hover highlighting in both views.
    - **Chosen dataset:** ImageCAS volumes (Kaggle, CC BY-NC 4.0) with ImageCAS-X labels (Zenodo, CC BY 4.0). ImageCAS-X provides 14 named coronary segments that map onto `VESSELS`, plus centrelines, meshes, and per-scan dominance, quality and disease descriptors. Chambers will come from TotalSegmentator `heartchambers_highres` (non-commercial). The project is therefore non-commercial unless licences change. See README "Data" and `tools/README.md`.
+   - **Web export** (`data/web/<id>/`, from `tools/export_scan.py`): de-contrasted CT plus a coronary volume (occupancy, segment, distance from ostium) plus `vessels.json`, all in the patient coordinates above (cm, tree centred at the isocentre), x-fastest. Source frames differ: NIfTI files are RAS → sim `(−x, y, −z)`; ImageCAS-X `.vtk` centrelines and meshes are LPS → sim `(x, −y, −z)`. Always convert through the export, never ad hoc.
 3. **Better room view:** improved geometry/lighting or licensed glTF models.
 4. Quiz mode: random projection, name the angle or a highlighted vessel.
 

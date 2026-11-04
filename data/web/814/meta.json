@@ -1,0 +1,79 @@
+{
+ "scan": 814,
+ "source": "ImageCAS volume + ImageCAS-X labels",
+ "attribution": [
+  "Zeng A, Xu X, et al. ImageCAS. Comput Med Imaging Graph 2023 (CC BY-NC 4.0)",
+  "Bransby KM, et al. ImageCAS-X. arXiv:2608.30404, 2026 (CC BY 4.0)"
+ ],
+ "frame": "simulator patient coords, cm: x = patient left, y = anterior, z = feet; arrays x-fastest; origin = centre of voxel (0,0,0)",
+ "centre_subtracted_cm": [
+  4.6406,
+  17.0906,
+  -10.045
+ ],
+ "ct": {
+  "file": "ct.u8.gz",
+  "dims": [
+   256,
+   256,
+   137
+  ],
+  "spacing_cm": [
+   0.0906,
+   0.0906,
+   0.1
+  ],
+  "origin_cm": [
+   -10.1953,
+   -10.1953,
+   -5.425
+  ],
+  "encoding": "uint8, HU = v*10 - 1024",
+  "decontrast": "non-bone voxels above 50 HU set to 50"
+ },
+ "coronary": {
+  "file": "coronary.rgb8.gz",
+  "dims": [
+   126,
+   120,
+   91
+  ],
+  "spacing_cm": [
+   0.0906,
+   0.0906,
+   0.1
+  ],
+  "origin_cm": [
+   -5.6641,
+   -5.3922,
+   -4.525
+  ],
+  "channels": [
+   "occupancy 0-255",
+   "segment label 0-14",
+   "distance from ostium, mm"
+  ],
+  "segments": {
+   "1": "LM",
+   "2": "LAD",
+   "3": "LCx",
+   "4": "D1",
+   "5": "D2",
+   "6": "OM1",
+   "7": "OM2",
+   "8": "IM",
+   "9": "RCA",
+   "10": "R-PDA",
+   "11": "R-PLA",
+   "12": "L-PDA",
+   "13": "L-PLA",
+   "14": "Other"
+  },
+  "right_segments": [
+   9,
+   10,
+   11
+  ]
+ },
+ "vessels": "vessels.json"
+}

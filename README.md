@@ -121,6 +121,7 @@ Chosen source: **ImageCAS** CTCA volumes with **ImageCAS-X** labels. One scan dr
 | TotalSegmentator `heartchambers_highres` (planned) | Chambers, myocardium, aorta and PA, generated locally on the chosen scan | Free for non-commercial use; commercial use needs a licence | [GitHub](https://github.com/wasserth/TotalSegmentator) |
 
 - **Scan:** ImageCAS #814. It has excellent image quality, a right-dominant tree, no disease and all key segments labelled. Chosen with `tools/pick_scan.py`.
+- **Web export:** `tools/export_scan.py` writes `data/web/814/`, about 5 MB: a de-contrasted CT, a coronary volume and a centreline tree. A CTA has contrast throughout the blood pool, but a cath injection only fills one artery, so iodine is removed from the CT and added back in the renderer. See [tools/README.md](tools/README.md#web-export-format-datawebid).
 - **Non-commercial only.** The ImageCAS volumes and the TotalSegmentator chamber model are both non-commercial. Any commercial use needs the authors' permission.
 - **Raw data never goes in git.** It lives in `data/raw/`. Only small derived, web-ready files are committed. See [tools/README.md](tools/README.md) for the download steps.
 - **Attribution** to ImageCAS and ImageCAS-X must appear in the app once CT-derived content ships.
