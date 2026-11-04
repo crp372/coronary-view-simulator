@@ -2,9 +2,11 @@
 
 An interactive browser tool for learning coronary angiography projections. You move a virtual C-arm and patient table, watch a simulated fluoroscopy image update, and overlay cardiac anatomy to understand what each view shows.
 
-**Live page:** published as a private Claude artifact ("Coronary View Simulator"). Source: `index.html` plus plain ES modules under `src/` (no build step; Three.js r128 from a CDN). See [Code layout](#code-layout).
+**Source:** `index.html` plus plain ES modules under `src/` (no build step; Three.js r128 from a CDN). See [Code layout](#code-layout). It isn't published online: the first, single-file version was a private Claude artifact, and the current version needs a server (or a bundled build) to be published.
 
-**Run it from a local server** so the fluoro image can be computed from a real CT scan (see [below](#drr-fluoro-from-ct-scan-814)):
+This README has three parts: [what it does](#what-it-does) (implemented), [known limitations](#known-limitations) (approximations, gaps, and what hasn't been validated), and the [roadmap](#roadmap) (not yet built). Technical details of the CT image and the data follow at the end.
+
+**Run it from a local server** so the fluoro image can be computed from a real CT scan (see [below](#drr-fluoro-from-ct)):
 
 ```bash
 python3 -m http.server
@@ -29,7 +31,7 @@ They open both pages in headless Chromium, show every preset, the overlays, a ci
 
 ---
 
-## What it does (version 1)
+## What it does
 
 ### Layout
 - **One screen, no page scrolling** on laptops and desktops: standard views on the left, the fluoro monitor as large as the window allows in the middle, and a right rail with the room view and the controls.
@@ -44,8 +46,9 @@ They open both pages in headless Chromium, show every preset, the overlays, a ci
 
 ### Fluoro monitor
 - Simulated fluoroscopy image rendered from the X-ray tube's position, displayed as seen from the detector (head up; patient's left on screen right in AP).
-- **Default: DRR from a real CT.** X-rays are traced through ImageCAS scan 814 at the current angle, with iodine only in the injected tree (see [DRR fluoro](#drr-fluoro-from-ct-scan-814)). Vessel labels come from the scan's own centrelines. The data attribution is shown under the monitor.
-- **Fallback: model heart** (no WebGL2 or float render targets, the data can't load, or `?model` in the address). Contrast-filled vessels darken in proportion to their thickness; faint cardiac silhouette, spine, ribs, diaphragm domes and the guide catheter (JL4 for left, JR4 for right).
+- **Default: DRR from a real CT.** X-rays are traced through the chosen heart's CT at the current angle, with iodine only in the injected tree (see [DRR fluoro](#drr-fluoro-from-ct)). Two hearts so far: ImageCAS scan 814 (right-dominant, the default) and scan 905 (left-dominant). Vessel labels come from each scan's own centrelines. A short source line sits under the presets; the full note and data attribution are in "About this image".
+- **While the CT loads**, the monitor shows a dark screen with "Loading ImageCAS scan …", and the room shows only the table and C-arm.
+- **Model heart**, a simplified, right-dominant, hand-built heart: chosen in the Heart dropdown (`?model`), or as the fallback when the CT can't be shown (no WebGL2 or float render targets, or the data can't load; the page says why). Contrast-filled vessels darken in proportion to their thickness; faint cardiac silhouette, spine, ribs, diaphragm domes and the guide catheter (JL4 for left, JR4 for right).
 - Animated quantum-noise grain. With the CT image, a square flat-panel field with rounded corners and dark shutters, drawn by the DRR's display pass. With the model image, a round vignette, drawn as CSS layers.
 - Monitor-style readouts in the corners: angulation (e.g. `RAO 30° CAU 25°`), field of view, source-to-image distance, injection side, and table position.
 - **Drag the image to pan the table**; the anatomy follows the pointer.
@@ -89,7 +92,7 @@ They open both pages in headless Chromium, show every preset, the overlays, a ci
     - **Timing:** each component has its own time course from the LV volume curve: isovolumic contraction, brisk ejection, isovolumic relaxation, rapid filling, diastasis, atrial kick. The twist unwinds early in diastole. Because the components are out of step, points trace loops rather than lines.
     - **Fitted and checked:** the heart's frame comes from the CT's own chamber meshes. The amplitudes and timing were compared frame by frame with a real RAO caudal cine (CC BY, Wikimedia Commons). The first version had a long frozen diastole and uniform squeezing, which looked like a zoom, and was reworked.
     - It's still a modelled motion, not this heart's measured motion.
-- Toggles: coronary overlay, chamber overlay, vessel labels, segment numbers, and spine and ribs (model image only; hidden in DRR mode, where the CT has its own bones). In model mode only the chamber overlay applies.
+- **Display toggles:** coronary tree, chambers, vessel labels and segment numbers (the overlays); heart motion, guide catheter and fine branches (CT image); spine and ribs (model image only, since the CT has its own bones). In model mode only the chamber overlay applies.
 - **Overlays, DRR mode:** everything comes from the same CT, so it lines up with the image. Each overlay turns on separately.
   - **Coronary overlay:** the tree from ImageCAS-X, including the tree that isn't injected. Thin ribbons coloured by segment, with labels for both trees.
   - **Chamber overlay:** chambers and great vessels (LV, RV, LA, RA, aorta, PA, and optionally the myocardium) from TotalSegmentator.
@@ -99,7 +102,7 @@ They open both pages in headless Chromium, show every preset, the overlays, a ci
   - **Segment numbers:** SCCT 18-segment badges on the injected tree, or both trees with the coronary overlay.
     - Proximal LAD runs to the D1 origin, then mid and distal are halves of the rest.
     - Proximal LCx runs to the OM1 origin, then mid/distal.
-    - The RCA is split into thirds up to the crux, because the acute marginal isn't labelled in this CT.
+    - The RCA is split into thirds up to the crux, because the acute marginal isn't labelled in ImageCAS-X. In a left-dominant heart (905), the RCA doesn't reach the crux, so its thirds are nominal; segments 15 (L-PDA) and 18 (L-PLB) come from the LCx.
   - Brighter means nearer the detector, so you can tell front from back where structures overlap.
 - **Chamber overlay, model mode:** the model's LV, RV, LA, RA, aorta and pulmonary artery.
 - **Hover (or tap on touch screens):** in the fluoro image, highlights a vessel or chamber, names it (e.g. "LAD · Left anterior descending", plus its SCCT segment, e.g. "segment 7: Mid LAD") and highlights it in the room view too.
@@ -107,7 +110,7 @@ They open both pages in headless Chromium, show every preset, the overlays, a ci
   - Hovering in the room view works the same way in reverse.
 
 ### Standard views (one-click presets)
-Each preset animates the C-arm to the angle and shows what the view is best for.
+Each preset animates the C-arm to the angle and shows what the view is best for. The angles and notes are the textbook ones; a given heart's best angles can differ by several degrees.
 
 | View | Angles | Best for |
 |---|---|---|
@@ -127,7 +130,7 @@ In the About dialog: how views are named (by detector position), how to read the
 
 ---
 
-## Anatomical model (version 1)
+## The model heart (fallback)
 
 - **Coordinate system:** x = patient's left, y = anterior, z = feet; isocentre at the origin.
 - **Heart orientation:** the long axis (base → apex) points left, anterior and inferior. It is set so the textbook rules hold:
@@ -143,71 +146,87 @@ Rendered RAO caudal, LAO (RCA) and the spider view headlessly and compared them 
 
 ---
 
-## Planned refinements (discussed, not yet built)
+## Known limitations
 
-### 1. Better room view
-- ~~Improved hand-built geometry (rounded C-arm, proper detector and tube housings, table pedestal, recognisable patient) and a close-on-heart camera~~: done.
-- Still possible: real glTF models of a C-arm and human body. Sourcing models with a suitable licence is the main issue, especially if the tool is ever monetised.
+What exists but is approximate, incomplete or not yet validated.
 
-### 2. More anatomically precise overlay
-- Replace ellipsoids with real meshes, from either:
-  - open anatomical atlases (e.g. BodyParts3D, Z-Anatomy), or
-  - segmentations of a real cardiac CT (CTCA) dataset (e.g. ASOCA, ImageCAS), which gives chambers and the real coronary tree from one patient.
-- Render outlines and contours rather than colour fills, separate near and far walls, and highlight a structure in both views on hover.
+**Validation**
+- **The image is tuned by eye**, not physically calibrated: iodine, black level and sharpening against two CC-BY cine runs (RAO caudal LAD, LAO RCA). No expert has reviewed it against a reference set of real angiograms.
+- **The screenshot checks guard against regressions only.** They show that the page still renders as before, not that the anatomy, geometry or teaching content is clinically correct.
+- **The standard views** were checked by eye on 814: AP, RAO caudal, the spider, and LAO and RAO for the RCA. 905 was checked with the protocol's in-app checklist.
 
-### 3. Realistic fluoroscopy
-Two possible meanings:
-- **Real angiogram footage** (e.g. ARCADE, CADICA datasets, or de-identified hospital runs). Authentic, but only at the angles acquired, so continuous C-arm movement is lost and the 3D overlay won't match.
-- **Synthetic fluoro from a real CT (DRR, digitally reconstructed radiograph).** The browser traces X-rays through a CT volume at any angle, giving genuine rib, lung, spine and soft-tissue texture, with real coronaries from a contrast CT. Add heart motion, noise, edge enhancement and frame-rate effects. This is how commercial cath simulators work.
+**Anatomy**
+- **Two hearts:** 814 (right-dominant) and 905 (left-dominant), both normal. There's no co-dominant heart, no anatomical variant chosen on purpose, and no disease.
+- **The ramus intermedius (IM)** is recorded as a child of the LCx; it should come off the LM.
+- **The aorta and PA are cut off** at the edges of each scan.
+- **Small named branches** (conus, SA node, acute marginal) aren't labelled in ImageCAS-X. Some are recovered by growing branches from the CT, but they're unnamed.
+- **Framing:** each heart is centred on its whole tree, so a small non-dominant RCA can sit near the image's edge (905 in LAO), and the proximal RCA can be cut off in some views at 20 cm. There are no per-view table offsets yet.
 
-### Recommended approach
-One CTCA scan solves points 2 and 3 together: the DRR gives realistic fluoro at any angle, and its segmentation gives an overlay that matches the image exactly.
+**Modelled, not this patient's**
+- **Cardiac motion** is a modelled deformation, compared frame by frame with one real RAO caudal cine; it isn't measured from either heart. There's no breathing.
+- **Illustrative fine branches** below about 1 mm are generated, labelled as illustrative on the page, and can be switched off.
+- **The chest beyond each scan** is synthetic, fitted to landmarks of that scan. 814's spine fit may sit about 2 cm too far back (see [tools/PROTOCOL.md](tools/PROTOCOL.md), step 8).
+- **The guide catheter** is shaped along each CT's aorta, with the arch extrapolated above the scan. It's an approximation for teaching, not catheter mechanics.
+- **The right hemidiaphragm** is inside 814's scan, so it shows in caudal views.
 
-Suggested order:
-1. ~~Choose a CTCA dataset and check its licence.~~ Done: see [Data](#data) below.
-2. Build the DRR fluoro renderer and the CT-derived overlay.
-3. Polish the room view last.
+**Teaching**
+- **Each preset has a one-line "best for".** There's no guidance yet on what's foreshortened or overlapped, no checklist of what to look for, and no learn or quiz mode.
+- **The SCCT segments** are mapped by distance along the vessels (LAD split at D1, LCx at OM1, RCA in thirds), not by anatomical landmarks.
 
-Decision: "realistic fluoro" means synthetic DRR images from CT, so the C-arm stays continuous and the overlay matches.
+**Technical**
+- **Speed** has been measured only on an Apple M5 in Chrome.
+- **It needs WebGL2** with float render targets, and a local server.
+- **Three.js r128** dates from 2021.
+- **Phones** get a one-column scrolling layout. Accessibility hasn't been reviewed.
 
-### Practical constraints
-- Converting raw CT and segmentations into web-ready files is substantial work, likely several sessions.
-- Data licence and attribution matter for any commercial use.
-
-### Other ideas
-- Quiz mode: show a random projection and ask the learner to name the angle or a highlighted vessel.
-
-### Current plan (agreed with the project owner, in this order)
-1. ~~**Phase 1, realism in motion:**~~ done: heart motion during cine (a cardiac warp, with the coronaries moving as the heart contracts); contrast streaming (contrast layers and streams rather than filling evenly).
-2. ~~**Phase 2, code health:**~~ done: `index.html` split into ES modules (no build step); one DRR engine in `src/drr/`, shared with `drr.html`; automatic screenshot checks (`npm run check`).
-3. ~~**Phase 3, layout:**~~ done: one screen with no page scrolling (presets, monitor, rail); full screen (F); collapsible control groups; a "choose heart" dropdown from `data/web/hearts.json`. See [Layout](#layout).
-4. ~~**Phase 4, protocol:**~~ done: [tools/PROTOCOL.md](tools/PROTOCOL.md), written from scan 814 and followed through on a second, left-dominant heart (scan 905).
-
-### Refinement backlog (from the first full demo; parked, not started)
-Proposed order: start from the owner's own demo notes, then 1 + 2, and split the code (4) before larger work.
-1. **Image realism**
-   - ~~Calibrate against real reference angiograms; thinner distal vessels~~: done (first pass: iodine, black level, sharpening, flat-panel field, 0.45 mm coronary volume). Small side branches (conus, SA node, RV and acute marginal branches) are missing because ImageCAS-X doesn't label them.
-   - ~~Small branches~~: done. Branches grown from the CT, plus illustrative fine branches below CT resolution (switchable, labelled on the page).
-   - ~~Contrast density too uniform~~: done (pulsatile, diluted and mottled front; proximal-first washout).
-   - ~~Synthetic chest background beyond the cropped scan~~: done (`tools/export_chest.py`).
-   - ~~Guide catheter~~: done (JL4/JR4 along this CT's aorta; could later be anchored with TotalSegmentator `aortic_sinuses`). ~~Cardiac motion for cine~~: done.
-2. ~~**Overlay clarity**~~: done (separate toggles, per-chamber chips, thinner contours, SCCT segment numbers).
-3. **Teaching per view**
-   - "What to look for" for each preset: segments seen well, foreshortened or overlapped.
-   - A table offset per preset, so nothing is cut off (e.g. the proximal RCA in LAO 40 at 20 cm).
-   - Quiz mode once the image and overlay are settled.
-4. ~~**Code health**~~: done (Phase 2): ES modules, one shared DRR engine, screenshot checks.
-5. **Data**
-   - More hearts (left-dominant, co-dominant).
-   - The ramus (IM) is recorded as a child of the LCx; it should come off the LM.
-   - The aorta and PA are cut off at the edges of the scan.
-   - Check TotalSegmentator's terms before sharing publicly.
+**Licensing**
+- **Non-commercial only:** the ImageCAS volumes (CC BY-NC 4.0) and the TotalSegmentator chamber model (non-commercial licence) both forbid commercial use.
+- **Unchecked:** whether TotalSegmentator's terms allow publishing its outputs (the chamber meshes). Check this before sharing the repository or the app publicly.
 
 ---
 
-## DRR fluoro from CT scan 814
+## Roadmap
 
-`index.html` renders a digitally reconstructed radiograph (DRR) of ImageCAS scan 814 at any C-arm angle, in its own WebGL2 canvas under the Three.js canvas. In DRR mode the Three.js canvas is cleared to transparent and only draws the anatomy overlay. `drr.html` runs the same engine (`src/drr/`) on its own.
+### Done
+1. **Phase 1, realism in motion:** heart motion during cine (a cardiac warp, with the coronaries moving as the heart contracts); contrast streaming (contrast layers and streams rather than filling evenly).
+2. **Phase 2, code health:** `index.html` split into ES modules (no build step); one DRR engine in `src/drr/`, shared with `drr.html`; automatic screenshot checks (`npm run check`).
+3. **Phase 3, layout:** one screen with no page scrolling (presets, monitor, rail); full screen (F); collapsible control groups; a "choose heart" dropdown from `data/web/hearts.json`. See [Layout](#layout).
+4. **Phase 4, protocol:** [tools/PROTOCOL.md](tools/PROTOCOL.md), written from scan 814 and followed through on a second, left-dominant heart (scan 905).
+
+Earlier: the DRR from a real CT (chosen over real angiogram footage, which only exists at the angles it was recorded at, so the C-arm couldn't move freely and the overlay wouldn't match), the CT's own overlay with hover, the TotalSegmentator chambers, image realism (thinner vessels, small branches, contrast streaming, synthetic chest, guide catheter), overlay clarity, and the room view.
+
+### Open items (not started; order not yet agreed)
+From the owner's backlog after the first full demo, and an external review (2026-11).
+- **Decide the primary audience** (medical students, cardiology trainees or interventional fellows). It sets the depth of the teaching notes and of any assessment.
+- **Clinical validation:** a small reference set of real angiograms, and a review by interventional cardiologists of the standard views, vessel anatomy, catheter position, contrast behaviour and cardiac motion.
+- **Teaching per view:** for each preset:
+  - what should be visible, what it separates, what's foreshortened or overlapped, and what to look for;
+  - what changes when the angle moves;
+  - textbook advice kept apart from this heart's own best angles;
+  - a table offset per view and heart, so nothing is cut off.
+- **Learn and quiz modes:**
+  - guided exercises (choose a projection, identify the anatomy, see what's hidden, change the angle, then name the structures without labels);
+  - quizzes: name the projection, name a segment, or pick which of three views shows a segment best;
+  - feedback on each answer, and progressive difficulty.
+- **More anatomy:**
+  - a co-dominant heart (candidates 925, in block 801-1000 already on disk, and 153);
+  - a ramus variant;
+  - later, a heart with disease;
+  - the ramus moved under the LM;
+  - better coverage of the aorta and PA.
+- **Technical hardening:**
+  - licensing resolved before any public release;
+  - Three.js upgraded;
+  - testing on more typical hardware and browsers;
+  - accessibility;
+  - automatic checks of the projection geometry and anatomy, not only screenshots.
+- **Room view:** licensed glTF models of a C-arm and a body, which are optional.
+
+---
+
+## DRR fluoro from CT
+
+`index.html` renders a digitally reconstructed radiograph (DRR) of the chosen heart's CT at any C-arm angle, in its own WebGL2 canvas under the Three.js canvas. In DRR mode the Three.js canvas is cleared to transparent and only draws the anatomy overlay. `drr.html` runs the same engine (`src/drr/`) on its own.
 
 - **Three passes.**
   1. Cone-beam ray march through the de-contrasted CT, at half-voxel steps: μ = 0.2/cm × (1 + HU/1000).
@@ -215,9 +234,9 @@ Proposed order: start from the owner's own demo notes, then 1 + 2, and split the
   3. Display: I = e^(−∫μ) on a log window with automatic brightness from the central image, then edge enhancement, quantum noise (σ ∝ 1/√I) at 15 pulses/s, and a square flat-panel field.
   - **Tuned by eye** against CC-BY cine angiograms on Wikimedia Commons (an RAO caudal LAD and LAO RCA runs from published case reports): iodine 15 000 HU equivalent at full lumen, black level 0.08 so dense vessels read dark grey rather than black, and sharpening 0.95.
   - **Coronary volume at full CT resolution** (0.45 mm), lightly blurred for anti-aliasing, so distal vessels stay thin. The lumen volume is unchanged (3.15 mL).
-  - **Chest beyond the scan.** The CT covers only 23 × 23 × 13.8 cm. Everything outside it comes from a coarse synthetic chest: `tools/export_chest.py`, 3 mm voxels, about 0.5 MB.
+  - **Chest beyond the scan.** Each CT covers only about 20 × 20 × 14 cm (814: 23 × 23 × 13.8). Everything outside it comes from a coarse synthetic chest: `tools/export_chest.py`, 3 mm voxels, about 0.5 MB.
     - **What it holds:** body wall with subcutaneous fat, lungs with faint markings, diaphragm domes (right higher) with the liver below, vertebrae with discs, 12 pairs of ribs with costal cartilage, the sternum and the clavicles.
-    - **Fitted to scan 814:** midline, spine, skin and chest width; lung and tissue values match the CT's own (lung about −880 HU).
+    - **Fitted to each scan** (`tools/hearts/<id>.json`): midline, spine, skin and chest width; lung and tissue values match 814's CT (lung about −880 HU).
     - **Seamless edges:** near each face of the CT, the CT's own lung-or-tissue pattern is carried across and fades into the generic chest over about 4 cm. The DRR blends from CT to chest over the CT's outer 1.5 cm, so the scan's edges don't show.
     - The DRR steps finely through the CT and coarsely through the chest. A frame still takes about 5 ms for the CT pass.
     - It's illustrative; everything inside the scan is still the patient's own CT.
@@ -234,29 +253,25 @@ Proposed order: start from the owner's own demo notes, then 1 + 2, and split the
       - Both layers fill on cine and follow the injection side.
 - **Controls in `index.html`:** all the existing ones. The table sliders and drag-to-pan move the anatomy (the offset is subtracted from tube and detector), and cine fills by distance from the ostium in mm. Iodine is fixed at +15 000 HU at full lumen (`TUNE.iod`). `drr.html` adds an iodine-strength slider and a centreline toggle.
 - **Labels:** from `vessels.json` centrelines, at 45% along each vessel. If that point is off-screen, the nearest on-screen point along the centreline is used instead.
-- **Speed (Apple M5, Chrome):** about 6 ms for the 512² DRR pass, about 1 ms for the iodine pass, and about 3 ms per display frame at 1520². The CT pass only reruns when the geometry changes.
-- **Checked views:** AP, RAO 30 CAU 25, LAO 45 CAU 30 (spider), LAO 40 right (RCA "C") and RAO 30 right (RCA "L"). In AP the RCA is on screen left and the LAD runs to the apex at lower right. In `index.html`, all ten presets, cine, table pan, FOV and the overlay were checked, plus the fallback when the data is missing.
-- **Limits:**
-  - The CT covers only 23 × 23 × 14 cm. Past its faces the edge voxels are extended and fade over 3 cm into flat soft tissue inside an elliptical body outline, so there's no full rib cage, and no lung edge outside the scan.
-  - The right hemidiaphragm is inside the scan and shows in caudal views.
-  - No guide catheter, heart motion or breathing yet.
-  - The export's bone mask kept the contrast-filled descending aorta (~350 HU), so it shows faintly along the spine.
+- **Speed (Apple M5, Chrome; not measured elsewhere):** about 6 ms for the 512² DRR pass, about 1 ms for the iodine pass, and about 3 ms per display frame at 1520². The CT pass only reruns when the geometry changes.
+- **Checked by eye on 814:** AP, RAO 30 CAU 25, LAO 45 CAU 30 (spider), LAO 40 right (RCA "C") and RAO 30 right (RCA "L"). In AP the RCA is on screen left and the LAD runs to the apex at lower right. All ten presets, cine, table pan, FOV and the overlays were checked, plus the fallback when the data is missing. See [Known limitations](#known-limitations).
+- **Without the synthetic chest** (if `chest.u8.gz` is missing), the CT's edge voxels are extended and fade over 3 cm into flat soft tissue inside an elliptical body outline.
 
 ---
 
 ## Data
 
-Chosen source: **ImageCAS** CTCA volumes with **ImageCAS-X** labels. One scan drives both the DRR and the overlay.
+Chosen source: **ImageCAS** CTCA volumes with **ImageCAS-X** labels. For each heart, one scan drives both the DRR and the overlay.
 
 | Source | Provides | Licence | Where |
 |---|---|---|---|
 | ImageCAS (Zeng, Xu et al., 2023) | ~1000 CTCA volumes (Siemens dual-source), NIfTI | CC BY-NC 4.0 | [Kaggle](https://www.kaggle.com/datasets/xiaoweixumedicalai/imagecas) |
 | ImageCAS-X (Bransby et al., 2026) | For 800 of those scans: lumen labels split into 14 named segments (LM, LAD, LCx, D1, D2, OM1, OM2, IM, RCA, R-PDA, R-PLA, L-PDA, L-PLA, other), centrelines, meshes, and per-scan dominance, image quality and disease descriptors | CC BY 4.0 | [Zenodo 21887809](https://zenodo.org/records/21887809) |
-| TotalSegmentator `heartchambers_highres` (Wasserthal et al., 2023) | Chambers, myocardium, aorta and PA, generated locally on scan 814 | Free non-commercial licence (requested by the project owner); commercial use needs a paid licence | [GitHub](https://github.com/wasserth/TotalSegmentator) |
+| TotalSegmentator `heartchambers_highres` (Wasserthal et al., 2023) | Chambers, myocardium, aorta and PA, generated locally on each scan | Free non-commercial licence (requested by the project owner); commercial use needs a paid licence | [GitHub](https://github.com/wasserth/TotalSegmentator) |
 
-- **Scan:** ImageCAS #814. It has excellent image quality, a right-dominant tree, no disease and all key segments labelled. Chosen with `tools/pick_scan.py`.
-- **Web export:** `tools/export_scan.py` writes `data/web/814/`, about 5 MB: a de-contrasted CT, a coronary volume and a centreline tree. A CTA has contrast throughout the blood pool, but a cath injection only fills one artery, so iodine is removed from the CT and added back in the renderer. See [tools/README.md](tools/README.md#web-export-format-datawebid).
+- **Scans:** ImageCAS #814 (right-dominant) and #905 (left-dominant). Both have excellent image quality, no disease and all key segments labelled. Chosen with `tools/pick_scan.py`, and prepared with [tools/PROTOCOL.md](tools/PROTOCOL.md).
+- **Web export:** `tools/export_scan.py` writes `data/web/<id>/`, about 7 MB per heart with the chambers, catheter and chest: a de-contrasted CT, a coronary volume and a centreline tree. A CTA has contrast throughout the blood pool, but a cath injection only fills one artery, so iodine is removed from the CT and added back in the renderer. See [tools/README.md](tools/README.md#web-export-format-datawebid).
 - **Non-commercial only.** The ImageCAS volumes and the TotalSegmentator chamber model are both non-commercial. Any commercial use needs the authors' permission.
 - **Raw data never goes in git.** It lives in `data/raw/`. Only small derived, web-ready files are committed. See [tools/README.md](tools/README.md) for the download steps.
-- **Chambers:** `tools/export_chambers.py` turns the TotalSegmentator masks into smooth meshes, `data/web/814/chambers.bin.gz` (0.9 MB) plus `chambers.json`.
-- **Attribution:** ImageCAS, ImageCAS-X and TotalSegmentator are credited in the app's source note, from `meta.json` and `chambers.json`.
+- **Chambers:** `tools/export_chambers.py` turns the TotalSegmentator masks into smooth meshes, `data/web/<id>/chambers.bin.gz` (0.9 MB) plus `chambers.json`.
+- **Attribution:** ImageCAS, ImageCAS-X and TotalSegmentator are credited in the app's "About this image" note, from `meta.json` and `chambers.json`.
