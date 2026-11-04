@@ -53,6 +53,13 @@ select{font:inherit;font-family:var(--f-body);font-size:14px;letter-spacing:norm
 .vig{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 50%,transparent 58%,var(--screen) 104%)}
 /* DRR mode: the CT image draws its own noise and vignette; the model canvas only carries the overlay */
 .monitor:not(.drr) #drr,.monitor.drr #noise,.monitor.drr .vig{display:none}
+/* while the CT loads: a dark screen with a status, not the model heart */
+.mstat{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:var(--muted);font-family:var(--f-mono);font-size:13px;pointer-events:none}
+.monitor.loading .mstat{display:flex}
+.monitor.loading #fluoro,.monitor.loading #noise,.monitor.loading .vig{display:none}
+.spin{width:26px;height:26px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--accent);animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}}
 .ro{position:absolute;font-family:var(--f-mono);font-size:clamp(11px,1.5vw,13px);color:var(--accent);text-shadow:0 0 3px var(--ink),0 0 1px var(--ink);pointer-events:none;line-height:1.35;font-variant-numeric:tabular-nums}
 .ro.tl{top:10px;left:12px}.ro.tr{top:10px;right:12px;text-align:right}.ro.bl{bottom:10px;left:12px}.ro.br{bottom:10px;right:12px;text-align:right}
 .ro b{font-weight:500;font-size:1.25em}

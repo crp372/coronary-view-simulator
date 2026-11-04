@@ -47,7 +47,7 @@ async function startDRR(){
   const fail=why=>{app.why=why;app.mode='model';setMode();};
   // fetch can't read local files (file://, or a data: snapshot), so don't try
   if(!/^https?:$/.test(location.protocol))return fail('file');
-  const hearts=await loadHearts();fillHearts(hearts);app.heart=hearts.heart;
+  const hearts=await loadHearts();fillHearts(hearts);app.heart=hearts.heart;setMode();   // names the heart being loaded
   if(hearts.model)return fail('chosen');
   $('heartDesc').textContent=`${hearts.heart.source}, a ${hearts.heart.dominance}-dominant heart`;
   const gl=drrCv.getContext('webgl2',{antialias:false,depth:false,preserveDrawingBuffer:true});
@@ -91,7 +91,7 @@ function step(now){
     const cs=drrCine(app.cine,now,state.motion);if(app.cine&&app.cine.done)app.cine=null;
     app.drr.render(drrView(state),cs,reduce?0:Math.floor(now/1000*15));   // noise and motion refresh at 15 pulses/s
     if(state.ovV||state.ovC||app.hover!==null)fr.render(oScene,fcam);else fr.clear();   // transparent over the DRR
-  }else{
+  }else if(app.mode==='model'){   // while loading, the monitor shows a status instead
     cineStep(now);
     fr.render(fScene,fcam);
     if(state.ovC){fr.autoClear=false;fr.render(oScene,fcam);fr.autoClear=true;}

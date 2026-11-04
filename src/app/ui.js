@@ -31,7 +31,7 @@ export function syncUI(fromSlider){
   const a=angTxt(state.lao,state.cra);
   $('roAng').innerHTML=`<b>${a.replace('  ','<br>')}</b>`;
   $('roFov').innerHTML=`FOV ${state.fov} cm<br>SID ${SID} cm`;
-  const cn=app.mode==='drr'?(state.cath&&catName[state.inj]):(state.inj==='L'?'JL4':'JR4');
+  const cn=app.mode==='drr'?(state.cath&&catName[state.inj]):app.mode==='model'?(state.inj==='L'?'JL4':'JR4'):'';
   $('roInj').textContent=(state.inj==='L'?'LCA injection':'RCA injection')+(cn?' · '+cn:'');
   $('roTbl').innerHTML=`TBL ${state.tx>=0?'+':''}${state.tx.toFixed(1)} / ${state.tz>=0?'+':''}${state.tz.toFixed(1)} / ${state.ty>=0?'+':''}${state.ty.toFixed(1)}<br>${app.mode==='drr'?'DRR · '+esc(app.heart.short):app.mode==='loading'?'Loading CT…':'Model heart'}`;
   $('nowAng').textContent=a;
@@ -60,10 +60,13 @@ $('tblReset').addEventListener('click',()=>{state.tx=state.ty=state.tz=0;syncUI(
 /* ---------- Fluoro source: DRR when it starts, model otherwise ---------- */
 export function setMode(){
   const on=app.mode==='drr';
-  mon.classList.toggle('drr',on);
-  $('tBones').hidden=on;                          // the CT has its own bones
-  roomModelTree.visible=modelOvl.visible=!on;roomCTTree.visible=ctOvl.visible=on;
-  roomModelAnat.visible=!(on&&CH.length);roomCTCh.visible=on;   // model chambers stay only if the CT has none
+  mon.classList.toggle('drr',on);mon.classList.toggle('loading',app.mode==='loading');
+  $('monStatTxt').textContent=app.heart?`Loading ${app.heart.source}…`:'Loading the CT…';
+  $('tBones').hidden=app.mode!=='model';          // only the model draws spine and ribs; the CT has its own
+  // the model heart only when it's the image (chosen, or the CT failed); nothing on the table while loading
+  const model=app.mode==='model';
+  roomModelTree.visible=modelOvl.visible=model;roomCTTree.visible=ctOvl.visible=on;
+  roomModelAnat.visible=model||(on&&!CH.length);roomCTCh.visible=on;   // model chambers stay only if the CT has none
   fr.setClearColor(fluoroBg,on?0:1);
   $('tOvV').hidden=$('tSegN').hidden=!on;           // the model heart has no separate coronary overlay or segments
   $('tFine').hidden=!(on&&app.drr&&app.drr.hasFine);
@@ -77,7 +80,7 @@ export function setMode(){
       (roomCath.length?` The guide catheter (JL4 or JR4, femoral approach) is shaped along this CT's aorta; the arch above the scan is extrapolated.`:'')+
       (app.drr&&app.drr.hasChest?` Beyond the ${app.scanCm} cm scan, the lungs, ribs, spine and diaphragm come from a synthetic chest fitted to this scan's landmarks (illustrative).`:'')+
       ` During a cine run the heart beats at 72/min, then holds still when the run ends: a modelled motion (long-axis shortening, squeeze, twist, swing, buckling, each on its own time course), not this heart's measured motion. Data: ${esc(app.attr)}. Non-commercial use only.`
-    :app.mode==='loading'?'Loading a real coronary CT for the fluoro image. Until then it shows a simplified model heart.'
+    :app.mode==='loading'?'Loading a real coronary CT for the fluoro image.'
     :app.why==='file'?'<strong>Fluoro image:</strong> simplified model heart. For the image computed from a real coronary CT, serve this folder (<code>python3 -m http.server</code>) and open it from localhost.'
     :app.why==='chosen'?'<strong>Fluoro image:</strong> simplified, right-dominant model heart, chosen in the heart list. Contrast-filled vessels darken in proportion to their thickness.'
     :`<strong>Fluoro image:</strong> simplified model heart, because ${esc(app.why)}.`;
@@ -85,7 +88,7 @@ export function setMode(){
   const more=' <button type="button" class="link" data-about="">More</button>';
   $('srcShort').innerHTML=on
     ?`Traced through a real coronary CT (${esc(app.heart.source)}).`+(app.drr&&app.drr.hasFine&&state.fine?' <strong>Branches under 1 mm are illustrative.</strong>':'')+' Non-commercial use only.'+more
-    :app.mode==='loading'?'Loading the CT…'
+    :app.mode==='loading'?(app.heart?`Loading ${esc(app.heart.source)}…`:'Loading the CT…')
     :(app.why==='chosen'?'Simplified model heart.':'Simplified model heart: the CT couldn’t be shown.')+more;
   syncUI();
 }

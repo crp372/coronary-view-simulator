@@ -97,6 +97,26 @@ test.describe('index.html, CT image', () => {
   });
 });
 
+// While the CT loads, the monitor shows a status, not the model heart; the room has no model on the table
+test('loading screen', async ({browser}) => {
+  const p = await browser.newPage();
+  let release;
+  const held = new Promise(r => { release = r; });
+  await p.route('**/ct.u8.gz', async route => { await held; await route.continue(); });
+  await p.goto('/?heart=905');
+  await p.waitForFunction(() => window.sim);
+  await expect(p.locator('#monStatTxt')).toHaveText('Loading ImageCAS scan 905…');
+  await expect(p.locator('#monitor')).toHaveClass(/loading/);
+  await expect(p.locator('#fluoro')).toBeHidden();
+  await expect(p.locator('#labels .lbl:not([hidden])')).toHaveCount(0);
+  expect(await p.evaluate(() => window.sim.mode)).toBe('loading');
+  release();
+  await p.evaluate(() => window.sim.ready);
+  await expect(p.locator('#monStat')).toBeHidden();
+  expect(await p.evaluate(() => window.sim.mode)).toBe('drr');
+  await p.close();
+});
+
 test.describe('index.html, model heart (?model)', () => {
   test.beforeAll(async ({browser}) => { page = await open(browser, '/?model'); });
   test.afterAll(async () => { await page.close(); expect(errors).toEqual([]); });

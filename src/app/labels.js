@@ -16,6 +16,7 @@ chamberAnchors.forEach(c=>{const el=document.createElement('span');el.className=
 /* ---------- Labels projection ---------- */
 const tmp=new V3();
 export function placeLabels(){
+  if(app.mode==='loading'){LABELS.forEach(l=>{l.el.hidden=true;});return;}   // nothing to label yet
   const W=mon.clientWidth,H=mon.clientHeight;
   LABELS.forEach(l=>{
     // vessel labels: the model's ('v') or, in DRR mode, the CT centrelines' ('d'), for both trees with the coronary
