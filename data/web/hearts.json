@@ -1,0 +1,13 @@
+{
+  "default": "814",
+  "hearts": [
+    {
+      "id": "814",
+      "name": "CT 814 · right-dominant",
+      "short": "CT 814",
+      "source": "ImageCAS scan 814",
+      "dominance": "right",
+      "dir": "data/web/814/"
+    }
+  ]
+}

@@ -7,14 +7,14 @@ import {loadScan} from './drr/data.js';
 import {drrSupport,createDRR} from './drr/engine.js';
 import {drrCine} from './drr/cine.js';
 import {heartForward,heartFrame} from './drr/heart.js';
+import {loadHearts} from './hearts.js';
 const V3=THREE.Vector3;
-const DATA='data/web/814/';
 const reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
 const $=id=>document.getElementById(id);
 
 // tx, ty, tz: table offset in cm (patient x, y, z); the anatomy moves with it. The iodine strength is TUNE.iod.
 const state={lao:-30,cra:-25,tx:0,ty:0,tz:0,fov:20,inj:'L',cath:true,fine:true,motion:true,labels:true,lines:false};
-let drr=null,cine=null,dirty=true,tween=null,paused=false,lastNow=0;
+let drr=null,heart=null,cine=null,dirty=true,tween=null,paused=false,lastNow=0;
 const stats={frameMs:0};
 
 /* ---------- Vessel labels and centrelines (vessels.json), projected like the DRR ---------- */
@@ -68,7 +68,7 @@ function syncUI(fromSlider){
   $('roFov').innerHTML=`FOV ${state.fov} cm<br>SID ${SID} cm`;
   $('roInj').textContent=state.inj==='L'?'LCA injection':'RCA injection';
   const tb=[state.tx,state.tz,state.ty].map(v=>(v>=0?'+':'')+v.toFixed(1));
-  $('roSrc').innerHTML=`TBL ${tb.join(' / ')}<br>DRR · CT 814`;
+  $('roSrc').innerHTML=`TBL ${tb.join(' / ')}<br>DRR · ${heart?heart.short:'…'}`;
   $('nowAng').textContent=a;
   let hit=null;presetBtns.forEach(({b,p})=>{const on=p.inj===state.inj&&Math.abs(p.lao-state.lao)<=5&&Math.abs(p.cra-state.cra)<=5;b.setAttribute('aria-pressed',String(on));if(on)hit=p;});
   $('nowName').textContent=hit?hit.name:'Custom view';
@@ -117,9 +117,11 @@ async function start(){
   syncUI();
   const gl=cv.getContext('webgl2',{antialias:false,depth:false,preserveDrawingBuffer:true});
   const no=drrSupport(gl);if(no){fail(`The DRR renderer can’t run: ${no}.`);return;}
+  // ?heart=<id> as in index.html; this page has no model heart, so ?model shows the default heart
+  const hs=await loadHearts();heart=hs.heart||hs.list[0];syncUI();
   let scan;
-  try{scan=await loadScan(DATA);}
-  catch(e){console.error(e);fail('Couldn’t load the CT data from <code>'+DATA+'</code>: '+String(e.message||e));return;}
+  try{scan=await loadScan(heart.dir);}
+  catch(e){console.error(e);fail('Couldn’t load the CT data from <code>'+heart.dir+'</code>: '+String(e.message||e));return;}
   try{drr=createDRR(gl,cv,scan,{fine:state.fine,reduce});}catch(e){console.error(e);fail(String(e.message||e));return;}
   if(scan.chambers)heartFrame(scan.chambers);   // the heart's frame for cardiac motion
   for(const [id,on] of [['tCath',!!scan.cath],['tFine',drr.hasFine]])$(id).hidden=!on;

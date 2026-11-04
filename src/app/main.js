@@ -10,11 +10,10 @@ import {mon,drrCv,fr,fScene,oScene,fcam,anat,ovl,sysGroups,bones,ovDir,cineStep}
 import {rr,rScene,rcam,orbit,tableG,carm,holder,beamGeo,roomCath,roomCamStep} from './room.js';
 import {VES,CH,addCT} from './ct.js';
 import {placeLabels} from './labels.js';
-import {syncUI,setMode} from './ui.js';
+import {syncUI,setMode,fillHearts} from './ui.js';
 import {runPick} from './pointer.js';
+import {loadHearts} from '../hearts.js';
 const V3=THREE.Vector3;
-
-const DRR_DATA='data/web/814/';
 
 function updateGeometry(){
   const {d,t}=dirs(state.lao,state.cra);
@@ -42,19 +41,22 @@ function updateGeometry(){
 }
 
 
-// The DRR fluoro: X-rays traced through a real CT (scan 814). If it can't start (no WebGL2 or float targets,
-// file://, fetch failure), the model renderer stays on. ?model in the address forces the model (for checks).
+// The DRR fluoro: X-rays traced through the chosen heart's CT. If it can't start (no WebGL2 or float targets,
+// file://, fetch failure), the model renderer stays on. Choosing the model heart (?model) skips the CT.
 async function startDRR(){
   const fail=why=>{app.why=why;app.mode='model';setMode();};
-  if(new URLSearchParams(location.search).has('model'))return fail('the model heart was asked for (?model in the address)');
   // fetch can't read local files (file://, or a data: snapshot), so don't try
   if(!/^https?:$/.test(location.protocol))return fail('file');
+  const hearts=await loadHearts();fillHearts(hearts);app.heart=hearts.heart;
+  if(hearts.model)return fail('chosen');
+  $('heartDesc').textContent=`${hearts.heart.source}, a ${hearts.heart.dominance}-dominant heart`;
   const gl=drrCv.getContext('webgl2',{antialias:false,depth:false,preserveDrawingBuffer:true});
   const no=drrSupport(gl);if(no)return fail(no);
   let scan;
-  try{scan=await loadScan(DRR_DATA);app.drr=createDRR(gl,drrCv,scan,{fine:state.fine,reduce});}
+  try{scan=await loadScan(app.heart.dir);app.drr=createDRR(gl,drrCv,scan,{fine:state.fine,reduce});}
   catch(e){console.warn('DRR unavailable, using the model renderer:',e);return fail('the CT couldn’t be loaded ('+String(e.message||e)+')');}
   addCT(scan);
+  const m=scan.meta.ct;app.scanCm=m.dims.map((n,i)=>Math.round(n*m.spacing_cm[i])).join(' × ');
   app.mode='drr';setMode();
 }
 

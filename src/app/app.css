@@ -1,4 +1,7 @@
-/* Layout: cath-lab console. Live fluoro monitor dominates the left; room view and C-arm/table controls form the right rail. Single dark look by choice, like a control room. */
+/* Layout: cath-lab console, one screen with no page scrolling. Presets on the left, the fluoro monitor as large as the
+   window allows in the middle, room view and collapsible control groups in the right rail. Single dark look by choice,
+   like a control room. Narrower windows get a slimmer presets column; phones (and very short windows) scroll in one
+   column. */
 :root{
   --bg:#0e1215; --panel:#151a1f; --panel2:#1c232a; --line:#2b343c; --fg:#e3e7ea; --muted:#8b97a1;
   --accent:#e8b450; --cool:#74b8c8; --screen:#050607; --ink:#0b0e10;
@@ -8,19 +11,42 @@
   color-scheme:dark;
 }
 html,body{background:var(--bg);color:var(--fg)}
-body{font-family:var(--f-body);font-size:15px;line-height:1.45;
-  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
-.wrap{max-width:1320px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
-header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 24px;border-bottom:1px solid var(--line);padding-bottom:14px}
-h1{font-family:var(--f-display);font-weight:700;font-size:clamp(28px,4vw,40px);letter-spacing:.01em;margin:0;line-height:1;text-wrap:balance}
+body{font-family:var(--f-body);font-size:15px;line-height:1.45;margin:0}
+h1{font-family:var(--f-display);font-weight:700;font-size:24px;letter-spacing:.01em;margin:0;line-height:1}
 h1 span{color:var(--accent)}
-.sub{color:var(--muted);margin:0;max-width:62ch}
 h2{font-family:var(--f-display);font-weight:600;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0}
-.grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:18px;align-items:start}
-@media (max-width:920px){.grid{grid-template-columns:minmax(0,1fr)}}
-.col{display:flex;flex-direction:column;gap:14px;min-width:0}
 
-.monitor{position:relative;width:100%;max-width:100%;aspect-ratio:1/1;background:var(--screen);border-radius:4px;overflow:hidden;touch-action:none;cursor:grab;border:1px solid var(--line)}
+/* the shell: exactly one screen high; the middle cell is a size container so the monitor can be a square that fits */
+.app{box-sizing:border-box;height:100vh;height:100dvh;display:grid;gap:10px 14px;
+  padding:10px max(16px,env(safe-area-inset-right,0px)) 12px max(16px,env(safe-area-inset-left,0px));
+  grid-template-columns:clamp(180px,15vw,220px) minmax(0,1fr) clamp(310px,26vw,380px);grid-template-rows:auto minmax(0,1fr);
+  grid-template-areas:"bar bar bar" "side stage rail"}
+.bar{grid-area:bar;display:flex;flex-wrap:wrap;align-items:center;gap:8px 22px;border-bottom:1px solid var(--line);padding-bottom:9px}
+.heart{display:flex;align-items:center;gap:8px;font-family:var(--f-display);font-weight:600;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+select{font:inherit;font-family:var(--f-body);font-size:14px;letter-spacing:normal;text-transform:none;color:var(--fg);background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:5px 8px;max-width:60vw}
+.acts{margin-left:auto;display:flex;gap:6px}
+.side{grid-area:side;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:10px}
+.stage{grid-area:stage;min-width:0;min-height:0;container-type:size;display:grid;place-items:center}
+.stage .monitor{width:min(100cqw,100cqh)}
+.rail{grid-area:rail;min-height:0;overflow:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:10px}
+/* the room view takes the height the open groups leave */
+.roompanel{flex:1 1 auto;min-height:190px}
+.roompanel .room{flex:1 1 0;min-height:140px;aspect-ratio:auto}
+/* compact controls, so the open groups and a useful room view fit one screen */
+.rail .panel{padding:10px 12px;gap:8px}
+.rail .grp>:not(summary){margin-top:8px}
+.rail button{padding:5px 8px;font-size:14px}
+.rail .seg{gap:5px}
+/* sliders on one line: label, slider, value (the value says which way, e.g. RAO or LAO) */
+.rail .ctl{grid-template-columns:88px minmax(0,1fr) 92px;gap:0 8px}
+.rail .ctl label{grid-column:1;grid-row:1}
+.rail .ctl input[type=range]{grid-column:2;grid-row:1;margin:0}
+.rail .ctl output{grid-column:3;text-align:right;font-size:13px}
+.rail .ctl .ends{display:none}
+.rail .note{font-size:12px}
+.room .legend{position:absolute;top:6px;left:8px;pointer-events:none;text-shadow:0 0 3px var(--ink)}
+
+.monitor{position:relative;max-width:100%;aspect-ratio:1/1;background:var(--screen);border-radius:4px;overflow:hidden;touch-action:none;cursor:grab;border:1px solid var(--line)}
 .monitor.drag{cursor:grabbing}
 .monitor canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 #noise{mix-blend-mode:overlay;opacity:.28;pointer-events:none}
@@ -47,14 +73,23 @@ h2{font-family:var(--f-display);font-weight:600;font-size:13px;letter-spacing:.1
 .chip[aria-pressed=false]{opacity:.55}
 .tip .stk{display:block;color:var(--muted);font-size:11.5px;margin-top:1px}
 
-.now{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:12px 14px}
+.now{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:10px 12px}
 .now .ang{font-family:var(--f-mono);color:var(--accent);font-variant-numeric:tabular-nums}
 .now .nm{font-family:var(--f-display);font-weight:600;font-size:18px}
-.now .bf{color:var(--muted);flex-basis:100%}
+.now .bf{color:var(--muted);flex-basis:100%;font-size:13.5px;line-height:1.35}
 .now .bf strong{color:var(--fg);font-weight:500}
 
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:14px;display:flex;flex-direction:column;gap:12px}
-.room{position:relative;width:100%;aspect-ratio:4/3;max-width:100%;border-radius:3px;overflow:hidden;background:var(--panel2)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+/* collapsible control groups (open state remembered per browser) */
+details.grp{display:block}
+.grp>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px}
+.grp>summary::-webkit-details-marker{display:none}
+.grp>summary::before{content:"";width:6px;height:6px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(-45deg);transition:transform .15s}
+.grp[open]>summary::before{transform:rotate(45deg) translate(-2px,-1px)}
+.grp>summary:hover h2{color:var(--fg)}
+.grp>summary:focus-visible{outline:2px solid var(--accent);outline-offset:4px;border-radius:2px}
+.grp>:not(summary){margin-top:10px}
+.room{position:relative;width:100%;aspect-ratio:4/3;max-width:100%;border-radius:3px;overflow:hidden;background:var(--panel2);touch-action:none}
 .room canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .room .hint{position:absolute;left:10px;bottom:8px;font-size:12px;color:var(--muted);pointer-events:none}
 .legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--muted)}
@@ -77,16 +112,66 @@ button[aria-pressed=true]{background:var(--accent);color:var(--ink);border-color
 button.go{border-color:var(--accent);color:var(--accent)}
 .row{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between}
 
-.presets{display:flex;flex-direction:column;gap:10px}
-.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}
-.pre{text-align:left;display:flex;flex-direction:column;gap:2px;padding:10px 12px}
-.pre .pn{font-family:var(--f-display);font-weight:600;font-size:16px}
+.presets{display:flex;flex-direction:column;gap:6px}
+.pgrid{display:grid;grid-template-columns:minmax(0,1fr);gap:5px}
+.presets h2+.pgrid{margin-bottom:6px}
+.pre{text-align:left;display:flex;flex-direction:column;gap:0;padding:5px 10px}
+.pre .pn{font-family:var(--f-display);font-weight:600;font-size:15px;line-height:1.25}
+.pre .pb{display:none}   /* the current view's "best for" shows in the box below */
 .pre .pa{font-family:var(--f-mono);font-size:12px;color:var(--accent)}
 .pre .pb{font-size:12.5px;color:var(--muted);line-height:1.35}
 .pre[aria-pressed=true] .pa,.pre[aria-pressed=true] .pb{color:var(--ink)}
 
-details{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:12px 14px}
-summary{cursor:pointer;font-family:var(--f-display);font-weight:600;font-size:16px}
-details p,details li{color:var(--muted);max-width:68ch}
-details strong{color:var(--fg);font-weight:500}
+button.link{background:none;border:0;padding:0;color:var(--cool);text-decoration:underline;text-underline-offset:2px;font-size:inherit}
+button.link:hover{color:var(--fg)}
+.side>.note{font-size:12px}
+
+/* About this image */
+dialog{box-sizing:border-box;width:min(760px,calc(100vw - 32px));max-height:min(86dvh,900px);background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:14px 20px 18px}
+dialog::backdrop{background:rgba(5,6,7,.7)}
+dialog>p{color:var(--muted)}
+dialog h3{font-family:var(--f-display);font-weight:600;font-size:17px;margin:16px 0 4px}
+dialog .note{max-width:none;font-size:13.5px}
+dialog ul.note{padding-left:18px}
+.dlghead{position:sticky;top:-14px;display:flex;align-items:center;justify-content:space-between;background:var(--panel);padding:4px 0 8px;border-bottom:1px solid var(--line)}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+
+/* short windows (laptops at 800 px): tighter presets, no hover hint, a smaller minimum room view */
+@media (max-height:860px) and (min-width:920px){
+  .pre{padding:3px 9px}
+  .pre .pn{font-size:14px}
+  .pre .pa{font-size:11px}
+  .pgrid{gap:4px}
+  .now{padding:8px 10px}
+}
+@media (max-height:860px) and (min-width:920px){
+  .rail>.grp .note{display:none}
+  .roompanel{min-height:170px}
+  .roompanel .room{min-height:120px}
+}
+@media (max-height:780px) and (min-width:920px){
+  .roompanel{min-height:140px}
+  .roompanel .room{min-height:95px}
+  .room .hint{display:none}
+  .rail{gap:7px}
+  .rail .panel{padding:8px 12px}
+}
+
+/* narrower windows (920–1199 px): a slimmer presets column with names only (the box below shows the angle) */
+@media (max-width:1199px){
+  .app{grid-template-columns:150px minmax(0,1fr) 310px}
+  .pre .pa{display:none}
+}
+/* phones and very short windows: one scrolling column, presets as chips */
+@media (max-width:919px),(max-height:559px){
+  .app{height:auto;grid-template-columns:minmax(0,1fr);grid-template-rows:none;grid-template-areas:"bar" "stage" "side" "rail"}
+  .stage{container-type:normal}
+  .stage .monitor{width:min(100%,92vh)}
+  .rail{overflow:visible}
+  .roompanel .room{flex:none;aspect-ratio:4/3}
+  .presets{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 10px;align-items:center}
+  .pgrid{display:flex;flex-wrap:wrap;gap:6px}
+  .presets h2+.pgrid{margin-bottom:0}
+  .pre{padding:4px 9px}
+  .pre .pa{display:none}
+}

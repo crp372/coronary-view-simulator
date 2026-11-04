@@ -134,3 +134,81 @@ test.describe('drr.html', () => {
     await expect(page.locator('#monitor')).toHaveScreenshot('drr-lines-L-rao-cranial.png');
   });
 });
+
+// The layout: one screen with nothing cut off, at common laptop and desktop sizes (phones scroll in one column)
+test.describe('layout', () => {
+  test.beforeAll(async ({browser}) => { page = await open(browser, '/'); });
+  test.afterAll(async () => { await page.close(); expect(errors).toEqual([]); });
+
+  for (const [w, h] of [[1920, 1080], [1440, 900], [1280, 800], [1180, 740], [1024, 768]]) {
+    test(`fits ${w}×${h} without scrolling`, async () => {
+      await page.setViewportSize({width: w, height: h});
+      const m = await page.evaluate(() => {
+        const over = s => { const e = document.querySelector(s); return e.scrollHeight - e.clientHeight; };
+        return {page: document.documentElement.scrollHeight - innerHeight, wide: document.documentElement.scrollWidth - innerWidth,
+          rail: over('.rail'), side: over('.side'), mon: document.getElementById('monitor').getBoundingClientRect().width};
+      });
+      expect(m).toMatchObject({page: 0, wide: 0});
+      expect(m.rail).toBeLessThanOrEqual(1);
+      expect(m.side).toBeLessThanOrEqual(1);
+      expect(m.mon).toBeGreaterThan(Math.min(w, h) * 0.6);
+    });
+  }
+
+  test('whole page, 1440×900', async () => {
+    await page.setViewportSize({width: 1440, height: 900});
+    await frame(page);
+    await expect(page).toHaveScreenshot('layout-1440x900.png');
+  });
+
+  test('phone: one column, no sideways scroll', async () => {
+    await page.setViewportSize({width: 375, height: 812});
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0);
+    await page.setViewportSize({width: 1280, height: 900});
+  });
+
+  test('groups collapse, and stay so after a reload', async () => {
+    const table = page.locator('details[data-grp=table]');
+    await expect(table).toHaveJSProperty('open', false);
+    await table.locator('summary').click();
+    await expect(table).toHaveJSProperty('open', true);
+    // the toggle event (which saves the state) runs as a task of its own, so let it happen before reloading
+    await page.waitForFunction(() => (localStorage.getItem('cvs.groups') || '').includes('"table":true'));
+    await page.reload();
+    await page.evaluate(() => window.sim.ready);
+    await expect(page.locator('details[data-grp=table]')).toHaveJSProperty('open', true);
+    await page.locator('details[data-grp=table] summary').click();
+  });
+
+  test('full screen: the button and F', async () => {
+    const fs = () => page.evaluate(() => !!document.fullscreenElement);
+    await page.locator('#fsBtn').click();
+    await expect.poll(fs).toBe(true);
+    await expect(page.locator('#fsBtn')).toHaveText('Exit full screen');
+    await page.keyboard.press('f');
+    await expect.poll(fs).toBe(false);
+  });
+
+  test('About dialog', async () => {
+    await page.locator('#aboutBtn').click();
+    await expect(page.locator('#about')).toBeVisible();
+    await expect(page.locator('#srcNote')).toContainText('ImageCAS scan 814');
+    await page.locator('#about button[type=submit]').click();
+    await expect(page.locator('#about')).toBeHidden();
+  });
+
+  test('heart list: the CT hearts and the model; choosing reloads', async () => {
+    const sel = page.locator('#heartSel');
+    await expect(sel.locator('option')).toHaveText(['CT 814 · right-dominant', 'Simplified model heart']);
+    await expect(sel).toHaveValue('814');
+    await sel.selectOption('model');
+    await page.waitForURL(/\?model$/);
+    await page.evaluate(() => window.sim.ready);
+    expect(await page.evaluate(() => window.sim.mode)).toBe('model');
+    await expect(sel).toHaveValue('model');
+    await sel.selectOption('814');
+    await page.waitForURL(/\?heart=814$/);
+    await page.evaluate(() => window.sim.ready);
+    expect(await page.evaluate(() => window.sim.mode)).toBe('drr');
+  });
+});

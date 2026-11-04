@@ -16,7 +16,7 @@ Then open http://localhost:8000/. The page has to be served: browsers won't load
 - `src/drr/`: the DRR engine, shared by both pages. `engine.js` (WebGL2 passes), `shaders.js`, `tune.js` (image constants, `TUNE`), `data.js` (`loadScan()` for a `data/web/<id>/` export), `heart.js` (cardiac motion, GLSL and its CPU twin), `cine.js` (the cine run).
 - `src/geometry.js` (projection conventions, `dirs()`, `drrView()`) and `src/presets.js`, shared by both pages.
 - `src/app/`: `index.html`'s modules. `main.js` is the entry point (start-up, frame loop, `window.sim`); `state.js` holds the shared state; then `model.js` (model heart), `fluoro.js` (Three.js image and overlay), `ct.js` (the CT's tree and chambers), `labels.js`, `room.js`, `ui.js` (controls, presets, `setMode()`), `pointer.js` (pan and hover). Styles are in `app.css`.
-- `src/drr-page.js`: `drr.html`'s page script.
+- `src/drr-page.js`: `drr.html`'s page script. `src/hearts.js` reads the heart list (`data/web/hearts.json`) for both pages.
 
 ### Screenshot checks
 After changing anything that shows on screen, run the automatic checks (Node.js needed; one-off setup: `npm install`, then `npx playwright install chromium`):
@@ -25,11 +25,22 @@ After changing anything that shows on screen, run the automatic checks (Node.js 
 npm run check
 ```
 
-They open both pages in headless Chromium, show every preset, the overlays, a cine run with heart motion, the room view, the model-heart fallback and `drr.html`, and compare each against the reference images in `tests/baselines/`. After an intended change, look at the differences in the report (`npx playwright show-report`), then refresh the references with `npm run check:update` and commit them. The checks render with WebGL in software (SwiftShader), so they're the same on any machine. Re-running a DRR pass there can shift a few pixel values slightly, so the comparison allows small differences.
+They open both pages in headless Chromium, show every preset, the overlays, a cine run with heart motion, the room view, the model-heart fallback and `drr.html`; check that the layout fits one screen at common sizes, and that the groups, full screen, About dialog and heart list work; and compare each against the reference images in `tests/baselines/`. After an intended change, look at the differences in the report (`npx playwright show-report`), then refresh the references with `npm run check:update` and commit them. The checks render with WebGL in software (SwiftShader), so they're the same on any machine. Re-running a DRR pass there can shift a few pixel values slightly, so the comparison allows small differences.
 
 ---
 
 ## What it does (version 1)
+
+### Layout
+- **One screen, no page scrolling** on laptops and desktops: standard views on the left, the fluoro monitor as large as the window allows in the middle, and a right rail with the room view and the controls.
+- **Collapsible control groups** (C-arm, Table, Injection, Display). The room view takes whatever height the open groups leave. Which groups are open is remembered in this browser.
+- **Full screen** for the whole app (button in the top bar, or press F; Esc leaves). Hidden where the browser can't do it, e.g. iPhone Safari, and some embedded previews block it.
+- **About this image** (top bar) holds the longer notes: where the image comes from, how to read the overlays, and how the views are named. The short source line under the presets stays on the page, including the note that the finest branches are illustrative.
+- Narrower windows (920–1199 px) keep the three columns with a slimmer presets column; phones, and windows under 560 px tall, scroll in one column.
+
+### Choosing a heart
+- The **Heart** dropdown lists the hearts in `data/web/hearts.json`, plus the simplified model heart. Choosing one reloads the page with `?heart=<id>` (or `?model`). `drr.html` reads `?heart=` too.
+- To add a heart: export it with the tools (`data/web/<id>/`), then add an entry to `hearts.json`: `id`, `name` (dropdown), `short` (monitor readout), `source` (the scan, named in the notes), `dominance`, `dir`. Phase 4 will write the full preparation protocol.
 
 ### Fluoro monitor
 - Simulated fluoroscopy image rendered from the X-ray tube's position, displayed as seen from the detector (head up; patient's left on screen right in AP).
@@ -112,7 +123,7 @@ Each preset animates the C-arm to the angle and shows what the view is best for.
 | LAO cranial (RCA) | LAO 30° CRA 25° | Crux: distal RCA into PDA and PLV |
 
 ### Built-in explainer
-A collapsible section covering how views are named (by detector position), how to read the image orientation, and why RAO, LAO, cranial and caudal views open different segments.
+In the About dialog: how views are named (by detector position), how to read the image orientation, and why RAO, LAO, cranial and caudal views open different segments.
 
 ---
 
@@ -169,11 +180,7 @@ Decision: "realistic fluoro" means synthetic DRR images from CT, so the C-arm st
 ### Current plan (agreed with the project owner, in this order)
 1. ~~**Phase 1, realism in motion:**~~ done: heart motion during cine (a cardiac warp, with the coronaries moving as the heart contracts); contrast streaming (contrast layers and streams rather than filling evenly).
 2. ~~**Phase 2, code health:**~~ done: `index.html` split into ES modules (no build step); one DRR engine in `src/drr/`, shared with `drr.html`; automatic screenshot checks (`npm run check`).
-3. **Phase 3, layout:**
-   - no scrolling back and forth
-   - a full-screen version
-   - all controls on one screen, in collapsible groups
-   - a "choose heart" dropdown, ready for more hearts
+3. ~~**Phase 3, layout:**~~ done: one screen with no page scrolling (presets, monitor, rail); full screen (F); collapsible control groups; a "choose heart" dropdown from `data/web/hearts.json`. See [Layout](#layout).
 4. **Phase 4, protocol:** write up everything done for the first heart as a repeatable protocol, so new hearts from the Kaggle dataset can go through the same steps.
 
 ### Refinement backlog (from the first full demo; parked, not started)

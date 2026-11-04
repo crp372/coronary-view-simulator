@@ -12,8 +12,9 @@ export const state={lao:-30,cra:-25,tx:0,ty:0,tz:0,fov:20,inj:'L',ovV:false,ovC:
 export const chOn={LV:true,RV:true,LA:true,RA:true,Ao:true,PA:true,Myo:false};   // per-chamber switches (legend chips)
 
 // What the modules change for each other:
-//   mode: 'loading' (model shown meanwhile), 'drr' or 'model'; why: the reason for 'model' ('file' or a sentence)
+//   mode: 'loading' (model shown meanwhile), 'drr' or 'model'; why: the reason for 'model' ('file', 'chosen' or a sentence)
 //   drr: the DRR engine once running; attr: its data attribution; ctLegend: the CT segment colours (HTML)
 //   hover / hoverCh: index into VES / CH of the highlighted vessel / chamber
 //   tween: a preset move in progress; cine: the cine run in progress; roomView: 'room' or 'heart'
-export const app={mode:'loading',why:'',drr:null,attr:'',ctLegend:'',hover:null,hoverCh:null,tween:null,cine:null,roomView:'room'};
+//   heart: the chosen heart (hearts.json entry); scanCm: its CT's size, e.g. '23 × 23 × 14'
+export const app={mode:'loading',why:'',drr:null,attr:'',ctLegend:'',hover:null,hoverCh:null,tween:null,cine:null,roomView:'room',heart:null,scanCm:''};

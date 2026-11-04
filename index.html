@@ -11,145 +11,163 @@
 <link rel="stylesheet" href="src/app/app.css">
 </head>
 <body>
-<div class="wrap">
-  <header>
+<div class="app">
+  <header class="bar">
     <h1>Coronary <span>View</span> Simulator</h1>
-    <p class="sub">Swing the C-arm and move the table, then turn on the coronary and chamber overlays to see which structures the projection is showing you.</p>
+    <label class="heart">Heart
+      <select id="heartSel" aria-label="Choose a heart"></select>
+    </label>
+    <div class="acts">
+      <button type="button" id="aboutBtn" aria-haspopup="dialog">About this image</button>
+      <button type="button" id="fsBtn" aria-pressed="false" title="Full screen (F)" hidden>Full screen</button>
+    </div>
   </header>
 
-  <div class="grid">
-    <div class="col">
-      <div class="monitor" id="monitor" aria-label="Simulated fluoroscopy image. Drag to pan the table.">
-        <canvas id="drr"></canvas>
-        <canvas id="fluoro"></canvas>
-        <canvas id="noise" width="110" height="110"></canvas>
-        <div class="vig"></div>
-        <div class="labels" id="labels"></div>
-        <div class="ro tl" id="roAng"></div>
-        <div class="ro tr" id="roFov"></div>
-        <div class="ro bl" id="roInj"></div>
-        <div class="ro br" id="roTbl"></div>
-        <div class="tip" id="monTip" hidden></div>
-      </div>
-      <div class="now" aria-live="polite">
-        <span class="ang" id="nowAng"></span>
-        <span class="nm" id="nowName"></span>
-        <span class="bf" id="nowBest"></span>
-      </div>
-      <p class="note" id="srcNote"></p>
-      <section class="presets">
-        <h2>Standard views · left coronary</h2>
-        <div class="pgrid" id="presetsL"></div>
-        <h2>Standard views · right coronary</h2>
-        <div class="pgrid" id="presetsR"></div>
-      </section>
+  <aside class="side" aria-label="Standard views">
+    <section class="presets">
+      <h2>Left coronary</h2>
+      <div class="pgrid" id="presetsL"></div>
+      <h2>Right coronary</h2>
+      <div class="pgrid" id="presetsR"></div>
+    </section>
+    <div class="now" aria-live="polite">
+      <span class="ang" id="nowAng"></span>
+      <span class="nm" id="nowName"></span>
+      <span class="bf" id="nowBest"></span>
     </div>
+    <p class="note" id="srcShort"></p>
+  </aside>
 
-    <div class="col">
-      <div class="panel">
-        <div class="row"><h2>Room</h2>
-          <div class="seg" id="roomViewSeg" role="group" aria-label="Room camera">
-            <button type="button" data-rv="room" aria-pressed="true">Whole room</button>
-            <button type="button" data-rv="heart" aria-pressed="false">Close on heart</button>
-          </div>
-        </div>
-        <div class="room" id="room"><canvas id="roomc"></canvas><span class="hint">Drag to orbit · scroll to zoom</span><div class="tip" id="roomTip" hidden></div></div>
-        <div class="legend" id="roomLegend"></div>
-      </div>
-
-      <div class="panel">
-        <h2>C-arm</h2>
-        <div class="ctl">
-          <label for="sLao">Rotation</label><output id="oLao"></output>
-          <input type="range" id="sLao" min="-90" max="90" step="1">
-          <div class="ends"><span>RAO 90°</span><span>AP</span><span>LAO 90°</span></div>
-        </div>
-        <div class="ctl">
-          <label for="sCra">Angulation</label><output id="oCra"></output>
-          <input type="range" id="sCra" min="-45" max="45" step="1">
-          <div class="ends"><span>Caudal 45°</span><span>0°</span><span>Cranial 45°</span></div>
-        </div>
-        <div class="row">
-          <span>Field of view</span>
-          <div class="seg" id="fovSeg">
-            <button type="button" data-fov="25">25 cm</button>
-            <button type="button" data-fov="20">20 cm</button>
-            <button type="button" data-fov="15">15 cm</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="panel">
-        <div class="row"><h2>Table</h2><button type="button" id="tblReset">Centre table</button></div>
-        <div class="ctl">
-          <label for="sTx">Lateral</label><output id="oTx"></output>
-          <input type="range" id="sTx" min="-12" max="12" step="0.5">
-          <div class="ends"><span>To patient's right</span><span>To patient's left</span></div>
-        </div>
-        <div class="ctl">
-          <label for="sTz">Longitudinal</label><output id="oTz"></output>
-          <input type="range" id="sTz" min="-15" max="15" step="0.5">
-          <div class="ends"><span>Headward</span><span>Footward</span></div>
-        </div>
-        <div class="ctl">
-          <label for="sTy">Height</label><output id="oTy"></output>
-          <input type="range" id="sTy" min="-10" max="10" step="0.5">
-          <div class="ends"><span>Lower</span><span>Higher</span></div>
-        </div>
-        <p class="sub" style="font-size:13px;margin:0">You can also drag the fluoro image to pan the table.</p>
-      </div>
-
-      <div class="panel">
-        <h2>Injection and display</h2>
-        <div class="row">
-          <div class="seg" id="injSeg">
-            <button type="button" data-inj="L">Left coronary</button>
-            <button type="button" data-inj="R">Right coronary</button>
-          </div>
-          <button type="button" class="go" id="cine">Run cine injection</button>
-        </div>
-        <div class="seg">
-          <button type="button" id="tOvV" aria-pressed="false">Coronary overlay</button>
-          <button type="button" id="tOvC" aria-pressed="false">Chamber overlay</button>
-          <button type="button" id="tLabels" aria-pressed="true">Vessel labels</button>
-          <button type="button" id="tSegN" aria-pressed="false">Segment numbers</button>
-          <button type="button" id="tBones" aria-pressed="true">Spine and ribs</button>
-          <button type="button" id="tCath" aria-pressed="true" hidden>Guide catheter</button>
-          <button type="button" id="tMotion" aria-pressed="true" hidden title="During a cine run the heart beats at 72/min (modelled, not this heart's measured motion)">Heart motion</button>
-          <button type="button" id="tFine" aria-pressed="true" hidden title="Branches finer than the CT can show, generated to look realistic; not this patient's anatomy">Fine branches (illustrative)</button>
-        </div>
-        <div class="legend" id="ovLegend" hidden></div>
-        <div class="note" id="ovNote" hidden>The overlays come from this CT's own segmentations, so they line up with the image:
-          <ul>
-            <li><strong>Coronary overlay:</strong> the tree from ImageCAS-X, including the tree that isn't injected.</li>
-            <li><strong>Chamber overlay:</strong> chambers and great vessels from TotalSegmentator. Each is drawn as an outline where the beam grazes its wall edge-on, which is where it would form a border on a real image. Click a chip above to show or hide one.</li>
-            <li><strong>Segment numbers:</strong> the SCCT 18-segment model. Proximal, mid and distal RCA are thirds of the RCA up to the crux, because the acute marginal isn't labelled in this CT.</li>
-          </ul>
-          Brighter means nearer the detector. Hover over or tap a structure, here or in the room view, to name it. Over a chamber, the label also lists everything else in the beam at that point, detector side first.</div>
-      </div>
+  <main class="stage">
+    <div class="monitor" id="monitor" aria-label="Simulated fluoroscopy image. Drag to pan the table.">
+      <canvas id="drr"></canvas>
+      <canvas id="fluoro"></canvas>
+      <canvas id="noise" width="110" height="110"></canvas>
+      <div class="vig"></div>
+      <div class="labels" id="labels"></div>
+      <div class="ro tl" id="roAng"></div>
+      <div class="ro tr" id="roFov"></div>
+      <div class="ro bl" id="roInj"></div>
+      <div class="ro br" id="roTbl"></div>
+      <div class="tip" id="monTip" hidden></div>
     </div>
+  </main>
+
+  <div class="rail">
+    <section class="panel roompanel">
+      <div class="row"><h2>Room</h2>
+        <div class="seg" id="roomViewSeg" role="group" aria-label="Room camera">
+          <button type="button" data-rv="room" aria-pressed="true">Whole room</button>
+          <button type="button" data-rv="heart" aria-pressed="false">Close on heart</button>
+        </div>
+      </div>
+      <div class="room" id="room"><canvas id="roomc"></canvas><div class="legend" id="roomLegend"></div><span class="hint">Drag to orbit · scroll to zoom</span><div class="tip" id="roomTip" hidden></div></div>
+    </section>
+
+    <details class="panel grp" data-grp="carm" open>
+      <summary><h2>C-arm</h2></summary>
+      <div class="ctl">
+        <label for="sLao">Rotation</label><output id="oLao"></output>
+        <input type="range" id="sLao" min="-90" max="90" step="1">
+        <div class="ends"><span>RAO 90°</span><span>AP</span><span>LAO 90°</span></div>
+      </div>
+      <div class="ctl">
+        <label for="sCra">Angulation</label><output id="oCra"></output>
+        <input type="range" id="sCra" min="-45" max="45" step="1">
+        <div class="ends"><span>Caudal 45°</span><span>0°</span><span>Cranial 45°</span></div>
+      </div>
+      <div class="row">
+        <span>Field of view</span>
+        <div class="seg" id="fovSeg">
+          <button type="button" data-fov="25">25 cm</button>
+          <button type="button" data-fov="20">20 cm</button>
+          <button type="button" data-fov="15">15 cm</button>
+        </div>
+      </div>
+    </details>
+
+    <details class="panel grp" data-grp="table">
+      <summary><h2>Table</h2></summary>
+      <div class="ctl">
+        <label for="sTx">Lateral</label><output id="oTx"></output>
+        <input type="range" id="sTx" min="-12" max="12" step="0.5">
+        <div class="ends"><span>To patient's right</span><span>To patient's left</span></div>
+      </div>
+      <div class="ctl">
+        <label for="sTz">Longitudinal</label><output id="oTz"></output>
+        <input type="range" id="sTz" min="-15" max="15" step="0.5">
+        <div class="ends"><span>Headward</span><span>Footward</span></div>
+      </div>
+      <div class="ctl">
+        <label for="sTy">Height</label><output id="oTy"></output>
+        <input type="range" id="sTy" min="-10" max="10" step="0.5">
+        <div class="ends"><span>Lower</span><span>Higher</span></div>
+      </div>
+      <div class="row"><p class="note">You can also drag the image to pan the table.</p><button type="button" id="tblReset">Centre table</button></div>
+    </details>
+
+    <details class="panel grp" data-grp="inj" open>
+      <summary><h2>Injection</h2></summary>
+      <div class="row">
+        <div class="seg" id="injSeg">
+          <button type="button" data-inj="L" title="Left coronary injection">Left</button>
+          <button type="button" data-inj="R" title="Right coronary injection">Right</button>
+        </div>
+        <button type="button" class="go" id="cine">Run cine</button>
+      </div>
+    </details>
+
+    <details class="panel grp" data-grp="disp" open>
+      <summary><h2>Display</h2></summary>
+      <div class="seg">
+        <button type="button" id="tOvV" aria-pressed="false">Coronary tree</button>
+        <button type="button" id="tOvC" aria-pressed="false">Chambers</button>
+        <button type="button" id="tLabels" aria-pressed="true">Vessel labels</button>
+        <button type="button" id="tSegN" aria-pressed="false">Segment numbers</button>
+      </div>
+      <div class="legend" id="ovLegend" hidden></div>
+      <div class="seg">
+        <button type="button" id="tMotion" aria-pressed="true" hidden title="During a cine run the heart beats at 72/min (modelled, not this heart's measured motion)">Heart motion</button>
+        <button type="button" id="tCath" aria-pressed="true" hidden>Guide catheter</button>
+        <button type="button" id="tFine" aria-pressed="true" hidden title="Branches finer than the CT can show, generated to look realistic; not this patient's anatomy">Fine branches (illustrative)</button>
+        <button type="button" id="tBones" aria-pressed="true">Spine and ribs</button>
+      </div>
+      <p class="note">Hover or tap to name a structure · <button type="button" class="link" data-about="ovl">How to read the overlays</button></p>
+    </details>
   </div>
-
-  <details>
-    <summary>How the views are named, and how to read the image</summary>
-    <ul>
-      <li><strong>Views are named for where the detector sits.</strong> The X-ray tube is under the table, the detector is above the patient. LAO means the detector has swung over toward the patient's left; RAO, toward the right. Cranial tilts the detector toward the head, caudal toward the feet.</li>
-      <li><strong>The image is drawn as seen from the detector.</strong> In AP the head is at the top and the patient's left is on the screen's right, like looking down at the patient from the ceiling.</li>
-      <li><strong>RAO separates left from right along the AV groove.</strong> The AV groove (RCA and LCx) is seen edge-on, so the RCA looks like an "L" and the LAD runs along the front of the heart.</li>
-      <li><strong>LAO looks down the septum.</strong> The AV groove opens into a ring, so the RCA looks like a "C", and the LAD and LCx split to either side of the septum.</li>
-      <li><strong>Cranial views open the LAD and diagonals; caudal views open the LM, LCx and OMs.</strong> LAO caudal, the "spider", looks up the long axis from the apex onto the LM bifurcation.</li>
-      <li><strong>The fluoro image is computed from one real coronary CT</strong> (a right-dominant heart), by tracing X-rays through it at the current angle. Real hearts vary in orientation, so this heart's best angles can differ by a few degrees from the textbook ones.</li>
-      <li>With the CT image, the anatomy overlay comes from that same CT: its coronary tree, chambers and great vessels. The aorta and pulmonary artery are cut off where the scan ends. If the CT can't load, a simplified, right-dominant model heart is used instead.</li>
-    </ul>
-  </details>
 </div>
+
+<dialog id="about" aria-labelledby="aboutTitle">
+  <form method="dialog" class="dlghead"><h2 id="aboutTitle">About this image</h2><button type="submit" aria-label="Close">Close</button></form>
+  <p>Swing the C-arm and move the table, then turn on the coronary and chamber overlays to see which structures the projection is showing you.</p>
+  <h3>Where the image comes from</h3>
+  <p class="note" id="srcNote"></p>
+  <h3 id="about-ovl">The overlays</h3>
+  <div class="note" id="ovNote">With the CT image, the overlays come from this CT's own segmentations, so they line up with the image:
+    <ul>
+      <li><strong>Coronary tree:</strong> from ImageCAS-X, including the tree that isn't injected.</li>
+      <li><strong>Chambers:</strong> chambers and great vessels from TotalSegmentator. Each is drawn as an outline where the beam grazes its wall edge-on, which is where it would form a border on a real image. Click a chip in the legend to show or hide one.</li>
+      <li><strong>Segment numbers:</strong> the SCCT 18-segment model. Proximal, mid and distal RCA are thirds of the RCA up to the crux, because the acute marginal isn't labelled in this CT.</li>
+    </ul>
+    Brighter means nearer the detector. Hover over or tap a structure, in the image or the room view, to name it. Over a chamber, the label also lists everything else in the beam at that point, detector side first.</div>
+  <h3>How the views are named, and how to read the image</h3>
+  <ul class="note">
+    <li><strong>Views are named for where the detector sits.</strong> The X-ray tube is under the table, the detector is above the patient. LAO means the detector has swung over toward the patient's left; RAO, toward the right. Cranial tilts the detector toward the head, caudal toward the feet.</li>
+    <li><strong>The image is drawn as seen from the detector.</strong> In AP the head is at the top and the patient's left is on the screen's right, like looking down at the patient from the ceiling.</li>
+    <li><strong>RAO separates left from right along the AV groove.</strong> The AV groove (RCA and LCx) is seen edge-on, so the RCA looks like an "L" and the LAD runs along the front of the heart.</li>
+    <li><strong>LAO looks down the septum.</strong> The AV groove opens into a ring, so the RCA looks like a "C", and the LAD and LCx split to either side of the septum.</li>
+    <li><strong>Cranial views open the LAD and diagonals; caudal views open the LM, LCx and OMs.</strong> LAO caudal, the "spider", looks up the long axis from the apex onto the LM bifurcation.</li>
+    <li><strong>The fluoro image is computed from one real coronary CT</strong> (<span id="heartDesc">a right-dominant heart</span>), by tracing X-rays through it at the current angle. Real hearts vary in orientation, so this heart's best angles can differ by a few degrees from the textbook ones.</li>
+    <li>With the CT image, the anatomy overlay comes from that same CT: its coronary tree, chambers and great vessels. The aorta and pulmonary artery are cut off where the scan ends. If the CT can't load, a simplified, right-dominant model heart is used instead.</li>
+  </ul>
+</dialog>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <!-- The app is plain ES modules (src/app/main.js and what it imports), so it needs a local server: browsers
      won't load modules from file://. Say so on the page in that case. -->
 <script>
-if(location.protocol==='file:')document.getElementById('srcNote').innerHTML='This page has to be served, because it loads its code as modules: run <code>python3 -m http.server</code> in this folder and open <code>http://localhost:8000/</code>.';
+if(location.protocol==='file:')document.getElementById('srcShort').innerHTML='This page has to be served, because it loads its code as modules: run <code>python3 -m http.server</code> in this folder and open <code>http://localhost:8000/</code>.';
 </script>
 <script type="module" src="src/app/main.js"></script>
 

@@ -13,6 +13,7 @@ A browser-based teaching tool for coronary angiography projections, built by Chi
   - `src/app/`: `index.html`'s modules. `main.js` (entry: `startDRR`, `updateGeometry`, `step`, `window.sim`), `state.js` (`state`, `chOn`, and `app` for everything modules change for each other: `mode`, `why`, `drr`, `attr`, `ctLegend`, `hover`, `hoverCh`, `tween`, `cine`, `roomView`), `model.js`, `tubes.js`, `fluoro.js`, `ct.js` (`addCT(scan)`, `VES`, `CH`, `SEG`, `SCCT`), `labels.js`, `room.js`, `ui.js` (`syncUI`, `setMode`, `refreshOverlayUI`), `pointer.js`. Styles in `src/app/app.css`.
   - A mutable value shared between modules goes in `app` (an imported `let` can't be assigned from another module).
   - `src/drr-page.js` is `drr.html`'s page script.
+  - `src/hearts.js`: `loadHearts()` reads `data/web/hearts.json` (falls back to a built-in list with 814) and picks the heart from `?heart=<id>`, `?model` or the default; `heartHref(id)` builds the address to switch. The `#heartSel` dropdown reloads the page; there's no live swap of volumes. `app.heart` holds the entry (`name`, `short`, `source`, `dominance`, `dir`); UI text about the scan comes from it, and `app.scanCm` from the CT's meta. Don't hard-code "814" in UI text.
 - Three.js r128 from cdnjs, OrbitControls from jsDelivr (`three@0.128.0/examples/js/controls/OrbitControls.js`).
 - Fonts: Barlow Condensed (display), Barlow (body), IBM Plex Mono (readouts) from Google Fonts.
 - Run locally with a server: `python3 -m http.server`, then `/`. Modules don't load from `file://`; an inline script says so on the page. `?model` forces the model-heart fallback.
@@ -52,7 +53,7 @@ A browser-based teaching tool for coronary angiography projections, built by Chi
 - **Presets** live in the `PRESETS` array (name, lao, cra, injection side, "best for" text).
 
 ## Design
-Single dark "cath lab console" theme by choice. Colour tokens on `:root` (`--bg`, `--panel`, `--accent` amber for monitor readouts, `--cool` cyan for the RCA). Layout: fluoro monitor dominant on the left, room view and controls in the right rail; stacks to one column under 920px.
+Single dark "cath lab console" theme by choice. Colour tokens on `:root` (`--bg`, `--panel`, `--accent` amber for monitor readouts, `--cool` cyan for the RCA). Layout (`src/app/app.css`): one screen, no page scrolling. `.app` is a 100dvh grid: `bar` on top, then `side` (presets, current view, short source line `#srcShort`), `stage` (a size container; the monitor is `min(100cqw,100cqh)` square) and `rail` (room view, then `details.grp` groups: C-arm, Table, Injection, Display). The room panel flexes to the height the open groups leave. Media queries come last in the file: 920–1199 px slims the side column (names only); under 920 px wide or 560 px tall it's one scrolling column, presets as chips; under 860/780 px tall the rail tightens. Keep the layout checks in `tests/views.spec.js` passing (no page, rail or side overflow at 1920×1080 down to 1024×768). Longer notes (`#srcNote`, `#ovNote`, how views are named) live in the `#about` dialog; any `[data-about]` button opens it (`data-about="ovl"` jumps to the overlays). Group open state is in localStorage (`cvs.groups`). Full screen: `#fsBtn` or F, whole document.
 
 ## Roadmap (from discussion, not yet built)
 1. **Realistic fluoro via DRR** (digitally reconstructed radiograph): ray-march a CT volume in WebGL2 at any C-arm angle; add heart motion, noise, edge enhancement.
@@ -86,7 +87,7 @@ Single dark "cath lab console" theme by choice. Colour tokens on `:root` (`--bg`
 **Current plan (owner's phases, in order):**
 1. Heart motion + contrast streaming.
 2. ~~Code health: modules, one shared DRR engine, automatic screenshot checks.~~ Done.
-3. Layout: no scrolling, full screen, collapsible controls, a "choose heart" dropdown.
+3. ~~Layout: no scrolling, full screen, collapsible controls, a "choose heart" dropdown.~~ Done.
 4. A written protocol for preparing new hearts from ImageCAS.
 
 See README "Current plan". Older notes follow.
