@@ -1,0 +1,14 @@
+{
+  "name": "coronary-view-simulator",
+  "private": true,
+  "type": "module",
+  "description": "Dev tooling only: the app itself needs no build step (serve the folder and open index.html).",
+  "scripts": {
+    "serve": "python3 -m http.server 8766",
+    "check": "playwright test",
+    "check:update": "playwright test --update-snapshots"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1"
+  }
+}

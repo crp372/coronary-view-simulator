@@ -6,10 +6,17 @@ Project briefing for Claude Code. Read README.md for the full feature list and r
 A browser-based teaching tool for coronary angiography projections, built by Chiran (4th-year medical student, Humanitas, Italy) as a med-ed portfolio project. Users move a virtual C-arm and table, see a simulated fluoro image, and overlay cardiac anatomy.
 
 ## Current state
-- Single self-contained file: `index.html` (HTML + CSS + JS, no build step).
+- `index.html` plus plain ES modules under `src/` (no build step, no bundler). Three.js stays a classic global script (`THREE`), loaded before the modules.
+  - `src/drr/`: the DRR engine, shared by `index.html` and `drr.html`: `engine.js` (`drrSupport`, `createDRR`), `shaders.js`, `tune.js` (`TUNE`, `MU_W`, `DRR_N`…), `data.js` (`loadScan(dir)`: required CT, coronary and vessels; optional fine branches, catheter, chest, chambers, each null if missing), `heart.js` (`HEART_U`, `HEART_CORE`, `heartDisp`, `heartFrame(chambers)`…), `cine.js` (`drrCine(run, now, motion)`; sets `run.done` when the run ends).
+  - The engine takes everything per call: `drrView(state)` (in `src/geometry.js`) carries the angles, table offset, side and `cath`; `createDRR(gl, cv, scan, {fine, reduce})`. Don't import page state into `src/drr/`.
+  - `src/geometry.js` (`SOD`, `SID`, `dirs`, `drrView`) and `src/presets.js` are shared too.
+  - `src/app/`: `index.html`'s modules. `main.js` (entry: `startDRR`, `updateGeometry`, `step`, `window.sim`), `state.js` (`state`, `chOn`, and `app` for everything modules change for each other: `mode`, `why`, `drr`, `attr`, `ctLegend`, `hover`, `hoverCh`, `tween`, `cine`, `roomView`), `model.js`, `tubes.js`, `fluoro.js`, `ct.js` (`addCT(scan)`, `VES`, `CH`, `SEG`, `SCCT`), `labels.js`, `room.js`, `ui.js` (`syncUI`, `setMode`, `refreshOverlayUI`), `pointer.js`. Styles in `src/app/app.css`.
+  - A mutable value shared between modules goes in `app` (an imported `let` can't be assigned from another module).
+  - `src/drr-page.js` is `drr.html`'s page script.
 - Three.js r128 from cdnjs, OrbitControls from jsDelivr (`three@0.128.0/examples/js/controls/OrbitControls.js`).
 - Fonts: Barlow Condensed (display), Barlow (body), IBM Plex Mono (readouts) from Google Fonts.
-- Run locally with a server: `python3 -m http.server`, then `/`. From `file://` it still works, but with the model-heart fluoro.
+- Run locally with a server: `python3 -m http.server`, then `/`. Modules don't load from `file://`; an inline script says so on the page. `?model` forces the model-heart fallback.
+- **Screenshot checks:** `npm run check` (Playwright, `tests/views.spec.js`, references in `tests/baselines/`); `npm run check:update` after an intended visual change, then look at the new images before committing them. They serve the folder on port 8767, use reduced motion (no tweens, brightness snaps, noise frame 0) and SwiftShader. Re-running a DRR pass in SwiftShader isn't bit-exact (a few levels on ~5% of pixels), hence the small tolerance. Run them after any change that shows on screen.
 - **Fluoro is a DRR** (WebGL2, no libraries) that ray-marches `data/web/814/` at any C-arm angle, on its own `#drr` canvas under the Three.js `#fluoro` canvas.
   - `mode` is `'loading'` (model shown meanwhile), `'drr'` or `'model'` (fallback: no WebGL2 / `EXT_color_buffer_float` / `DecompressionStream`, not http(s), or fetch/shader failure; the reason shows in `#srcNote`). `setMode()` applies it.
   - In DRR mode, `fr` clears to transparent and draws only the overlay `oScene`; the CSS noise and vignette are hidden (the DRR draws its own); the bones toggle is hidden; vessel labels come from `vessels.json` (`LABELS` kind `'d'`, vs `'v'` for the model); the room shows `roomCTTree` instead of `roomModelTree`.
@@ -30,9 +37,9 @@ A browser-based teaching tool for coronary angiography projections, built by Chi
     - Picks are queued and run once per frame in `step()` (`runPick`), because raycasting about 170k triangles per pointer event would be too slow.
     - In the image, only what's visible can be picked: the injected tree, or both trees and the chambers with the overlay on. Touch uses a tap.
   - `densMat` leaves alpha untouched (`blendEquationAlpha`), because the fluoro renderer has `alpha:true`.
-  - Passes: CT line integral (reruns only on geometry change), iodine line integral for the injected side (reruns on cine fill), and display (log window with auto brightness and a black level, unsharp mask, noise, square flat-panel shutter). `TUNE.iod` / `floor` / `sharp` were tuned against CC-BY Commons cine angiograms; `drr.html` keeps the older values. Image constants are in `TUNE`.
-  - `window.sim` exposes `state`, `mode`, `drr` (its `stats`, `win`), `tune`, `set()`, `ready` (promise for DRR start-up) and `frame()`, which renders one frame without rAF (rAF stops when the page is hidden).
-- **`drr.html`** is the standalone DRR prototype (`window.drr` hook). Its shaders, `TUNE` and data helpers are duplicated in `index.html`; change both together.
+  - Passes: CT line integral (reruns only on geometry change), iodine line integral for the injected side (reruns on cine fill), and display (log window with auto brightness and a black level, unsharp mask, noise, square flat-panel shutter). `TUNE.iod` / `floor` / `sharp` were tuned against CC-BY Commons cine angiograms. Image constants are in `TUNE` (`src/drr/tune.js`).
+  - `window.sim` exposes `state`, `chOn`, `mode`, `drr` (its `stats`, `win`), `tune`, `set()`, `ready` (promise for DRR start-up) and `frame(at)`, which renders one frame without rAF (rAF stops when the page is hidden). For checks: `pause()` stops the rAF loop drawing, `runCine(at)` starts a run at clock `at` (null cancels), `advanceCine(at)` steps it without drawing.
+- **`drr.html`** shows the shared engine on its own, with an iodine slider (`TUNE.iod`) and 2D centrelines (`window.drr` hook: `state`, `tune`, `set()`, `frame(at)`, `ready`, `runCine`, `pause`). It uses the same `TUNE` as `index.html`.
 
 ## Key conventions (don't break these)
 - **Patient coordinates:** x = patient's left, y = anterior (up, patient supine), z = feet. Right-handed. Isocentre at origin. Units are cm.
@@ -78,13 +85,13 @@ Single dark "cath lab console" theme by choice. Colour tokens on `:root` (`--bg`
 
 **Current plan (owner's phases, in order):**
 1. Heart motion + contrast streaming.
-2. Code health: modules, one shared DRR engine, automatic screenshot checks.
+2. ~~Code health: modules, one shared DRR engine, automatic screenshot checks.~~ Done.
 3. Layout: no scrolling, full screen, collapsible controls, a "choose heart" dropdown.
 4. A written protocol for preparing new hearts from ImageCAS.
 
 See README "Current plan". Older notes follow.
-Suggested order: ~~pick a CTCA dataset~~ → ~~DRR in `index.html`~~ (done, model renderer kept as fallback) → ~~CT coronary overlay with hover~~ → ~~CT chambers (TotalSegmentator)~~ → ~~room polish~~ (done) → quiz mode (roadmap item 4). A refinement backlog from the first demo (realism, overlay clarity, per-view teaching and framing, code split, more scans) is parked in README "Refinement backlog"; don't start it unless asked. Older order for reference: per-preset table framing → realism (catheter, motion, chest background) → quiz mode. Data-prep scripts (Python) go in `tools/`. Raw data goes in the git-ignored `data/raw/`, and only small web-ready derived files are committed. Once the project grows, consider splitting `index.html` into modules (e.g. Vite).
+Suggested order: ~~pick a CTCA dataset~~ → ~~DRR in `index.html`~~ (done, model renderer kept as fallback) → ~~CT coronary overlay with hover~~ → ~~CT chambers (TotalSegmentator)~~ → ~~room polish~~ (done) → quiz mode (roadmap item 4). A refinement backlog from the first demo (realism, overlay clarity, per-view teaching and framing, code split, more scans) is parked in README "Refinement backlog"; don't start it unless asked. Older order for reference: per-preset table framing → realism (catheter, motion, chest background) → quiz mode. Data-prep scripts (Python) go in `tools/`. Raw data goes in the git-ignored `data/raw/`, and only small web-ready derived files are committed.
 
 ## Notes
 - The DRR and its coronary overlay are one real, right-dominant heart. The chambers and the fallback image are a simplified right-dominant model, and the chambers are only shown in model mode. Say so in the UI (the "How the views are named" notes and `#srcNote` do).
-- The original was published as a claude.ai artifact; that copy relied on the artifact host adding the html/head/body skeleton. `index.html` here is a complete standalone document.
+- The original was published as a claude.ai artifact; that copy relied on the artifact host adding the html/head/body skeleton. `index.html` here is a complete document that loads `src/` as modules, so it can't be published as a single-file artifact without bundling.

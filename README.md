@@ -2,7 +2,7 @@
 
 An interactive browser tool for learning coronary angiography projections. You move a virtual C-arm and patient table, watch a simulated fluoroscopy image update, and overlay cardiac anatomy to understand what each view shows.
 
-**Live page:** published as a private Claude artifact ("Coronary View Simulator"). Source: `index.html` (single self-contained file, Three.js r128).
+**Live page:** published as a private Claude artifact ("Coronary View Simulator"). Source: `index.html` plus plain ES modules under `src/` (no build step; Three.js r128 from a CDN). See [Code layout](#code-layout).
 
 **Run it from a local server** so the fluoro image can be computed from a real CT scan (see [below](#drr-fluoro-from-ct-scan-814)):
 
@@ -10,7 +10,22 @@ An interactive browser tool for learning coronary angiography projections. You m
 python3 -m http.server
 ```
 
-Then open http://localhost:8000/. Opened from `file://` (or anywhere the CT can't load), the page falls back to the original model-heart image and says why under the monitor. `drr.html` is the standalone DRR prototype, with an extra iodine-strength slider and centreline toggle.
+Then open http://localhost:8000/. The page has to be served: browsers won't load ES modules from `file://`, and the page says so if you open it that way. If the CT can't load, it falls back to the original model-heart image and says why under the monitor (add `?model` to the address to force that). `drr.html` shows the DRR engine on its own, with an extra iodine-strength slider and centreline toggle.
+
+### Code layout
+- `src/drr/`: the DRR engine, shared by both pages. `engine.js` (WebGL2 passes), `shaders.js`, `tune.js` (image constants, `TUNE`), `data.js` (`loadScan()` for a `data/web/<id>/` export), `heart.js` (cardiac motion, GLSL and its CPU twin), `cine.js` (the cine run).
+- `src/geometry.js` (projection conventions, `dirs()`, `drrView()`) and `src/presets.js`, shared by both pages.
+- `src/app/`: `index.html`'s modules. `main.js` is the entry point (start-up, frame loop, `window.sim`); `state.js` holds the shared state; then `model.js` (model heart), `fluoro.js` (Three.js image and overlay), `ct.js` (the CT's tree and chambers), `labels.js`, `room.js`, `ui.js` (controls, presets, `setMode()`), `pointer.js` (pan and hover). Styles are in `app.css`.
+- `src/drr-page.js`: `drr.html`'s page script.
+
+### Screenshot checks
+After changing anything that shows on screen, run the automatic checks (Node.js needed; one-off setup: `npm install`, then `npx playwright install chromium`):
+
+```bash
+npm run check
+```
+
+They open both pages in headless Chromium, show every preset, the overlays, a cine run with heart motion, the room view, the model-heart fallback and `drr.html`, and compare each against the reference images in `tests/baselines/`. After an intended change, look at the differences in the report (`npx playwright show-report`), then refresh the references with `npm run check:update` and commit them. The checks render with WebGL in software (SwiftShader), so they're the same on any machine. Re-running a DRR pass there can shift a few pixel values slightly, so the comparison allows small differences.
 
 ---
 
@@ -19,7 +34,7 @@ Then open http://localhost:8000/. Opened from `file://` (or anywhere the CT can'
 ### Fluoro monitor
 - Simulated fluoroscopy image rendered from the X-ray tube's position, displayed as seen from the detector (head up; patient's left on screen right in AP).
 - **Default: DRR from a real CT.** X-rays are traced through ImageCAS scan 814 at the current angle, with iodine only in the injected tree (see [DRR fluoro](#drr-fluoro-from-ct-scan-814)). Vessel labels come from the scan's own centrelines. The data attribution is shown under the monitor.
-- **Fallback: model heart** (no WebGL2 or float render targets, `file://`, or the data can't load). Contrast-filled vessels darken in proportion to their thickness; faint cardiac silhouette, spine, ribs, diaphragm domes and the guide catheter (JL4 for left, JR4 for right).
+- **Fallback: model heart** (no WebGL2 or float render targets, the data can't load, or `?model` in the address). Contrast-filled vessels darken in proportion to their thickness; faint cardiac silhouette, spine, ribs, diaphragm domes and the guide catheter (JL4 for left, JR4 for right).
 - Animated quantum-noise grain. With the CT image, a square flat-panel field with rounded corners and dark shutters, drawn by the DRR's display pass. With the model image, a round vignette, drawn as CSS layers.
 - Monitor-style readouts in the corners: angulation (e.g. `RAO 30° CAU 25°`), field of view, source-to-image distance, injection side, and table position.
 - **Drag the image to pan the table**; the anatomy follows the pointer.
@@ -153,7 +168,7 @@ Decision: "realistic fluoro" means synthetic DRR images from CT, so the C-arm st
 
 ### Current plan (agreed with the project owner, in this order)
 1. ~~**Phase 1, realism in motion:**~~ done: heart motion during cine (a cardiac warp, with the coronaries moving as the heart contracts); contrast streaming (contrast layers and streams rather than filling evenly).
-2. **Phase 2, code health:** split `index.html` into modules; share one DRR engine with `drr.html`; add automatic screenshot checks of the standard views.
+2. ~~**Phase 2, code health:**~~ done: `index.html` split into ES modules (no build step); one DRR engine in `src/drr/`, shared with `drr.html`; automatic screenshot checks (`npm run check`).
 3. **Phase 3, layout:**
    - no scrolling back and forth
    - a full-screen version
@@ -174,10 +189,7 @@ Proposed order: start from the owner's own demo notes, then 1 + 2, and split the
    - "What to look for" for each preset: segments seen well, foreshortened or overlapped.
    - A table offset per preset, so nothing is cut off (e.g. the proximal RCA in LAO 40 at 20 cm).
    - Quiz mode once the image and overlay are settled.
-4. **Code health**
-   - Split `index.html` into modules (e.g. Vite).
-   - One shared DRR engine instead of copies in `drr.html` and `index.html`.
-   - Automatic screenshot checks of the standard views.
+4. ~~**Code health**~~: done (Phase 2): ES modules, one shared DRR engine, screenshot checks.
 5. **Data**
    - More hearts (left-dominant, co-dominant).
    - The ramus (IM) is recorded as a child of the LCx; it should come off the LM.
@@ -188,7 +200,7 @@ Proposed order: start from the owner's own demo notes, then 1 + 2, and split the
 
 ## DRR fluoro from CT scan 814
 
-`index.html` renders a digitally reconstructed radiograph (DRR) of ImageCAS scan 814 at any C-arm angle, in its own WebGL2 canvas under the Three.js canvas. In DRR mode the Three.js canvas is cleared to transparent and only draws the anatomy overlay. `drr.html` is the standalone prototype with the same engine (shaders and `TUNE` are duplicated; keep them in step).
+`index.html` renders a digitally reconstructed radiograph (DRR) of ImageCAS scan 814 at any C-arm angle, in its own WebGL2 canvas under the Three.js canvas. In DRR mode the Three.js canvas is cleared to transparent and only draws the anatomy overlay. `drr.html` runs the same engine (`src/drr/`) on its own.
 
 - **Three passes.**
   1. Cone-beam ray march through the de-contrasted CT, at half-voxel steps: μ = 0.2/cm × (1 + HU/1000).
@@ -213,7 +225,7 @@ Proposed order: start from the owner's own demo notes, then 1 + 2, and split the
     - **Illustrative fine branches** (not this patient's): branches below about 1 mm can't be seen on a CT, so `tools/synth_branches.py` grows them from the real tree. Epicardial twigs follow the heart's surface, septal perforators leave the LAD, and terminal fans finish the vessel ends. They start 0.5–1.1 mm across and taper. In scan 814: 183 twigs, 3 m in total, 0.64 mL of lumen.
       - The page labels them as illustrative, the "Fine branches" button switches them off, and they're never named on hover or numbered.
       - Both layers fill on cine and follow the injection side.
-- **Controls in `index.html`:** all the existing ones. The table sliders and drag-to-pan move the anatomy (the offset is subtracted from tube and detector), and cine fills by distance from the ostium in mm. Iodine is fixed at +25 000 HU at full lumen. `drr.html` adds an iodine-strength slider and a centreline toggle.
+- **Controls in `index.html`:** all the existing ones. The table sliders and drag-to-pan move the anatomy (the offset is subtracted from tube and detector), and cine fills by distance from the ostium in mm. Iodine is fixed at +15 000 HU at full lumen (`TUNE.iod`). `drr.html` adds an iodine-strength slider and a centreline toggle.
 - **Labels:** from `vessels.json` centrelines, at 45% along each vessel. If that point is off-screen, the nearest on-screen point along the centreline is used instead.
 - **Speed (Apple M5, Chrome):** about 6 ms for the 512² DRR pass, about 1 ms for the iodine pass, and about 3 ms per display frame at 1520². The CT pass only reruns when the geometry changes.
 - **Checked views:** AP, RAO 30 CAU 25, LAO 45 CAU 30 (spider), LAO 40 right (RCA "C") and RAO 30 right (RCA "L"). In AP the RCA is on screen left and the LAD runs to the apex at lower right. In `index.html`, all ten presets, cine, table pan, FOV and the overlay were checked, plus the fallback when the data is missing.
