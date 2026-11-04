@@ -48,13 +48,20 @@ Then open http://localhost:8000/. Opened from `file://` (or anywhere the CT can'
 ### Injection and display
 - Switch between left and right coronary injection.
 - **Cine injection**: contrast fills from the ostium, holds, then washes out.
-- Toggles: anatomy overlay, vessel labels, and spine and ribs (model image only; hidden in DRR mode, where the CT has its own bones).
-- **Anatomy overlay, DRR mode:** everything comes from the same CT, so it lines up with the image.
-  - **Coronary tree** from ImageCAS-X, including the tree that isn't injected. Thin ribbons coloured by segment, with labels for both trees.
-  - **Chambers and great vessels** (LV, RV, LA, RA, myocardium, aorta, PA) from TotalSegmentator, drawn as outlines. A wall is brightest where the beam grazes it edge-on, which is where it would form a border on a real image. The aorta and PA are cut off where the scan ends.
+- Toggles: coronary overlay, chamber overlay, vessel labels, segment numbers, and spine and ribs (model image only; hidden in DRR mode, where the CT has its own bones). In model mode only the chamber overlay applies.
+- **Overlays, DRR mode:** everything comes from the same CT, so it lines up with the image. Each overlay turns on separately.
+  - **Coronary overlay:** the tree from ImageCAS-X, including the tree that isn't injected. Thin ribbons coloured by segment, with labels for both trees.
+  - **Chamber overlay:** chambers and great vessels (LV, RV, LA, RA, aorta, PA, and optionally the myocardium) from TotalSegmentator.
+    - Drawn as thin outlines with almost no fill. A wall shows where the beam grazes it edge-on, which is where it would form a border on a real image.
+    - The legend has one chip per structure to show or hide it, in the image and the room view. The myocardium starts off.
+    - The aorta and PA are cut off where the scan ends.
+  - **Segment numbers:** SCCT 18-segment badges on the injected tree, or both trees with the coronary overlay.
+    - Proximal LAD runs to the D1 origin, then mid and distal are halves of the rest.
+    - Proximal LCx runs to the OM1 origin, then mid/distal.
+    - The RCA is split into thirds up to the crux, because the acute marginal isn't labelled in this CT.
   - Brighter means nearer the detector, so you can tell front from back where structures overlap.
-- **Anatomy overlay, model mode:** the model's LV, RV, LA, RA, aorta and pulmonary artery.
-- **Hover (or tap on touch screens):** in the fluoro image, highlights a vessel or chamber, names it (e.g. "LAD · Left anterior descending") and highlights it in the room view too.
+- **Chamber overlay, model mode:** the model's LV, RV, LA, RA, aorta and pulmonary artery.
+- **Hover (or tap on touch screens):** in the fluoro image, highlights a vessel or chamber, names it (e.g. "LAD · Left anterior descending", plus its SCCT segment, e.g. "segment 7: Mid LAD") and highlights it in the room view too.
   - Over a chamber, the label lists the whole stack in the beam, detector side first (e.g. "RV › LV").
   - Hovering in the room view works the same way in reverse.
 
@@ -136,10 +143,7 @@ Proposed order: start from the owner's own demo notes, then 1 + 2, and split the
    - Distal vessels look slightly fat, because their radius can't go below one voxel (0.9 mm). Contrast density is too uniform; real contrast streams and layers.
    - A soft synthetic chest background (lungs, diaphragm, more spine and ribs) beyond the cropped 23 × 23 × 14 cm scan.
    - Guide catheter (JL4/JR4) in the DRR, perhaps anchored with TotalSegmentator `aortic_sinuses`. Cardiac motion for cine.
-2. **Overlay clarity**
-   - Separate toggles for vessels and chambers, perhaps per chamber.
-   - Thinner contours and less fill, or chambers only on hover.
-   - Optional SCCT 18-segment numbering.
+2. ~~**Overlay clarity**~~: done (separate toggles, per-chamber chips, thinner contours, SCCT segment numbers).
 3. **Teaching per view**
    - "What to look for" for each preset: segments seen well, foreshortened or overlapped.
    - A table offset per preset, so nothing is cut off (e.g. the proximal RCA in LAO 40 at 20 cm).

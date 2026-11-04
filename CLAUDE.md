@@ -22,7 +22,11 @@ A browser-based teaching tool for coronary angiography projections, built by Chi
   - **Hover:**
     - `VES` holds one entry per CT vessel (room tube, overlay ribbon, material). `CH` holds one per chamber.
     - Vessels win: `pickVessel` finds the nearest projected centreline within a pixel tolerance (12 px in the image, 4 px in the room, where the heart is small). Otherwise `pickChambers` raycasts the chamber meshes, ordered from the detector in the image and from the eye in the room. The myocardium is named only on its own.
-    - `setHover({v} | {c} | null)` highlights the target in both views and fills `#monTip` / `#roomTip`. For chambers, the image tooltip lists the whole stack, detector side first.
+    - `setHover({v, pt} | {c} | null)` highlights the target in both views and fills `#monTip` / `#roomTip`. For vessels, `pt` (the nearest centreline point) gives the SCCT segment via `scctAt`. For chambers, the image tooltip lists the whole stack, detector side first.
+  - **Overlay state:**
+    - `state.ovV` is the CT coronary overlay and `state.ovC` the chamber overlay (in model mode, the model's chambers). `state.segN` shows the SCCT segment numbers.
+    - `chOn[id]` switches single chambers. The legend chips built in `refreshOverlayUI` toggle it, and it applies to the image overlay, the room view and picking. Myo starts off.
+    - `buildScct()` maps the 18 SCCT segments onto `VES` by `sdist`: LAD split at the D1 origin, then halves of the rest; LCx at the OM1 origin; RCA in thirds to the crux. The badges are `LABELS` kind `'sn'`.
     - Picks are queued and run once per frame in `step()` (`runPick`), because raycasting about 170k triangles per pointer event would be too slow.
     - In the image, only what's visible can be picked: the injected tree, or both trees and the chambers with the overlay on. Touch uses a tap.
   - `densMat` leaves alpha untouched (`blendEquationAlpha`), because the fluoro renderer has `alpha:true`.

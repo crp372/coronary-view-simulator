@@ -51,6 +51,11 @@ h2{font-family:var(--f-display);font-weight:600;font-size:13px;letter-spacing:.1
 .tip.r b{color:var(--cool)}
 .tip.flip{transform:translate(calc(-100% - 14px),-130%)}
 .tip.ch b{color:var(--fg)}
+.lbl.segn{font-family:var(--f-mono);font-weight:500;font-size:clamp(10px,1.3vw,12px);color:var(--ink);background:var(--accent);border-radius:9px;padding:0 5px;text-shadow:none;line-height:1.5}
+.lbl.segn.r{background:var(--cool)}
+.chip{padding:3px 9px;font-size:12px;display:inline-flex;align-items:center;gap:5px}
+.chip i{display:inline-block;width:10px;height:10px;border-radius:2px}
+.chip[aria-pressed=false]{opacity:.55}
 .tip .stk{display:block;color:var(--muted);font-size:11.5px;margin-top:1px}
 
 .now{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:12px 14px}
@@ -102,7 +107,7 @@ details strong{color:var(--fg);font-weight:500}
 <div class="wrap">
   <header>
     <h1>Coronary <span>View</span> Simulator</h1>
-    <p class="sub">Swing the C-arm and move the table, then turn on the anatomy overlay to see which structures the projection is showing you.</p>
+    <p class="sub">Swing the C-arm and move the table, then turn on the coronary and chamber overlays to see which structures the projection is showing you.</p>
   </header>
 
   <div class="grid">
@@ -197,18 +202,20 @@ details strong{color:var(--fg);font-weight:500}
           <button type="button" class="go" id="cine">Run cine injection</button>
         </div>
         <div class="seg">
-          <button type="button" id="tOverlay" aria-pressed="false">Anatomy overlay</button>
+          <button type="button" id="tOvV" aria-pressed="false">Coronary overlay</button>
+          <button type="button" id="tOvC" aria-pressed="false">Chamber overlay</button>
           <button type="button" id="tLabels" aria-pressed="true">Vessel labels</button>
+          <button type="button" id="tSegN" aria-pressed="false">Segment numbers</button>
           <button type="button" id="tBones" aria-pressed="true">Spine and ribs</button>
         </div>
         <div class="legend" id="ovLegend" hidden></div>
-        <div class="note" id="ovNote" hidden>The overlay comes from this CT's own segmentations, so it lines up with the image:
+        <div class="note" id="ovNote" hidden>The overlays come from this CT's own segmentations, so they line up with the image:
           <ul>
-            <li>the coronary tree from ImageCAS-X, including the tree that isn't injected</li>
-            <li>the chambers and great vessels from TotalSegmentator</li>
+            <li><strong>Coronary overlay:</strong> the tree from ImageCAS-X, including the tree that isn't injected.</li>
+            <li><strong>Chamber overlay:</strong> chambers and great vessels from TotalSegmentator. Each is drawn as an outline where the beam grazes its wall edge-on, which is where it would form a border on a real image. Click a chip above to show or hide one.</li>
+            <li><strong>Segment numbers:</strong> the SCCT 18-segment model. Proximal, mid and distal RCA are thirds of the RCA up to the crux, because the acute marginal isn't labelled in this CT.</li>
           </ul>
-          Each chamber is drawn as an outline, brightest where the beam grazes its wall edge-on, which is where it would form a border on a real image. Brighter means nearer the detector.
-          Hover over or tap a structure, here or in the room view, to name it. Over a chamber, the label also lists everything else in the beam at that point, detector side first.</div>
+          Brighter means nearer the detector. Hover over or tap a structure, here or in the room view, to name it. Over a chamber, the label also lists everything else in the beam at that point, detector side first.</div>
       </div>
     </div>
   </div>
@@ -237,7 +244,9 @@ const reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').m
 const css=getComputedStyle(document.documentElement);
 const tok=n=>css.getPropertyValue(n).trim()||'#888';
 
-const state={lao:-30,cra:-25,tx:0,ty:0,tz:0,fov:20,inj:'L',overlay:false,labels:true,bones:true};
+// ovV: CT coronary overlay; ovC: chamber overlay (the model's chambers in model mode); segN: SCCT segment numbers
+const state={lao:-30,cra:-25,tx:0,ty:0,tz:0,fov:20,inj:'L',ovV:false,ovC:false,segN:false,labels:true,bones:true};
+const chOn={LV:true,RV:true,LA:true,RA:true,Ao:true,PA:true,Myo:false};   // per-chamber switches (legend chips)
 
 /* ---------- Patient coordinates: x = patient's left, y = anterior (up, supine), z = feet. Isocentre at origin. ---------- */
 const u=new V3(0.69,0.40,0.60).normalize();               // heart long axis, base → apex
@@ -371,6 +380,29 @@ const SEG={LM:['#ffd54a','Left main'],LAD:['#ffb000','Left anterior descending']
   IM:['#c58cff','Ramus intermedius'],RCA:['#3ee0ff','Right coronary artery'],'R-PDA':['#2f9bff','Posterior descending (from the RCA)'],
   'R-PLA':['#5effc0','Posterolateral branch (from the RCA)'],'L-PDA':['#ff9ad0','Posterior descending (from the LCx)'],
   'L-PLA':['#b07cff','Posterolateral branch (from the LCx)'],Other:['#bbbbbb','Other branch']};
+// SCCT 18-segment model, mapped onto the CT's vessel paths by distance from the ostium (sdist, cm)
+const SCCT={1:'Proximal RCA',2:'Mid RCA',3:'Distal RCA',4:'R-PDA',5:'Left main',6:'Proximal LAD',7:'Mid LAD',8:'Distal LAD',
+  9:'First diagonal',10:'Second diagonal',11:'Proximal LCx',12:'First obtuse marginal',13:'Mid/distal LCx',14:'Second obtuse marginal',
+  15:'L-PDA',16:'R-PLB',17:'Ramus intermedius',18:'L-PLB'};
+const SCCT_WHOLE={LM:5,D1:9,D2:10,OM1:12,OM2:14,IM:17,'R-PDA':4,'R-PLA':16,'L-PDA':15,'L-PLA':18};
+const SEGN=[];       // {n, vessel index, from, to (sdist)} once the CT tree is loaded
+function buildScct(){
+  const byLab=l=>VES.findIndex(e=>e.v.lab===l),origin=l=>{const i=byLab(l);return i<0?null:VES[i].v.sdist[0];};
+  const span=i=>{const s=VES[i].v.sdist;return [s[0],s[s.length-1]];};
+  const add=(n,i,a,b)=>SEGN.push({n,i,from:a,to:b});
+  VES.forEach((e,i)=>{const n=SCCT_WHOLE[e.v.lab];if(n){const [a,b]=span(i);add(n,i,a,b);}});
+  // LAD: proximal to the D1 origin, then mid and distal halves of the rest (to the apex)
+  let i=byLab('LAD');if(i>=0){const [a,b]=span(i),d1=origin('D1'),c=d1!==null&&d1>a&&d1<b?d1:a+(b-a)/3,m=(c+b)/2;add(6,i,a,c);add(7,i,c,m);add(8,i,m,b);}
+  // LCx: proximal to the OM1 origin, then mid/distal
+  i=byLab('LCx');if(i>=0){const [a,b]=span(i),o=origin('OM1'),c=o!==null&&o>a&&o<b?o:(a+b)/2;add(11,i,a,c);add(13,i,c,b);}
+  // RCA: thirds up to the crux (the acute marginal, the usual mid/distal landmark, isn't labelled here)
+  i=byLab('RCA');if(i>=0){const [a,b]=span(i),t=(b-a)/3;add(1,i,a,a+t);add(2,i,a+t,a+2*t);add(3,i,a+2*t,b);}
+  // a number badge a quarter of the way along each segment (vessel name labels sit near the middle)
+  SEGN.forEach(g=>{const v=VES[g.i].v,mid=g.from+(g.to-g.from)*0.25;let k=0;while(k<v.sdist.length-1&&v.sdist[k]<mid)k++;
+    const el=document.createElement('span');el.className='lbl segn'+(v.sys==='R'?' r':'');el.textContent=g.n;el.title=SCCT[g.n];el.hidden=true;labelsEl.appendChild(el);
+    LABELS.push({el,p:new V3(...v.pts[k]),kind:'sn',sys:v.sys});});
+}
+const scctAt=(vi,j)=>{const s=VES[vi].v.sdist[Math.min(j,VES[vi].v.sdist.length-1)];return SEGN.find(g=>g.i===vi&&s>=g.from-1e-6&&s<=g.to+1e-6);};
 const ovDir={value:new V3(0,1,0)};
 const VES=[];        // CT vessels once loaded: {v, pts, room mesh, overlay mesh, overlay material}
 const CH=[];         // CT chambers and great vessels (TotalSegmentator): {s, overlay mesh, material, room mesh, room material}
@@ -384,7 +416,7 @@ function chamberOvlMat(col,gain){return new THREE.ShaderMaterial({transparent:tr
     void main(){vec4 w=modelMatrix*vec4(position,1.);vec3 n=normalize(mat3(modelMatrix)*normal);
       vNear=clamp(.5+dot(w.xyz,uD)/9.,0.,1.);vRim=1.-abs(dot(n,uD));gl_Position=projectionMatrix*viewMatrix*w;}`,
   fragmentShader:`uniform vec3 uCol;uniform float uHi,uGain;varying float vNear,vRim;
-    void main(){float a=(pow(vRim,6.)*mix(.3,.85,vNear)+.035+uHi*.09)*uGain;gl_FragColor=vec4(mix(uCol,vec3(1.),uHi*.45),min(a,1.));}`});}
+    void main(){float a=(pow(vRim,10.)*mix(.28,.8,vNear)+.012+uHi*.1)*uGain;gl_FragColor=vec4(mix(uCol,vec3(1.),uHi*.45),min(a,1.));}`});}
 function ctOvlMat(col){return new THREE.ShaderMaterial({transparent:true,depthTest:false,depthWrite:false,side:THREE.DoubleSide,
   uniforms:{uD:ovDir,uCol:{value:new THREE.Color(col)},uHi:{value:0}},
   vertexShader:`uniform vec3 uD;varying float vNear;
@@ -518,8 +550,8 @@ function updateGeometry(){
   beamGeo.attributes.position.needsUpdate=true;beamGeo.computeBoundingSphere();
   sysGroups.L.visible=state.inj==='L';sysGroups.R.visible=state.inj==='R';
   ovDir.value.copy(d);
-  VES.forEach((e,i)=>{e.ov.visible=state.overlay||hover===i;});
-  CH.forEach(c=>{c.ov.visible=state.overlay;});
+  VES.forEach((e,i)=>{e.ov.visible=state.ovV||hover===i;});
+  CH.forEach(c=>{const on=chOn[c.s.id]!==false;c.ov.visible=state.ovC&&on;c.room.visible=on;});
   bones.visible=state.bones;
 }
 
@@ -775,6 +807,7 @@ async function startDRR(){
     const room=new THREE.Mesh(taperTube(pts,Math.max(0.08,r0),Math.max(0.05,r1),0).geo,roomVesselMat[v.sys]);roomCTTree.add(room);
     const mat=ctOvlMat(col),ov=new THREE.Mesh(taperTube(pts,r0*0.35+0.025,r1*0.35+0.025,0).geo,mat);ov.visible=false;ctOvl.add(ov);
     VES.push({v,pts,room,ov,mat});});
+  buildScct();
   const segs=[...new Set(vessels.map(v=>v.lab))];
   ctLegend=segs.map(s=>`<span><i style="background:${(SEG[s]||SEG.Other)[0]}"></i>${s}</span>`).join('');
   drrAttr=meta.attribution?meta.attribution.join(' · '):'ImageCAS (CC BY-NC 4.0) · ImageCAS-X (CC BY 4.0)';
@@ -791,11 +824,9 @@ async function startDRR(){
       const room=new THREE.Mesh(g,roomMat);roomCTCh.add(room);
       CH.push({s,ov,mat,room,roomMat});
       if(!myo){const el=document.createElement('span');el.className='lbl ch';el.textContent=s.id;el.hidden=true;labelsEl.appendChild(el);
-        LABELS.push({el,p:new V3(...s.centroid_cm),kind:'cc'});}});
-    ctLegend+=CH.map(c=>`<span><i style="background:${c.s.colour}"></i>${esc(c.s.id==='Myo'?'Myocardium':c.s.id)}</span>`).join('');
+        LABELS.push({el,p:new V3(...s.centroid_cm),kind:'cc',ch:s.id});}});
     if(ci.attribution)drrAttr+=' · '+ci.attribution;
   }catch(e){console.info('CT chambers unavailable; showing the coronary tree only:',e.message||e);}
-  ctLegend+='<span>Brighter = nearer the detector</span>';
   mode='drr';setMode();
 }
 
@@ -850,8 +881,19 @@ document.querySelectorAll('#injSeg button').forEach(b=>b.addEventListener('click
 document.querySelectorAll('#fovSeg button').forEach(b=>b.addEventListener('click',()=>{state.fov=+b.dataset.fov;syncUI();}));
 document.querySelectorAll('#roomViewSeg button').forEach(b=>b.addEventListener('click',()=>setRoomView(b.dataset.rv)));
 function toggle(id,key,after){const b=$(id);b.addEventListener('click',()=>{state[key]=!state[key];b.setAttribute('aria-pressed',String(state[key]));after&&after();});}
-toggle('tOverlay','overlay',()=>{$('ovLegend').hidden=!state.overlay;$('ovNote').hidden=!(state.overlay&&mode==='drr');});
+toggle('tOvV','ovV',refreshOverlayUI);toggle('tOvC','ovC',refreshOverlayUI);toggle('tSegN','segN');
 toggle('tLabels','labels');toggle('tBones','bones');
+// legend: segment colours with the coronary overlay; with the chamber overlay, one chip per chamber to show or hide it
+function refreshOverlayUI(){
+  const drrOn=mode==='drr',lg=$('ovLegend');
+  let h='';
+  if(drrOn&&state.ovV)h+=ctLegend;
+  if(state.ovC)h+=drrOn?CH.map(c=>`<button type="button" class="chip" data-ch="${c.s.id}" aria-pressed="${chOn[c.s.id]!==false}" title="${esc(c.s.name)}"><i style="background:${c.s.colour}"></i>${esc(c.s.id==='Myo'?'Myocardium':c.s.id)}</button>`).join(''):modelLegend;
+  if(drrOn&&(state.ovV||state.ovC))h+='<span>Brighter = nearer the detector</span>';
+  lg.innerHTML=h;lg.hidden=!h;
+  $('ovNote').hidden=!(drrOn&&(state.ovV||state.ovC||state.segN));
+}
+$('ovLegend').addEventListener('click',e=>{const b=e.target.closest('[data-ch]');if(!b)return;const id=b.dataset.ch;chOn[id]=chOn[id]===false;b.setAttribute('aria-pressed',String(chOn[id]));});
 $('tblReset').addEventListener('click',()=>{state.tx=state.ty=state.tz=0;syncUI();});
 
 // cine injection: contrast fills from the ostium, holds, washes out
@@ -898,12 +940,12 @@ mon.addEventListener('pointerup',endDrag);mon.addEventListener('pointercancel',e
 const pv=new V3(),ray=new THREE.Raycaster(),ndc=new THREE.Vector2();
 function pickVessel(cam,el,cx,cy,only,tol=12){
   const rc=el.getBoundingClientRect(),px=cx-rc.left,py=cy-rc.top,W=rc.width,H=rc.height,off=tableG.position;
-  let best=null,bd=tol*tol;
+  let best=null,bd=tol*tol;   // best: {i: vessel index, j: centreline point nearest the pointer}
   VES.forEach((e,i)=>{if(only&&!only(e))return;let ax=0,ay=0,ok=false;
-    for(const p of e.pts){pv.copy(p).add(off).project(cam);const ins=pv.z<1;const x=(pv.x+1)/2*W,y=(1-pv.y)/2*H;
+    e.pts.forEach((p,j)=>{pv.copy(p).add(off).project(cam);const ins=pv.z<1;const x=(pv.x+1)/2*W,y=(1-pv.y)/2*H;
       if(ok&&ins){const dx=x-ax,dy=y-ay,l2=dx*dx+dy*dy,t=l2?Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/l2)):0;
-        const qx=ax+t*dx-px,qy=ay+t*dy-py,d2=qx*qx+qy*qy;if(d2<bd){bd=d2;best=i;}}
-      ax=x;ay=y;ok=ins;}});
+        const qx=ax+t*dx-px,qy=ay+t*dy-py,d2=qx*qx+qy*qy;if(d2<bd){bd=d2;best={i,j:t<0.5?j-1:j};}}
+      ax=x;ay=y;ok=ins;});});
   return best;
 }
 // chambers along the ray through the pointer, in order from the detector (image) or the eye (room)
@@ -911,7 +953,7 @@ function pickChambers(cam,el,cx,cy,key,fromDetector){
   if(!CH.length)return [];
   const rc=el.getBoundingClientRect();ndc.set((cx-rc.left)/rc.width*2-1,1-(cy-rc.top)/rc.height*2);
   ray.setFromCamera(ndc,cam);ovl.updateMatrixWorld();tableG.updateMatrixWorld();
-  const hits=ray.intersectObjects(CH.map(c=>c[key]),false);if(fromDetector)hits.reverse();
+  const hits=ray.intersectObjects(CH.filter(c=>chOn[c.s.id]!==false).map(c=>c[key]),false);if(fromDetector)hits.reverse();
   const order=[];hits.forEach(h=>{const i=CH.findIndex(c=>c[key]===h.object);if(!order.includes(i))order.push(i);});
   const solid=order.filter(i=>CH[i].s.id!=='Myo');   // the myocardium wraps the LV, so name it only on its own
   return solid.length?solid:order;
@@ -931,16 +973,17 @@ function setHover(target,tipEl,cx,cy){
   }
   ['monTip','roomTip'].forEach(id=>{const t=$(id);if(t!==tipEl||!target){t.hidden=true;return;}
     const rc=t.parentElement.getBoundingClientRect(),flip=cx-rc.left>rc.width*0.55?' flip':'';
-    if(vi!==null){const v=VES[vi].v;t.className='tip'+(v.sys==='R'?' r':'')+flip;t.innerHTML=`<b>${esc(v.lab)}</b>${esc((SEG[v.lab]||SEG.Other)[1])}`;}
+    if(vi!==null){const v=VES[vi].v,g=target.pt!=null?scctAt(vi,target.pt):null;t.className='tip'+(v.sys==='R'?' r':'')+flip;
+      t.innerHTML=`<b>${esc(v.lab)}</b>${esc((SEG[v.lab]||SEG.Other)[1])}`+(g?`<span class="stk">SCCT segment ${g.n}: ${esc(SCCT[g.n])}</span>`:'');}
     else{const s=CH[ci].s,stack=target.c.map(i=>CH[i].s.id);t.className='tip ch'+flip;
       t.innerHTML=`<b>${esc(s.id)}</b>${esc(s.name)}`+(stack.length>1?`<span class="stk">Detector side first: ${esc(stack.join(' › '))}</span>`:'');}
     t.style.left=(cx-rc.left)+'px';t.style.top=(cy-rc.top)+'px';t.hidden=false;});
 }
 // in the image: only what's visible there (the injected tree, or both trees and the chambers with the overlay on)
-function monPick(cx,cy){const v=pickVessel(fcam,mon,cx,cy,e=>state.overlay||e.v.sys===state.inj);if(v!==null)return {v};
-  if(!state.overlay)return null;const c=pickChambers(fcam,mon,cx,cy,'ov',true);return c.length?{c}:null;}
+function monPick(cx,cy){const p=pickVessel(fcam,mon,cx,cy,e=>state.ovV||e.v.sys===state.inj);if(p)return {v:p.i,pt:p.j};
+  if(!state.ovC)return null;const c=pickChambers(fcam,mon,cx,cy,'ov',true);return c.length?{c}:null;}
 // the room shows the heart small, so vessels need a tighter radius or they'd hide the chambers
-function roomPick(cx,cy){const v=pickVessel(rcam,rCanvas,cx,cy,null,roomView==='heart'?9:4);if(v!==null)return {v};
+function roomPick(cx,cy){const p=pickVessel(rcam,rCanvas,cx,cy,null,roomView==='heart'?9:4);if(p)return {v:p.i,pt:p.j};
   const c=pickChambers(rcam,rCanvas,cx,cy,'room',false);return c.length?{c:c.slice(0,1)}:null;}
 // raycasting the chambers is too slow for every pointer event, so picks run once per frame in step()
 let pendingPick=null,tapAt=null;
@@ -973,9 +1016,11 @@ const tmp=new V3();
 function placeLabels(){
   const W=mon.clientWidth,H=mon.clientHeight;
   LABELS.forEach(l=>{
-    // vessel labels: the model's ('v') or, in DRR mode, the CT centrelines' ('d'), for both trees with the overlay;
-    // chamber labels with the overlay: the model's ('c') or the CT's ('cc')
-    const show=(l.kind===(mode==='drr'?'d':'v')&&state.labels&&(l.sys===state.inj||(state.overlay&&mode==='drr')))||(l.kind===(mode==='drr'?'cc':'c')&&state.overlay);
+    // vessel labels: the model's ('v') or, in DRR mode, the CT centrelines' ('d'), for both trees with the coronary
+    // overlay; SCCT numbers ('sn') likewise; chamber labels with the chamber overlay: the model's ('c') or the CT's ('cc')
+    const drrOn=mode==='drr',tree=l.sys===state.inj||(state.ovV&&drrOn);
+    const show=(l.kind===(drrOn?'d':'v')&&state.labels&&tree)||(l.kind==='sn'&&drrOn&&state.segN&&tree)||
+      (l.kind===(drrOn?'cc':'c')&&state.ovC&&(!l.ch||chOn[l.ch]!==false));
     if(!show){l.el.hidden=true;return;}
     for(const p of l.cands||[l.p]){
       tmp.copy(p).add(anat.position).project(fcam);
@@ -997,11 +1042,11 @@ function step(now){
   if(mode==='drr'){
     const cs=drrCine(now);
     drr.render(drrView(),cs.fill,cs.wash,reduce?0:Math.floor(now/1000*15));   // noise refreshes at 15 pulses/s
-    if(state.overlay||hover!==null)fr.render(oScene,fcam);else fr.clear();     // transparent over the DRR
+    if(state.ovV||state.ovC||hover!==null)fr.render(oScene,fcam);else fr.clear();   // transparent over the DRR
   }else{
     cineStep(now);
     fr.render(fScene,fcam);
-    if(state.overlay){fr.autoClear=false;fr.render(oScene,fcam);fr.autoClear=true;}
+    if(state.ovC){fr.autoClear=false;fr.render(oScene,fcam);fr.autoClear=true;}
     if(!reduce&&(frame++%2===0))noise();
   }
   runPick();
@@ -1019,8 +1064,8 @@ function setMode(){
   roomModelTree.visible=modelOvl.visible=!on;roomCTTree.visible=ctOvl.visible=on;
   roomModelAnat.visible=!(on&&CH.length);roomCTCh.visible=on;   // model chambers stay only if the CT has none
   fr.setClearColor(fluoroBg,on?0:1);
-  $('ovNote').hidden=!(on&&state.overlay);
-  $('ovLegend').innerHTML=on?ctLegend:modelLegend;
+  $('tOvV').hidden=$('tSegN').hidden=!on;           // the model heart has no separate coronary overlay or segments
+  refreshOverlayUI();
   $('srcNote').innerHTML=on
     ?`<strong>Fluoro image:</strong> X-rays traced through a real coronary CT (ImageCAS scan 814), with contrast only in the injected tree. No catheter or heart motion yet. Data: ${esc(drrAttr)}. Non-commercial use only.`
     :mode==='loading'?'Loading a real coronary CT for the fluoro image. Until then it shows a simplified model heart.'
