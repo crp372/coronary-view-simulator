@@ -45,6 +45,11 @@ h2{font-family:var(--f-display);font-weight:600;font-size:13px;letter-spacing:.1
 .lbl{position:absolute;transform:translate(-50%,-50%);font-family:var(--f-display);font-weight:600;font-size:clamp(11px,1.6vw,14px);letter-spacing:.04em;color:var(--accent);text-shadow:0 0 3px var(--ink),0 0 2px var(--ink),0 0 1px var(--ink);white-space:nowrap}
 .lbl.ch{color:var(--fg);font-size:clamp(12px,1.8vw,16px)}
 .lbl.r{color:var(--cool)}
+/* hover readout for a vessel, in the monitor or the room view */
+.tip{position:absolute;z-index:2;pointer-events:none;transform:translate(14px,-130%);background:rgba(11,14,16,.88);border:1px solid var(--line);border-radius:3px;padding:3px 8px;font-size:12.5px;white-space:nowrap;color:var(--fg)}
+.tip b{font-family:var(--f-display);font-weight:600;letter-spacing:.04em;margin-right:6px;color:var(--accent)}
+.tip.r b{color:var(--cool)}
+.tip.flip{transform:translate(calc(-100% - 14px),-130%)}
 
 .now{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:12px 14px}
 .now .ang{font-family:var(--f-mono);color:var(--accent);font-variant-numeric:tabular-nums}
@@ -109,6 +114,7 @@ details strong{color:var(--fg);font-weight:500}
         <div class="ro tr" id="roFov"></div>
         <div class="ro bl" id="roInj"></div>
         <div class="ro br" id="roTbl"></div>
+        <div class="tip" id="monTip" hidden></div>
       </div>
       <div class="now" aria-live="polite">
         <span class="ang" id="nowAng"></span>
@@ -127,7 +133,7 @@ details strong{color:var(--fg);font-weight:500}
     <div class="col">
       <div class="panel">
         <div class="row"><h2>Room</h2><div class="legend" id="roomLegend"></div></div>
-        <div class="room" id="room"><canvas id="roomc"></canvas><span class="hint">Drag to orbit · scroll to zoom</span></div>
+        <div class="room" id="room"><canvas id="roomc"></canvas><span class="hint">Drag to orbit · scroll to zoom</span><div class="tip" id="roomTip" hidden></div></div>
       </div>
 
       <div class="panel">
@@ -187,7 +193,7 @@ details strong{color:var(--fg);font-weight:500}
           <button type="button" id="tBones" aria-pressed="true">Spine and ribs</button>
         </div>
         <div class="legend" id="ovLegend" hidden></div>
-        <p class="note" id="ovNote" hidden>The chambers and great vessels are drawn on the simplified model heart, so they only roughly line up with this CT.</p>
+        <p class="note" id="ovNote" hidden>The coronary tree comes from this CT's own segmentation (ImageCAS-X), so it lines up with the image, including the tree that isn't injected. Brighter means nearer the detector. Hover over or tap a vessel, here or in the room view, to name it. Chambers from this CT come next.</p>
       </div>
     </div>
   </div>
@@ -201,7 +207,7 @@ details strong{color:var(--fg);font-weight:500}
       <li><strong>LAO looks down the septum.</strong> The AV groove opens into a ring, so the RCA looks like a "C", and the LAD and LCx split to either side of the septum.</li>
       <li><strong>Cranial views open the LAD and diagonals; caudal views open the LM, LCx and OMs.</strong> LAO caudal, the "spider", looks up the long axis from the apex onto the LM bifurcation.</li>
       <li><strong>The fluoro image is computed from one real coronary CT</strong> (a right-dominant heart), by tracing X-rays through it at the current angle. Real hearts vary in orientation, so this heart's best angles can differ by a few degrees from the textbook ones.</li>
-      <li>The anatomy overlay, the room view's chambers and the fallback image (used when the CT can't load) come from a simplified, right-dominant model heart.</li>
+      <li>With the CT image, the anatomy overlay shows that CT's own coronary tree. The chambers and great vessels are only drawn on the fallback model heart for now. That simplified, right-dominant model is used when the CT can't load.</li>
     </ul>
   </details>
 </div>
@@ -336,13 +342,29 @@ for(let i=0;i<10;i++){const z0=-24+i*3.1;[-1,1].forEach(side=>{const pts=[];
   for(let k=0;k<=12;k++){const s=k/12,ang=-Math.PI/2+s*Math.PI*0.86;pts.push(new V3(side*(2+13.5*Math.cos(ang)),-1+11.5*Math.sin(ang),z0+s*s*5.5));}
   bones.add(new THREE.Mesh(taperTube(pts,0.55,0.45,0).geo,matRib));});}
 
-// overlay: chambers and great vessels
+// overlay: chambers and great vessels of the model heart (modelOvl), or the CT's coronary tree (ctOvl)
+const modelOvl=new THREE.Group(),ctOvl=new THREE.Group();ovl.add(modelOvl,ctOvl);
 const ovMats={};
-CHAMBERS.forEach(c=>{const m=new THREE.MeshBasicMaterial({color:c.col,transparent:true,opacity:0.26,depthTest:false,depthWrite:false,side:THREE.DoubleSide});ovMats[c.id]=m;ovl.add(ellMesh(m,c.c,c.r));});
+CHAMBERS.forEach(c=>{const m=new THREE.MeshBasicMaterial({color:c.col,transparent:true,opacity:0.26,depthTest:false,depthWrite:false,side:THREE.DoubleSide});ovMats[c.id]=m;modelOvl.add(ellMesh(m,c.c,c.r));});
 const aoMat=new THREE.MeshBasicMaterial({color:'#c97fb6',transparent:true,opacity:0.26,depthTest:false,depthWrite:false,side:THREE.DoubleSide});
 const paMat=new THREE.MeshBasicMaterial({color:'#9a8be0',transparent:true,opacity:0.26,depthTest:false,depthWrite:false,side:THREE.DoubleSide});
-ovl.add(new THREE.Mesh(taperTube(ao,1.45,1.2,0).geo,aoMat));
-ovl.add(new THREE.Mesh(taperTube(paPts,1.35,1.2,0).geo,paMat));
+modelOvl.add(new THREE.Mesh(taperTube(ao,1.45,1.2,0).geo,aoMat));
+modelOvl.add(new THREE.Mesh(taperTube(paPts,1.35,1.2,0).geo,paMat));
+// CT coronary overlay: one colour per ImageCAS-X segment (left warm, right cool); brighter = nearer the detector
+const SEG={LM:['#ffd54a','Left main'],LAD:['#ffb000','Left anterior descending'],LCx:['#ff7a1a','Left circumflex'],
+  D1:['#ffe08a','First diagonal'],D2:['#e8c56a','Second diagonal'],OM1:['#ff5a5a','First obtuse marginal'],OM2:['#d94a8c','Second obtuse marginal'],
+  IM:['#c58cff','Ramus intermedius'],RCA:['#3ee0ff','Right coronary artery'],'R-PDA':['#2f9bff','Posterior descending (from the RCA)'],
+  'R-PLA':['#5effc0','Posterolateral branch (from the RCA)'],'L-PDA':['#ff9ad0','Posterior descending (from the LCx)'],
+  'L-PLA':['#b07cff','Posterolateral branch (from the LCx)'],Other:['#bbbbbb','Other branch']};
+const ovDir={value:new V3(0,1,0)};
+const VES=[];        // CT vessels once loaded: {v, pts, room mesh, overlay mesh, overlay material}
+let hover=null;      // index into VES of the highlighted vessel
+function ctOvlMat(col){return new THREE.ShaderMaterial({transparent:true,depthTest:false,depthWrite:false,side:THREE.DoubleSide,
+  uniforms:{uD:ovDir,uCol:{value:new THREE.Color(col)},uHi:{value:0}},
+  vertexShader:`uniform vec3 uD;varying float vNear;
+    void main(){vec4 w=modelMatrix*vec4(position,1.);vNear=clamp(.5+dot(w.xyz,uD)/9.,0.,1.);gl_Position=projectionMatrix*viewMatrix*w;}`,
+  fragmentShader:`uniform vec3 uCol;uniform float uHi;varying float vNear;
+    void main(){vec3 c=mix(uCol*.5,uCol,vNear);gl_FragColor=vec4(mix(c,vec3(1.),uHi*.5),max(mix(.22,.62,vNear),uHi*.95));}`});}
 
 /* ---------- Labels ---------- */
 const labelsEl=document.getElementById('labels');
@@ -351,7 +373,8 @@ Object.values(built).forEach(b=>{if(!b.v.lab)return;const el=document.createElem
   LABELS.push({el,p:b.curve.getPointAt(b.v.at),kind:'v',sys:b.v.sys});});
 const chamberAnchors=CHAMBERS.map(c=>({id:c.id,p:P(...c.c)})).concat([{id:'Ao',p:ao[2]},{id:'PA',p:paPts[2]}]);
 chamberAnchors.forEach(c=>{const el=document.createElement('span');el.className='lbl ch';el.textContent=c.id;labelsEl.appendChild(el);LABELS.push({el,p:c.p,kind:'c'});});
-document.getElementById('ovLegend').innerHTML=CHAMBERS.map(c=>`<span><i style="background:${c.col}"></i>${c.id}</span>`).join('')+'<span><i style="background:#c97fb6"></i>Aorta</span><span><i style="background:#9a8be0"></i>Pulmonary artery</span>';
+const modelLegend=CHAMBERS.map(c=>`<span><i style="background:${c.col}"></i>${c.id}</span>`).join('')+'<span><i style="background:#c97fb6"></i>Aorta</span><span><i style="background:#9a8be0"></i>Pulmonary artery</span>';
+let ctLegend='';
 
 /* ---------- Room scene ---------- */
 const rCanvas=document.getElementById('roomc');
@@ -374,12 +397,15 @@ const skin=new THREE.MeshStandardMaterial({color:0xa9bdc9,transparent:true,opaci
 const torso=new THREE.Mesh(new THREE.CylinderGeometry(1,1,66,28).rotateX(Math.PI/2).scale(17,11,1),skin);torso.position.set(0,-1,8);tableG.add(torso);
 const head=new THREE.Mesh(new THREE.SphereGeometry(9,24,16),skin);head.position.set(0,-2,-36);tableG.add(head);
 [-8,8].forEach(x=>{const l=new THREE.Mesh(new THREE.CylinderGeometry(6.5,5,85,18).rotateX(Math.PI/2),skin);l.position.set(x,-5,83);tableG.add(l);});
-CHAMBERS.forEach(c=>tableG.add(ellMesh(new THREE.MeshBasicMaterial({color:c.col,transparent:true,opacity:0.45,depthWrite:false}),c.c,c.r)));
+// model chambers and aorta; hidden with the CT, which they don't match
+const roomModelAnat=new THREE.Group();tableG.add(roomModelAnat);
+CHAMBERS.forEach(c=>roomModelAnat.add(ellMesh(new THREE.MeshBasicMaterial({color:c.col,transparent:true,opacity:0.45,depthWrite:false}),c.c,c.r)));
 const roomVesselMat={L:new THREE.MeshBasicMaterial({color:tok('--accent')}),R:new THREE.MeshBasicMaterial({color:tok('--cool')})};
 // model tree; swapped for the CT's tree (roomCTTree) once the DRR is running
 const roomModelTree=new THREE.Group(),roomCTTree=new THREE.Group();roomCTTree.visible=false;tableG.add(roomModelTree,roomCTTree);
 Object.values(built).forEach(b=>{const g=b.geo.clone();roomModelTree.add(new THREE.Mesh(g,roomVesselMat[b.v.sys]));});
-tableG.add(new THREE.Mesh(taperTube(ao,1.45,1.2,0).geo,new THREE.MeshBasicMaterial({color:'#c97fb6',transparent:true,opacity:.5,depthWrite:false})));
+roomModelAnat.add(new THREE.Mesh(taperTube(ao,1.45,1.2,0).geo,new THREE.MeshBasicMaterial({color:'#c97fb6',transparent:true,opacity:.5,depthWrite:false})));
+const roomHiMat=new THREE.MeshBasicMaterial({color:0xffffff});
 document.getElementById('roomLegend').innerHTML=`<span><i style="background:var(--accent)"></i>Left coronary</span><span><i style="background:var(--cool)"></i>Right coronary</span>`;
 
 // C-arm, built in a local frame: Y = detector direction, Z = toward the head along the arc
@@ -418,6 +444,8 @@ function updateGeometry(){
   cn.forEach(p=>{put(s);put(p);});for(let i=0;i<4;i++){put(cn[i]);put(cn[(i+1)%4]);}
   beamGeo.attributes.position.needsUpdate=true;beamGeo.computeBoundingSphere();
   sysGroups.L.visible=state.inj==='L';sysGroups.R.visible=state.inj==='R';
+  ovDir.value.copy(d);
+  VES.forEach((e,i)=>{e.ov.visible=state.overlay||hover===i;});
   bones.visible=state.bones;
 }
 
@@ -666,9 +694,15 @@ async function startDRR(){
     const n=v.pts.length,k=Math.floor(n*(n<20?0.5:0.45)),every=Math.max(1,Math.round(n/20));
     const idx=[...Array(n).keys()].filter(i=>i===k||i%every===0).sort((a,b)=>Math.abs(a-k)-Math.abs(b-k));
     LABELS.push({el,cands:idx.map(i=>new V3(...v.pts[i])),kind:'d',sys:v.sys});});
-  // room view: the CT's own coronary tree
+  // the CT's own coronary tree: room view tubes, and thin overlay ribbons along the centrelines so the
+  // contrast-filled lumen stays visible on either side
   vessels.forEach(v=>{const pts=v.pts.map(p=>new V3(...p));if(pts.length<2)return;
-    roomCTTree.add(new THREE.Mesh(taperTube(pts,Math.max(0.08,v.r[0]),Math.max(0.05,v.r[v.r.length-1]),0).geo,roomVesselMat[v.sys]));});
+    const r0=v.r[0],r1=v.r[v.r.length-1],col=(SEG[v.lab]||SEG.Other)[0];
+    const room=new THREE.Mesh(taperTube(pts,Math.max(0.08,r0),Math.max(0.05,r1),0).geo,roomVesselMat[v.sys]);roomCTTree.add(room);
+    const mat=ctOvlMat(col),ov=new THREE.Mesh(taperTube(pts,r0*0.35+0.025,r1*0.35+0.025,0).geo,mat);ov.visible=false;ctOvl.add(ov);
+    VES.push({v,pts,room,ov,mat});});
+  const segs=[...new Set(vessels.map(v=>v.lab))];
+  ctLegend=segs.map(s=>`<span><i style="background:${(SEG[s]||SEG.Other)[0]}"></i>${s}</span>`).join('')+'<span>Brighter = nearer the detector</span>';
   drrAttr=meta.attribution?meta.attribution.join(' · '):'ImageCAS (CC BY-NC 4.0) · ImageCAS-X (CC BY 4.0)';
   mode='drr';setMode();
 }
@@ -766,6 +800,41 @@ mon.addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-drag.x
 const endDrag=()=>{drag=null;mon.classList.remove('drag');};
 mon.addEventListener('pointerup',endDrag);mon.addEventListener('pointercancel',endDrag);
 
+// vessel picking (CT tree only): nearest centreline on screen within a few pixels, in either view
+const pv=new V3();
+function pickVessel(cam,el,cx,cy,only){
+  const rc=el.getBoundingClientRect(),px=cx-rc.left,py=cy-rc.top,W=rc.width,H=rc.height,off=tableG.position;
+  let best=null,bd=(only?12:10)**2;
+  VES.forEach((e,i)=>{if(only&&!only(e))return;let ax=0,ay=0,ok=false;
+    for(const p of e.pts){pv.copy(p).add(off).project(cam);const ins=pv.z<1;const x=(pv.x+1)/2*W,y=(1-pv.y)/2*H;
+      if(ok&&ins){const dx=x-ax,dy=y-ay,l2=dx*dx+dy*dy,t=l2?Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/l2)):0;
+        const qx=ax+t*dx-px,qy=ay+t*dy-py,d2=qx*qx+qy*qy;if(d2<bd){bd=d2;best=i;}}
+      ax=x;ay=y;ok=ins;}});
+  return best;
+}
+function setHover(i,tipEl,cx,cy){
+  if(i!==hover){
+    if(hover!==null){const o=VES[hover];o.mat.uniforms.uHi.value=0;o.room.material=roomVesselMat[o.v.sys];}
+    hover=i;
+    if(i!==null){const o=VES[i];o.mat.uniforms.uHi.value=1;o.room.material=roomHiMat;}
+  }
+  ['monTip','roomTip'].forEach(id=>{const t=$(id);if(t!==tipEl||i===null){t.hidden=true;return;}
+    const v=VES[i].v,rc=t.parentElement.getBoundingClientRect();
+    t.className='tip'+(v.sys==='R'?' r':'')+(cx-rc.left>rc.width*0.55?' flip':'');t.innerHTML=`<b>${esc(v.lab)}</b>${esc((SEG[v.lab]||SEG.Other)[1])}`;
+    t.style.left=(cx-rc.left)+'px';t.style.top=(cy-rc.top)+'px';t.hidden=false;});
+}
+// in the image: only what's visible there (the injected tree, or both with the overlay on)
+const monPick=(cx,cy)=>pickVessel(fcam,mon,cx,cy,e=>state.overlay||e.v.sys===state.inj);
+let tapAt=null;
+mon.addEventListener('pointermove',e=>{if(drag||mode!=='drr'||e.pointerType!=='mouse')return;setHover(monPick(e.clientX,e.clientY),$('monTip'),e.clientX,e.clientY);});
+mon.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse')setHover(null);});
+// touch: a tap (no drag) names the vessel under the finger
+mon.addEventListener('pointerdown',e=>{tapAt={x:e.clientX,y:e.clientY};if(e.pointerType==='mouse')setHover(null);},true);
+mon.addEventListener('pointerup',e=>{if(e.pointerType==='mouse'||mode!=='drr'||!tapAt)return;
+  if(Math.hypot(e.clientX-tapAt.x,e.clientY-tapAt.y)<6)setHover(monPick(e.clientX,e.clientY),$('monTip'),e.clientX,e.clientY);tapAt=null;});
+rCanvas.addEventListener('pointermove',e=>{if(e.buttons||mode!=='drr'||e.pointerType!=='mouse')return;setHover(pickVessel(rcam,rCanvas,e.clientX,e.clientY),$('roomTip'),e.clientX,e.clientY);});
+rCanvas.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse')setHover(null);});
+
 /* ---------- Sizing ---------- */
 function sizeAll(){
   const m=mon.clientWidth;fr.setSize(m,m,false);
@@ -784,8 +853,9 @@ const tmp=new V3();
 function placeLabels(){
   const W=mon.clientWidth,H=mon.clientHeight;
   LABELS.forEach(l=>{
-    // vessel labels: the model's ('v') or, in DRR mode, the CT centrelines' ('d')
-    const show=(l.kind===(mode==='drr'?'d':'v')&&state.labels&&l.sys===state.inj)||(l.kind==='c'&&state.overlay);
+    // vessel labels: the model's ('v') or, in DRR mode, the CT centrelines' ('d'), for both trees with the overlay;
+    // chamber labels ('c') only on the model heart
+    const show=(l.kind===(mode==='drr'?'d':'v')&&state.labels&&(l.sys===state.inj||(state.overlay&&mode==='drr')))||(l.kind==='c'&&state.overlay&&mode!=='drr');
     if(!show){l.el.hidden=true;return;}
     for(const p of l.cands||[l.p]){
       tmp.copy(p).add(anat.position).project(fcam);
@@ -807,7 +877,7 @@ function step(now){
   if(mode==='drr'){
     const cs=drrCine(now);
     drr.render(drrView(),cs.fill,cs.wash,reduce?0:Math.floor(now/1000*15));   // noise refreshes at 15 pulses/s
-    if(state.overlay)fr.render(oScene,fcam);else fr.clear();                   // transparent over the DRR
+    if(state.overlay||hover!==null)fr.render(oScene,fcam);else fr.clear();     // transparent over the DRR
   }else{
     cineStep(now);
     fr.render(fScene,fcam);
@@ -825,9 +895,10 @@ function setMode(){
   const on=mode==='drr';
   mon.classList.toggle('drr',on);
   $('tBones').hidden=on;                          // the CT has its own bones
-  roomModelTree.visible=!on;roomCTTree.visible=on;
+  roomModelTree.visible=roomModelAnat.visible=modelOvl.visible=!on;roomCTTree.visible=ctOvl.visible=on;
   fr.setClearColor(fluoroBg,on?0:1);
   $('ovNote').hidden=!(on&&state.overlay);
+  $('ovLegend').innerHTML=on?ctLegend:modelLegend;
   $('srcNote').innerHTML=on
     ?`<strong>Fluoro image:</strong> X-rays traced through a real coronary CT (ImageCAS scan 814), with contrast only in the injected tree. No catheter or heart motion yet. Data: ${esc(drrAttr)}. Non-commercial use only.`
     :mode==='loading'?'Loading a real coronary CT for the fluoro image. Until then it shows a simplified model heart.'

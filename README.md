@@ -35,15 +35,21 @@ Then open http://localhost:8000/. Opened from `file://` (or anywhere the CT can'
 - "Centre table" reset.
 
 ### Room view
-- 3D view of the C-arm, tube, detector, X-ray beam cone, table and a translucent patient with the heart and coronary tree visible inside. In DRR mode the tree is the CT's real tree (from `vessels.json`); the chambers are still the model's ellipsoids.
-- Left coronary in amber, right coronary in cyan.
+- 3D view of the C-arm, tube, detector, X-ray beam cone, table and a translucent patient with the heart and coronary tree visible inside. In DRR mode the tree is the CT's real tree (from `vessels.json`). The model's chambers and aorta are hidden, because they don't match the CT.
+- Left coronary in amber, right coronary in cyan. In DRR mode, hovering over a vessel highlights it in white, names it, and highlights it in the fluoro image too.
 - Drag to orbit, scroll to zoom.
 
 ### Injection and display
 - Switch between left and right coronary injection.
 - **Cine injection**: contrast fills from the ostium, holds, then washes out.
-- Toggles: anatomy overlay (LV, RV, LA, RA, aorta, pulmonary artery), vessel labels, and spine and ribs (model image only; hidden in DRR mode, where the CT has its own bones).
-- The anatomy overlay is still drawn on the model heart, so in DRR mode it only roughly lines up with the CT. The UI says so.
+- Toggles: anatomy overlay, vessel labels, and spine and ribs (model image only; hidden in DRR mode, where the CT has its own bones).
+- **Anatomy overlay, DRR mode:** the CT's own coronary tree from its ImageCAS-X segmentation, so it lines up with the image.
+  - Includes the tree that isn't injected.
+  - Thin ribbons coloured by segment, with labels for both trees.
+  - Brighter means nearer the detector, so you can tell front from back where vessels overlap.
+  - Chambers from the CT come next (TotalSegmentator).
+- **Anatomy overlay, model mode:** the model's LV, RV, LA, RA, aorta and pulmonary artery.
+- **Hover (or tap on touch screens):** in the fluoro image, highlights a vessel, names it (e.g. "LAD · Left anterior descending") and highlights it in the room view too. Hovering in the room view works the same way in reverse.
 
 ### Standard views (one-click presets)
 Each preset animates the C-arm to the angle and shows what the view is best for.

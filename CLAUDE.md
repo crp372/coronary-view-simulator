@@ -13,6 +13,10 @@ A browser-based teaching tool for coronary angiography projections, built by Chi
 - **Fluoro is a DRR** (WebGL2, no libraries) that ray-marches `data/web/814/` at any C-arm angle, on its own `#drr` canvas under the Three.js `#fluoro` canvas.
   - `mode` is `'loading'` (model shown meanwhile), `'drr'` or `'model'` (fallback: no WebGL2 / `EXT_color_buffer_float` / `DecompressionStream`, not http(s), or fetch/shader failure; the reason shows in `#srcNote`). `setMode()` applies it.
   - In DRR mode, `fr` clears to transparent and draws only the overlay `oScene`; the CSS noise and vignette are hidden (the DRR draws its own); the bones toggle is hidden; vessel labels come from `vessels.json` (`LABELS` kind `'d'`, vs `'v'` for the model); the room shows `roomCTTree` instead of `roomModelTree`.
+  - **Overlay groups:** `ovl` holds two groups.
+    - `modelOvl`: the model's chambers, aorta and PA. Shown only in model mode, because they don't match the CT. The room's model chambers and aorta (`roomModelAnat`) follow the same rule.
+    - `ctOvl`: in DRR mode, the overlay is the CT's coronary tree from `vessels.json`. Thin ribbons along the centrelines, coloured by segment (`SEG` holds colour and full name), shaded by `ctOvlMat`. Brighter means nearer the detector (`ovDir` = d).
+  - **Hover:** `VES` holds one entry per CT vessel: room tube, overlay ribbon, material. `pickVessel(cam, el, x, y)` finds the nearest projected centreline on screen. `setHover` highlights that vessel in both views and shows `#monTip` / `#roomTip`. In the fluoro image only visible vessels can be picked (the injected tree, or both with the overlay on). Touch uses a tap instead of hover.
   - `densMat` leaves alpha untouched (`blendEquationAlpha`), because the fluoro renderer has `alpha:true`.
   - Passes: CT line integral (reruns only on geometry change), iodine line integral for the injected side (reruns on cine fill), and display (log window with auto brightness, unsharp mask, noise, vignette). Image constants are in `TUNE`.
   - `window.sim` exposes `state`, `mode`, `drr` (its `stats`, `win`), `tune`, `set()`, `ready` (promise for DRR start-up) and `frame()`, which renders one frame without rAF (rAF stops when the page is hidden).
@@ -39,8 +43,8 @@ Single dark "cath lab console" theme by choice. Colour tokens on `:root` (`--bg`
 3. **Better room view:** improved geometry/lighting or licensed glTF models.
 4. Quiz mode: random projection, name the angle or a highlighted vessel.
 
-Suggested order: ~~pick a CTCA dataset~~ → ~~DRR in `index.html`~~ (done, model renderer kept as fallback) → CT-derived chamber overlay (the current overlay is still the model's) → room polish. Data-prep scripts (Python) go in `tools/`. Raw data goes in the git-ignored `data/raw/`, and only small web-ready derived files are committed. Once the project grows, consider splitting `index.html` into modules (e.g. Vite).
+Suggested order: ~~pick a CTCA dataset~~ → ~~DRR in `index.html`~~ (done, model renderer kept as fallback) → ~~CT coronary overlay with hover~~ (done) → CT-derived chambers (TotalSegmentator) → room polish. Data-prep scripts (Python) go in `tools/`. Raw data goes in the git-ignored `data/raw/`, and only small web-ready derived files are committed. Once the project grows, consider splitting `index.html` into modules (e.g. Vite).
 
 ## Notes
-- The DRR is one real, right-dominant heart; the overlay, room chambers and fallback image are a simplified right-dominant model. Say so in the UI (the "How the views are named" notes and `#srcNote` do).
+- The DRR and its coronary overlay are one real, right-dominant heart. The chambers and the fallback image are a simplified right-dominant model, and the chambers are only shown in model mode. Say so in the UI (the "How the views are named" notes and `#srcNote` do).
 - The original was published as a claude.ai artifact; that copy relied on the artifact host adding the html/head/body skeleton. `index.html` here is a complete standalone document.
