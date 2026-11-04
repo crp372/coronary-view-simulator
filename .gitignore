@@ -4,3 +4,4 @@ node_modules/
 data/raw/
 .venv/
 __pycache__/
+.venv-totalseg/

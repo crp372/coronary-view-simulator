@@ -35,21 +35,22 @@ Then open http://localhost:8000/. Opened from `file://` (or anywhere the CT can'
 - "Centre table" reset.
 
 ### Room view
-- 3D view of the C-arm, tube, detector, X-ray beam cone, table and a translucent patient with the heart and coronary tree visible inside. In DRR mode the tree is the CT's real tree (from `vessels.json`). The model's chambers and aorta are hidden, because they don't match the CT.
-- Left coronary in amber, right coronary in cyan. In DRR mode, hovering over a vessel highlights it in white, names it, and highlights it in the fluoro image too.
+- 3D view of the C-arm, tube, detector, X-ray beam cone, table and a translucent patient with the heart and coronary tree visible inside. In DRR mode, the tree and the translucent chambers, aorta and PA are the CT's own (from `vessels.json` and the TotalSegmentator meshes).
+- Left coronary in amber, right coronary in cyan. In DRR mode, hovering over a vessel or chamber highlights it in white, names it, and highlights it in the fluoro image too. The heart is small at the room's default zoom, so chambers are hard to hit there.
 - Drag to orbit, scroll to zoom.
 
 ### Injection and display
 - Switch between left and right coronary injection.
 - **Cine injection**: contrast fills from the ostium, holds, then washes out.
 - Toggles: anatomy overlay, vessel labels, and spine and ribs (model image only; hidden in DRR mode, where the CT has its own bones).
-- **Anatomy overlay, DRR mode:** the CT's own coronary tree from its ImageCAS-X segmentation, so it lines up with the image.
-  - Includes the tree that isn't injected.
-  - Thin ribbons coloured by segment, with labels for both trees.
-  - Brighter means nearer the detector, so you can tell front from back where vessels overlap.
-  - Chambers from the CT come next (TotalSegmentator).
+- **Anatomy overlay, DRR mode:** everything comes from the same CT, so it lines up with the image.
+  - **Coronary tree** from ImageCAS-X, including the tree that isn't injected. Thin ribbons coloured by segment, with labels for both trees.
+  - **Chambers and great vessels** (LV, RV, LA, RA, myocardium, aorta, PA) from TotalSegmentator, drawn as outlines. A wall is brightest where the beam grazes it edge-on, which is where it would form a border on a real image. The aorta and PA are cut off where the scan ends.
+  - Brighter means nearer the detector, so you can tell front from back where structures overlap.
 - **Anatomy overlay, model mode:** the model's LV, RV, LA, RA, aorta and pulmonary artery.
-- **Hover (or tap on touch screens):** in the fluoro image, highlights a vessel, names it (e.g. "LAD · Left anterior descending") and highlights it in the room view too. Hovering in the room view works the same way in reverse.
+- **Hover (or tap on touch screens):** in the fluoro image, highlights a vessel or chamber, names it (e.g. "LAD · Left anterior descending") and highlights it in the room view too.
+  - Over a chamber, the label lists the whole stack in the beam, detector side first (e.g. "RV › LV").
+  - Hovering in the room view works the same way in reverse.
 
 ### Standard views (one-click presets)
 Each preset animates the C-arm to the angle and shows what the view is best for.
@@ -153,10 +154,11 @@ Chosen source: **ImageCAS** CTCA volumes with **ImageCAS-X** labels. One scan dr
 |---|---|---|---|
 | ImageCAS (Zeng, Xu et al., 2023) | ~1000 CTCA volumes (Siemens dual-source), NIfTI | CC BY-NC 4.0 | [Kaggle](https://www.kaggle.com/datasets/xiaoweixumedicalai/imagecas) |
 | ImageCAS-X (Bransby et al., 2026) | For 800 of those scans: lumen labels split into 14 named segments (LM, LAD, LCx, D1, D2, OM1, OM2, IM, RCA, R-PDA, R-PLA, L-PDA, L-PLA, other), centrelines, meshes, and per-scan dominance, image quality and disease descriptors | CC BY 4.0 | [Zenodo 21887809](https://zenodo.org/records/21887809) |
-| TotalSegmentator `heartchambers_highres` (planned) | Chambers, myocardium, aorta and PA, generated locally on the chosen scan | Free for non-commercial use; commercial use needs a licence | [GitHub](https://github.com/wasserth/TotalSegmentator) |
+| TotalSegmentator `heartchambers_highres` (Wasserthal et al., 2023) | Chambers, myocardium, aorta and PA, generated locally on scan 814 | Free non-commercial licence (requested by the project owner); commercial use needs a paid licence | [GitHub](https://github.com/wasserth/TotalSegmentator) |
 
 - **Scan:** ImageCAS #814. It has excellent image quality, a right-dominant tree, no disease and all key segments labelled. Chosen with `tools/pick_scan.py`.
 - **Web export:** `tools/export_scan.py` writes `data/web/814/`, about 5 MB: a de-contrasted CT, a coronary volume and a centreline tree. A CTA has contrast throughout the blood pool, but a cath injection only fills one artery, so iodine is removed from the CT and added back in the renderer. See [tools/README.md](tools/README.md#web-export-format-datawebid).
 - **Non-commercial only.** The ImageCAS volumes and the TotalSegmentator chamber model are both non-commercial. Any commercial use needs the authors' permission.
 - **Raw data never goes in git.** It lives in `data/raw/`. Only small derived, web-ready files are committed. See [tools/README.md](tools/README.md) for the download steps.
-- **Attribution** to ImageCAS and ImageCAS-X must appear in the app once CT-derived content ships.
+- **Chambers:** `tools/export_chambers.py` turns the TotalSegmentator masks into smooth meshes, `data/web/814/chambers.bin.gz` (0.9 MB) plus `chambers.json`.
+- **Attribution:** ImageCAS, ImageCAS-X and TotalSegmentator are credited in the app's source note, from `meta.json` and `chambers.json`.

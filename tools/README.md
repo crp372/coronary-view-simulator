@@ -7,6 +7,7 @@ Data-prep scripts (Python) that turn raw CT and labels into small web-ready file
 | `pick_scan.py` | Ranks ImageCAS-X scans: quality 4, right-dominant, no disease. Ordered by key-segment coverage, then field of view. Standard library only. |
 | `preview_scan.py` | Renders PNGs of a scan with its labels into `data/raw/preview/`: slab MIPs, AP and lateral MIPs, a rough DRR, and the coronary tree. |
 | `export_scan.py` | Writes the web-ready files for a scan to `data/web/<id>/` (format below). |
+| `export_chambers.py` | Turns TotalSegmentator heart-chamber masks into meshes in `data/web/<id>/chambers.*` (see "Heart chambers" below). |
 | `check_export.py` | Renders AP and lateral DRRs from the exported files only: de-contrasted, left injection, right injection, and `vessels.json`. |
 
 ## Web export format (`data/web/<id>/`)
@@ -32,11 +33,42 @@ Blood is never part of the mask, so it gets clamped. Metal also counts as bone, 
 
 Run the scripts from a worktree with `--raw <main checkout>/data/raw`.
 
-Set up the Python environment once:
+Set up the Python environment once. Use Python 3.12: scikit-image has no wheels for 3.15 yet.
 
 ```bash
-python3 -m venv .venv && .venv/bin/pip install -r tools/requirements.txt
+$(brew --prefix python@3.12)/bin/python3.12 -m venv .venv && .venv/bin/pip install -r tools/requirements.txt
 ```
+
+## Heart chambers (TotalSegmentator)
+
+TotalSegmentator lives in its own environment, `.venv-totalseg` (Python 3.12, about 2 GB with PyTorch). Its `heartchambers_highres` model needs a free non-commercial licence: https://backend.totalsegmentator.com/license-academic/. Each person requests their own and sets it once:
+
+```bash
+$(brew --prefix python@3.12)/bin/python3.12 -m venv .venv-totalseg && .venv-totalseg/bin/pip install TotalSegmentator
+```
+
+```bash
+read -s "?Licence number: " L && .venv-totalseg/bin/totalseg_set_license -l "$L"; unset L
+```
+
+Then segment the scan, which takes about 2 minutes on Apple silicon (`-d mps`), and export the meshes:
+
+```bash
+.venv-totalseg/bin/TotalSegmentator -i data/raw/imagecas/extracted/801-1000/814.img.nii.gz -o data/raw/totalseg/814/heartchambers -ta heartchambers_highres -d mps
+```
+
+```bash
+.venv/bin/python tools/export_chambers.py 814
+```
+
+`export_chambers.py` writes `chambers.bin.gz` and `chambers.json` to `data/web/<id>/`:
+- **Meshing:** each structure is block-averaged to about 1.4 mm, smoothed, and meshed with marching cubes at the 50% level.
+- **`chambers.bin.gz`:** for each structure, int16 vertices in 0.01 cm, in the same centred simulator frame as `meta.json`, followed by uint16 triangle indices.
+- **`chambers.json`:** the byte offsets, colours, names, volumes (mL), centroids and attribution.
+
+On scan 814 the volumes are LV 135, RV 157, LA 84, RA 93 and myocardium 149 mL. The aorta and PA are cut off at the edges of the scan.
+
+**Licence:** the TotalSegmentator licence forbids redistributing the *software*. Check whether its full agreement also covers publishing outputs, such as these meshes, before making the repository or app public.
 
 ## Chosen scan: 814
 
