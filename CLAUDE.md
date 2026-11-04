@@ -27,11 +27,11 @@ Single dark "cath lab console" theme by choice. Colour tokens on `:root` (`--bg`
 ## Roadmap (from discussion, not yet built)
 1. **Realistic fluoro via DRR** (digitally reconstructed radiograph): ray-march a CT volume in WebGL2 at any C-arm angle; add heart motion, noise, edge enhancement.
 2. **Precise anatomy overlay** from segmentations of the same CTCA scan (chambers + real coronary tree), drawn as contours, with near/far walls and hover highlighting in both views.
-   - Candidate datasets: ASOCA, ImageCAS (CTCA); BodyParts3D / Z-Anatomy (meshes). Check licences before use, especially for any commercial use.
+   - **Chosen dataset:** ImageCAS volumes (Kaggle, CC BY-NC 4.0) with ImageCAS-X labels (Zenodo, CC BY 4.0). ImageCAS-X provides 14 named coronary segments that map onto `VESSELS`, plus centrelines, meshes, and per-scan dominance, quality and disease descriptors. Chambers will come from TotalSegmentator `heartchambers_highres` (non-commercial). The project is therefore non-commercial unless licences change. See README "Data" and `tools/README.md`.
 3. **Better room view:** improved geometry/lighting or licensed glTF models.
 4. Quiz mode: random projection, name the angle or a highlighted vessel.
 
-Suggested order: pick a CTCA dataset → DRR + CT-derived overlay → room polish. Once the project grows, consider splitting `index.html` into modules (e.g. Vite) and keeping data-prep scripts (Python) in a `tools/` folder with raw data in the git-ignored `data/raw/`.
+Suggested order: ~~pick a CTCA dataset~~ → DRR + CT-derived overlay → room polish. Data-prep scripts (Python) go in `tools/`. Raw data goes in the git-ignored `data/raw/`, and only small web-ready derived files are committed. Once the project grows, consider splitting `index.html` into modules (e.g. Vite).
 
 ## Notes
 - Anatomy is simplified and right-dominant; say so in the UI.

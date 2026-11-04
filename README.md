@@ -2,7 +2,7 @@
 
 An interactive browser tool for learning coronary angiography projections. You move a virtual C-arm and patient table, watch a simulated fluoroscopy image update, and overlay cardiac anatomy to understand what each view shows.
 
-**Live page:** published as a private Claude artifact ("Coronary View Simulator"). Source: `coronary-view-simulator.html` (single self-contained file, Three.js r128).
+**Live page:** published as a private Claude artifact ("Coronary View Simulator"). Source: `index.html` (single self-contained file, Three.js r128).
 
 ---
 
@@ -95,17 +95,32 @@ Two possible meanings:
 One CTCA scan solves points 2 and 3 together: the DRR gives realistic fluoro at any angle, and its segmentation gives an overlay that matches the image exactly.
 
 Suggested order:
-1. Choose a CTCA dataset and check its licence.
+1. ~~Choose a CTCA dataset and check its licence.~~ Done: see [Data](#data) below.
 2. Build the DRR fluoro renderer and the CT-derived overlay.
 3. Polish the room view last.
 
+Decision: "realistic fluoro" means synthetic DRR images from CT, so the C-arm stays continuous and the overlay matches.
+
 ### Practical constraints
-- The build workspace can't download from most websites; datasets will likely need to be downloaded and attached manually (GitHub-hosted data is reachable).
 - Converting raw CT and segmentations into web-ready files is substantial work, likely several sessions.
 - Data licence and attribution matter for any commercial use.
 
 ### Other ideas
 - Quiz mode: show a random projection and ask the learner to name the angle or a highlighted vessel.
 
-### Open question
-Does "real fluoroscopy" mean genuine angiogram footage, or synthetic images that look real at any angle?
+---
+
+## Data
+
+Chosen source: **ImageCAS** CTCA volumes with **ImageCAS-X** labels. One scan drives both the DRR and the overlay.
+
+| Source | Provides | Licence | Where |
+|---|---|---|---|
+| ImageCAS (Zeng, Xu et al., 2023) | ~1000 CTCA volumes (Siemens dual-source), NIfTI | CC BY-NC 4.0 | [Kaggle](https://www.kaggle.com/datasets/xiaoweixumedicalai/imagecas) |
+| ImageCAS-X (Bransby et al., 2026) | For 800 of those scans: lumen labels split into 14 named segments (LM, LAD, LCx, D1, D2, OM1, OM2, IM, RCA, R-PDA, R-PLA, L-PDA, L-PLA, other), centrelines, meshes, and per-scan dominance, image quality and disease descriptors | CC BY 4.0 | [Zenodo 21887809](https://zenodo.org/records/21887809) |
+| TotalSegmentator `heartchambers_highres` (planned) | Chambers, myocardium, aorta and PA, generated locally on the chosen scan | Free for non-commercial use; commercial use needs a licence | [GitHub](https://github.com/wasserth/TotalSegmentator) |
+
+- **Scan:** ImageCAS #814. It has excellent image quality, a right-dominant tree, no disease and all key segments labelled. Chosen with `tools/pick_scan.py`.
+- **Non-commercial only.** The ImageCAS volumes and the TotalSegmentator chamber model are both non-commercial. Any commercial use needs the authors' permission.
+- **Raw data never goes in git.** It lives in `data/raw/`. Only small derived, web-ready files are committed. See [tools/README.md](tools/README.md) for the download steps.
+- **Attribution** to ImageCAS and ImageCAS-X must appear in the app once CT-derived content ships.
