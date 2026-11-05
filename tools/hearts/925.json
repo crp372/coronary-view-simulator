@@ -1,0 +1,24 @@
+{
+ "scan": 925,
+ "block": "801-1000",
+ "dominance": "Co",
+ "note": "Per-heart settings for the data-prep tools. chest: landmarks for export_chest.py, started from --measure (see tools/PROTOCOL.md). Both lungs end inside this scan (z 3.1 right, 3.4 left), so the domes sit higher than the defaults.",
+ "chest": {
+  "midline_x": -3.5,
+  "body_y": -4.1,
+  "body_a": 20.5,
+  "body_b": 14.0,
+  "spine_y": -6.3,
+  "dome_r": [
+   0.0,
+   -7.0
+  ],
+  "dome_l": [
+   1.5,
+   7.0
+  ],
+  "markings": {
+   "seed": 925
+  }
+ }
+}

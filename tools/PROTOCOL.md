@@ -51,7 +51,7 @@ Candidates found so far (quality 4, no disease):
 |---|---|---|
 | Right (227 scans) | 814 | 822, 975, 844, 938, all in block 801-1000 |
 | Left (12) | 905 (dry run) | 717 (601-800), 312 (201-400), 937 (801-1000) |
-| Co-dominant (8) | | 153 (1-200), 925 (801-1000), 757 (601-800) |
+| Co-dominant (8) | 925 | 153 (1-200), 757 (601-800) |
 
 ## 2. Get the scan's block
 
@@ -92,13 +92,13 @@ It takes about 45 s with `-d mps` (use `-d cpu` elsewhere; that's slower). It wr
 
 What it does is described in [tools/README.md](README.md): de-contrasting, the bone mask, the coronary volume, branches grown from the CT, illustrative fine branches, and the centreline tree. Check what it prints:
 
-| | 814 | 905 | Worry if |
-|---|---|---|---|
-| grown from the CT | 0.31 mL | 0.46 mL | over about 1 mL (growth has leaked into a chamber or vein), or "skipping" (the masks from step 4 are missing) |
-| synthetic twigs | 183, 304 cm, 0.64 mL | 165, 272 cm, 0.54 mL | none ("skipping" again) |
-| vessels | 10 | 10 | far fewer than the labelled segments |
-| max ostium dist | 194 mm | 160 mm | over 255 mm: the cine fill is stored in whole mm up to 255 |
-| ct.u8.gz | 4.7 MB | 5.2 MB | much larger: a bigger field of view; the app copes, but it loads more slowly |
+| | 814 | 905 | 925 | Worry if |
+|---|---|---|---|---|
+| grown from the CT | 0.31 mL | 0.46 mL | 0.05 mL | over about 1 mL (growth has leaked into a chamber or vein), or "skipping" (the masks from step 4 are missing) |
+| synthetic twigs | 183, 304 cm, 0.64 mL | 165, 272 cm, 0.54 mL | 160, 250 cm, 0.48 mL | none ("skipping" again) |
+| vessels | 10 | 10 | 10 | far fewer than the labelled segments |
+| max ostium dist | 194 mm | 160 mm | 156 mm | over 255 mm: the cine fill is stored in whole mm up to 255 |
+| ct.u8.gz | 4.7 MB | 5.2 MB | 4.3 MB | much larger: a bigger field of view; the app copes, but it loads more slowly |
 
 ## 6. Export the chambers
 
@@ -112,6 +112,7 @@ It prints each structure's volume. Check that they're plausible for an adult hea
 |---|---|---|---|---|---|---|---|
 | 814 | 135 | 157 | 84 | 93 | 149 | 136 | 32 |
 | 905 | 100 | 115 | 62 | 72 | 104 | 101 | 34 |
+| 925 | 88 | 111 | 69 | 68 | 88 | 102 | 60 |
 
 The aorta and PA are always cut off at the edge of the scan, so theirs vary most. A chamber at a fraction of the others, or missing, means TotalSegmentator failed. Look at its mask before going on. The app also takes the heart's frame for the cardiac motion from the LV, RV and LA here, so all three must be present.
 
@@ -143,6 +144,8 @@ The CT covers only about 20 × 20 × 14 cm. Outside it, the image shows a synthe
    | `body_y`, `body_b` | the body outline's centre and front–back half-depth: `body_y + body_b` about 0.5 cm in front of the highest skin measured. Keep `body_b` at 14 and move `body_y`, unless the patient is very slim or broad. |
    | `body_a` | side-to-side half-width: keep 20.5, unless there's lung at a side face and that face is near `midline_x ± body_a` |
    | `dome_r`, `dome_l` | (z of the top of each diaphragm dome, x offset from the midline). The right dome is usually 2–3 cm higher (smaller z). Each top sits a few cm above the lowest lung measured on that side. |
+
+   For 925, both lungs end inside the scan (lowest lung at z 3.1 right, 3.4 left), so the domes were raised to `dome_r` [0.0, −7.0] and `dome_l` [1.5, 7.0], about 3 and 2 cm above, as in 814.
 
    For 905, `--measure` gave a spine at x −4.2, vertebral fronts at y −4.3 and skin up to 9.3. So: `midline_x` −4.2, `spine_y` −6.3, `body_y` −4.2 (with `body_b` 14), and the default domes, because both lungs still reach the bottom of the scan.
 3. Export:
@@ -224,3 +227,4 @@ The page shows the attribution from each heart's `meta.json` and `chambers.json`
 |---|---|---|---|---|
 | 814 | Right | 801-1000 | 2026-11 | The first heart. Chest fitted by eye; spine possibly 2 cm too far back (step 8). |
 | 905 | Left | 801-1000 | 2026-11 (dry run of this protocol) | 8/8 key segments, 20.5 cm field. The RCA is small and near the image's edge in LAO. |
+| 925 | Co-dominant | 801-1000 | 2026-11 | 8/8 key segments, 18.9 cm field. PDA and a short PLB from the RCA, a PLB from the LCx. Little grown from the CT (0.05 mL). In LAO 40° at 20 cm, the proximal RCA's C reaches the image's left edge. |

@@ -16,6 +16,14 @@
       "source": "ImageCAS scan 905",
       "dominance": "left",
       "dir": "data/web/905/"
+    },
+    {
+      "id": "925",
+      "name": "CT 925 \u00b7 co-dominant",
+      "short": "CT 925",
+      "source": "ImageCAS scan 925",
+      "dominance": "co",
+      "dir": "data/web/925/"
     }
   ]
 }

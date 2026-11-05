@@ -49,7 +49,8 @@ async function startDRR(){
   if(!/^https?:$/.test(location.protocol))return fail('file');
   const hearts=await loadHearts();fillHearts(hearts);app.heart=hearts.heart;setMode();   // names the heart being loaded
   if(hearts.model)return fail('chosen');
-  $('heartDesc').textContent=`${hearts.heart.source}, a ${hearts.heart.dominance}-dominant heart`;
+  const dom={right:'a right-dominant',left:'a left-dominant',co:'a co-dominant'}[hearts.heart.dominance];
+  $('heartDesc').textContent=dom?`${hearts.heart.source}, ${dom} heart`:hearts.heart.source;
   const gl=drrCv.getContext('webgl2',{antialias:false,depth:false,preserveDrawingBuffer:true});
   const no=drrSupport(gl);if(no)return fail(no);
   let scan;
