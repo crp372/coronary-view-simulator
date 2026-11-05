@@ -181,7 +181,7 @@ What exists but is approximate, incomplete or not yet validated.
 
 **Licensing**
 - **Non-commercial only:** the ImageCAS volumes (CC BY-NC 4.0) and the TotalSegmentator chamber model (non-commercial licence) both forbid commercial use.
-- **Hosting online: permission granted.** TotalSegmentator's licence limits its use to internal research, so its author was asked, and gave written permission (2026-11-05) to publish the meshes and data derived from scans 814 and 905, on a free website and in a public repository. A new heart made with `heartchambers_highres` needs asking again. See [docs/publishing/LICENSING.md](docs/publishing/LICENSING.md) for the findings and the remaining checklist.
+- **Hosting online: permission granted.** TotalSegmentator's licence limits its use to internal research, so its author was asked, and gave written permission (2026-11-05) to publish the meshes and data derived from its segmentations for this project, on a free website and in a public repository. See [docs/publishing/LICENSING.md](docs/publishing/LICENSING.md) for the findings and the remaining checklist.
 
 ---
 

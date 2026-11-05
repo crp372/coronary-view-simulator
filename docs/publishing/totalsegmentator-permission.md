@@ -23,4 +23,4 @@ To publish, free and purely educational, with no ads, payments or sponsorship:
 
 ## Scope
 
-The permission covers what was asked above: scans 814 and 905, those derived files, that website and repository. A new heart prepared with `heartchambers_highres`, or a different kind of use, would need asking again. The other conditions still apply: credit as promised, and send him the link once it's live.
+The permission covers the use described above, for this project as a whole: publishing meshes and data derived from `heartchambers_highres` segmentations in this free, educational simulator, on its website and public repository. The request named scans 814 and 905 because they were the hearts prepared at the time. The conditions still apply: credit as promised, send him the link once it's live, and publish nothing beyond derived data (no software, weights or raw masks).

@@ -1,6 +1,6 @@
 # Licensing for hosting online
 
-Can the simulator be hosted online for free, non-commercially, for teaching? This is a reading of each licence's text (checked 2026-11-05), not legal advice. Status: **TotalSegmentator permission granted** (2026-11-05) for the website and a public repository, for scans 814 and 905: see [totalsegmentator-permission.md](totalsegmentator-permission.md). The request is in [totalsegmentator-permission-email.md](totalsegmentator-permission-email.md).
+Can the simulator be hosted online for free, non-commercially, for teaching? This is a reading of each licence's text (checked 2026-11-05), not legal advice. Status: **TotalSegmentator permission granted** (2026-11-05) for this project's website and public repository: see [totalsegmentator-permission.md](totalsegmentator-permission.md). The request is in [totalsegmentator-permission-email.md](totalsegmentator-permission-email.md).
 
 ## Summary
 
@@ -8,7 +8,7 @@ Can the simulator be hosted online for free, non-commercially, for teaching? Thi
 |---|---|---|---|
 | ImageCAS (the CT volumes) | CC BY-NC 4.0 (Kaggle's licence field; the GitHub page adds no further terms) | Yes | Attribution, a link to the licence, a note of the changes, and non-commercial use only |
 | ImageCAS-X (labels, centrelines) | CC BY 4.0 | Yes | Attribution and a note of the changes |
-| TotalSegmentator `heartchambers_highres` | Universitätsspital Basel non-commercial licence (PDF dated 23/08/23) | **Yes, by written permission** (2026-11-05) | Credit as promised; send the link once live; ask again for new hearts |
+| TotalSegmentator `heartchambers_highres` | Universitätsspital Basel non-commercial licence (PDF dated 23/08/23) | **Yes, by written permission** (2026-11-05) | Credit as promised; send the link once live; publish derived data only |
 | TotalSegmentator open tasks (e.g. `total`) | Apache-2.0 | Yes | Keep the licence notice |
 | Three.js r128 | MIT | Yes | |
 | Google Fonts (Barlow, Barlow Condensed, IBM Plex Mono) | SIL Open Font License | Yes | |
@@ -49,7 +49,7 @@ Read from the full agreement linked from https://backend.totalsegmentator.com/li
 
 ## Before publishing
 
-- [x] Written permission from Dr Wasserthal: granted 2026-11-05 ([totalsegmentator-permission.md](totalsegmentator-permission.md)). Covers scans 814 and 905; ask again before publishing a new heart made with `heartchambers_highres`.
+- [x] Written permission from Dr Wasserthal: granted 2026-11-05 ([totalsegmentator-permission.md](totalsegmentator-permission.md)). Covers the described use for the project as a whole, including further hearts prepared the same way.
 - [ ] A credits and licences section on the site: ImageCAS, ImageCAS-X and TotalSegmentator, each with its licence link and a note of the changes.
 - [ ] A notice that it's a teaching tool, not a medical device, and not for clinical use.
 - [ ] Hosting chosen: free and without ads (e.g. GitHub Pages). It needs bundling or a static host that serves the `src/` modules and the `data/web/` files.
