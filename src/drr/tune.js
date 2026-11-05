@@ -11,9 +11,10 @@ export const DRR_STEP=0.5;              // ray-march step in voxels
 //     blood during the injection roughly halves it); floor: display black level, so dense vessels read
 //     dark grey rather than black, as on real runs; shutter: flat-panel field, half-width of the visible
 //     square (1 = edge) and its corner radius
-// Tuned by eye against CC-BY cine angiograms on Wikimedia Commons (RAO caudal LAD, LAO RCA).
+// Tuned by eye against CC-BY cine angiograms on Wikimedia Commons (RAO caudal LAD, LAO RCA). iod was then raised
+// from 15 000 to 21 000 on the owner's review, so mid-sized and small vessels read darker.
 //   cath: guide catheter attenuation, 1/cm: mu over the whole tube, wall extra in the braided wall
 //   chestFade: cm inside the CT's faces over which it blends into the synthetic chest (when chest.u8.gz is loaded)
 //   stream: cine contrast, mix = length of the diluted leading edge (mm), speed = front speed at full flow (mm/s)
 export const TUNE={body:[-3,-1.7,17,12],fadeIn:1,fadeOut:3,win:[0.05,0.95],gamma:1.2,sharp:0.95,noise:0.028,
-  iod:15000,floor:0.08,shutter:[0.97,0.12],cath:{mu:0.9,wall:4},chestFade:1.5,stream:{mix:10,speed:520}};
+  iod:21000,floor:0.08,shutter:[0.97,0.12],cath:{mu:0.9,wall:4},chestFade:1.5,stream:{mix:10,speed:520}};
