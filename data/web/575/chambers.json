@@ -1,0 +1,141 @@
+{
+ "file": "chambers.bin.gz",
+ "structures": [
+  {
+   "id": "LV",
+   "name": "Left ventricle",
+   "colour": "#e0645a",
+   "volume_ml": 117.3,
+   "centroid_cm": [
+    2.38,
+    -0.18,
+    0.69
+   ],
+   "vertices": {
+    "offset": 0,
+    "count": 14138
+   },
+   "indices": {
+    "offset": 84828,
+    "count": 84816
+   }
+  },
+  {
+   "id": "RV",
+   "name": "Right ventricle",
+   "colour": "#5b8fd9",
+   "volume_ml": 126.7,
+   "centroid_cm": [
+    -0.58,
+    2.48,
+    1.11
+   ],
+   "vertices": {
+    "offset": 254460,
+    "count": 17638
+   },
+   "indices": {
+    "offset": 360288,
+    "count": 105816
+   }
+  },
+  {
+   "id": "LA",
+   "name": "Left atrium",
+   "colour": "#e39a4b",
+   "volume_ml": 81.4,
+   "centroid_cm": [
+    -2.1,
+    -2.94,
+    -2.1
+   ],
+   "vertices": {
+    "offset": 571920,
+    "count": 10430
+   },
+   "indices": {
+    "offset": 634500,
+    "count": 62568
+   }
+  },
+  {
+   "id": "RA",
+   "name": "Right atrium",
+   "colour": "#6fc2b8",
+   "volume_ml": 82.5,
+   "centroid_cm": [
+    -5.29,
+    0.02,
+    0.16
+   ],
+   "vertices": {
+    "offset": 759636,
+    "count": 11664
+   },
+   "indices": {
+    "offset": 829620,
+    "count": 69972
+   }
+  },
+  {
+   "id": "Ao",
+   "name": "Aorta",
+   "colour": "#c97fb6",
+   "volume_ml": 206.0,
+   "centroid_cm": [
+    -2.22,
+    -2.55,
+    -2.11
+   ],
+   "vertices": {
+    "offset": 969564,
+    "count": 27022
+   },
+   "indices": {
+    "offset": 1131696,
+    "count": 162108
+   }
+  },
+  {
+   "id": "PA",
+   "name": "Pulmonary artery",
+   "colour": "#9a8be0",
+   "volume_ml": 57.5,
+   "centroid_cm": [
+    -2.52,
+    -1.53,
+    -6.0
+   ],
+   "vertices": {
+    "offset": 1455912,
+    "count": 13194
+   },
+   "indices": {
+    "offset": 1535076,
+    "count": 79152
+   }
+  },
+  {
+   "id": "Myo",
+   "name": "Myocardium",
+   "colour": "#c9c2a0",
+   "volume_ml": 111.0,
+   "centroid_cm": [
+    2.8,
+    -0.04,
+    0.86
+   ],
+   "vertices": {
+    "offset": 1693380,
+    "count": 31042
+   },
+   "indices": {
+    "offset": 1879632,
+    "count": 186252
+   }
+  }
+ ],
+ "encoding": "per structure: vertices int16 little-endian xyz in 0.01 cm (simulator coords, tree-centred like meta.json), then indices uint16 little-endian triangles; offsets in bytes",
+ "source": "TotalSegmentator heartchambers_highres on the ImageCAS CT (non-commercial licence)",
+ "attribution": "Wasserthal J, et al. TotalSegmentator. Radiol Artif Intell 2023; heartchambers_highres model under the TotalSegmentator non-commercial licence"
+}

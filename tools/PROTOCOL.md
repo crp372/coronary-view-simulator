@@ -53,6 +53,14 @@ Candidates found so far (quality 4, no disease):
 | Left (12) | 905 (dry run) | 717 (601-800), 312 (201-400), 937 (801-1000) |
 | Co-dominant (8) | 925 | 153 (1-200), 757 (601-800) |
 
+**A heart with disease.** `pick_scan.py` keeps only scans without disease, and ImageCAS-X says only *whether* a scan has disease, not where or how much. Most diseased scans have no clear narrowing in their labels. To find one with a focal stenosis, screen the labels (no CT needed), then confirm on the CT:
+
+```bash
+.venv/bin/python tools/screen_stenosis.py --block 1-1000 --min 50
+```
+
+Prefer a narrowing of 50% or more in a main vessel with a reference diameter of at least 2.5 mm, and not marked "tapering". The healthy hearts show nothing at 40% or more. Then download the block and check the lesion on the CT: a straightened view along the vessel and cross-sections through it should show plaque narrowing the lumen, and no slab seam at the lesion's level (a seam can mimic a stenosis). Done: 575 (mid LAD, about 55%). Next best: 267 (mid LAD, about 50%, block 201-400).
+
 ## 2. Get the scan's block
 
 The block is the 200-case group the scan belongs to: scan 905 is in `801-1000`. The tools work it out from the scan number, so `--block` is only needed for an unusual layout. If the block isn't in `data/raw/imagecas/extracted/` yet, download and unpack it as described in [tools/README.md](README.md) ("ImageCAS volumes"), changing `801-1000` to the block you need.
@@ -92,13 +100,13 @@ It takes about 45 s with `-d mps` (use `-d cpu` elsewhere; that's slower). It wr
 
 What it does is described in [tools/README.md](README.md): de-contrasting, the bone mask, the coronary volume, branches grown from the CT, illustrative fine branches, and the centreline tree. Check what it prints:
 
-| | 814 | 905 | 925 | Worry if |
-|---|---|---|---|---|
-| grown from the CT | 0.31 mL | 0.46 mL | 0.05 mL | over about 1 mL (growth has leaked into a chamber or vein), or "skipping" (the masks from step 4 are missing) |
-| synthetic twigs | 183, 304 cm, 0.64 mL | 165, 272 cm, 0.54 mL | 160, 250 cm, 0.48 mL | none ("skipping" again) |
-| vessels | 10 | 10 | 10 | far fewer than the labelled segments |
-| max ostium dist | 194 mm | 160 mm | 156 mm | over 255 mm: the cine fill is stored in whole mm up to 255 |
-| ct.u8.gz | 4.7 MB | 5.2 MB | 4.3 MB | much larger: a bigger field of view; the app copes, but it loads more slowly |
+| | 814 | 905 | 925 | 575 | Worry if |
+|---|---|---|---|---|---|
+| grown from the CT | 0.31 mL | 0.46 mL | 0.05 mL | 0.35 mL | over about 1 mL (growth has leaked into a chamber or vein), or "skipping" (the masks from step 4 are missing) |
+| synthetic twigs | 183, 304 cm, 0.64 mL | 165, 272 cm, 0.54 mL | 160, 250 cm, 0.48 mL | 192, 319 cm, 0.61 mL | none ("skipping" again) |
+| vessels | 10 | 10 | 10 | 12 | far fewer than the labelled segments |
+| max ostium dist | 194 mm | 160 mm | 156 mm | 205 mm | over 255 mm: the cine fill is stored in whole mm up to 255 |
+| ct.u8.gz | 4.7 MB | 5.2 MB | 4.3 MB | 4.6 MB | much larger: a bigger field of view; the app copes, but it loads more slowly |
 
 ## 6. Export the chambers
 
@@ -113,6 +121,7 @@ It prints each structure's volume. Check that they're plausible for an adult hea
 | 814 | 135 | 157 | 84 | 93 | 149 | 136 | 32 |
 | 905 | 100 | 115 | 62 | 72 | 104 | 101 | 34 |
 | 925 | 88 | 111 | 69 | 68 | 88 | 102 | 60 |
+| 575 | 117 | 127 | 81 | 83 | 111 | 206 | 58 |
 
 The aorta and PA are always cut off at the edge of the scan, so theirs vary most. A chamber at a fraction of the others, or missing, means TotalSegmentator failed. Look at its mask before going on. The app also takes the heart's frame for the cardiac motion from the LV, RV and LA here, so all three must be present.
 
@@ -181,6 +190,7 @@ Add an entry to `data/web/hearts.json`:
 - `short` goes in the monitor's corner readout.
 - `source` names the scan in the notes on the page.
 - `dominance` is `right`, `left` or `co`.
+- `finding` (optional) names any disease, and the notes on the page add it to the heart's description: "a narrowing of the mid LAD (about 55% by its lumen labels), from mostly non-calcified plaque".
 
 Leave `default` alone unless the new heart should open first.
 
@@ -228,3 +238,4 @@ The page shows the attribution from each heart's `meta.json` and `chambers.json`
 | 814 | Right | 801-1000 | 2026-11 | The first heart. Chest fitted by eye; spine possibly 2 cm too far back (step 8). |
 | 905 | Left | 801-1000 | 2026-11 (dry run of this protocol) | 8/8 key segments, 20.5 cm field. The RCA is small and near the image's edge in LAO. |
 | 925 | Co-dominant | 801-1000 | 2026-11 | 8/8 key segments, 18.9 cm field. PDA and a short PLB from the RCA, a PLB from the LCx. Little grown from the CT (0.05 mL). In LAO 40° at 20 cm, the proximal RCA's C reaches the image's left edge. |
+| 575 | Right, mid-LAD stenosis | 401-600 | 2026-11 | The heart with disease, found with `screen_stenosis.py`: the LAD narrows from about 3.5 to 1.3 mm at 40–47 mm from the ostium, from eccentric, mostly non-calcified plaque (checked on the CT, no seam). Shows best in LAO cranial. The aorta is the largest so far (206 mL). The skin reaches the scan's front face. |

@@ -7,6 +7,7 @@ Data-prep scripts (Python) that turn raw CT and labels into small web-ready file
 | Script | Does |
 |---|---|
 | `pick_scan.py` | Ranks ImageCAS-X scans: quality 4, no disease, and the dominance asked for (`--dominance R`, `L` or `Co`; right by default). Ordered by key-segment coverage, then field of view. Standard library only. |
+| `screen_stenosis.py` | Screens diseased scans for focal lumen narrowing (candidate stenoses), from the ImageCAS-X labels alone, so no CT download is needed. ImageCAS-X only says whether a scan has disease, not where. Measures each narrowing against the vessel just upstream and flags tapering vessels. A screen, not a measurement: confirm a candidate on its CT. |
 | `preview_scan.py` | Renders PNGs of a scan with its labels into `data/raw/preview/`: slab MIPs, AP and lateral MIPs, a rough DRR, and the coronary tree. |
 | `export_scan.py` | Writes the web-ready files for a scan to `data/web/<id>/` (format below). |
 | `export_chambers.py` | Turns TotalSegmentator heart-chamber masks into meshes in `data/web/<id>/chambers.*` (see "Heart chambers" below). |

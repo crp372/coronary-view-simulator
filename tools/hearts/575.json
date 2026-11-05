@@ -1,0 +1,24 @@
+{
+ "scan": 575,
+ "block": "401-600",
+ "dominance": "R",
+ "note": "Per-heart settings for the data-prep tools. chest: landmarks for export_chest.py, started from --measure (see tools/PROTOCOL.md). The skin reaches the scan's front face, so body_y + body_b clears it by 0.5 cm; both lungs reach the bottom of the scan, so the domes are the defaults.",
+ "chest": {
+  "midline_x": -5.6,
+  "body_y": -5.1,
+  "body_a": 20.5,
+  "body_b": 14.0,
+  "spine_y": -6.0,
+  "dome_r": [
+   3.0,
+   -7.0
+  ],
+  "dome_l": [
+   6.0,
+   7.0
+  ],
+  "markings": {
+   "seed": 575
+  }
+ }
+}

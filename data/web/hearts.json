@@ -24,6 +24,15 @@
       "source": "ImageCAS scan 925",
       "dominance": "co",
       "dir": "data/web/925/"
+    },
+    {
+      "id": "575",
+      "name": "CT 575 \u00b7 mid-LAD stenosis",
+      "short": "CT 575",
+      "source": "ImageCAS scan 575",
+      "dominance": "right",
+      "finding": "a narrowing of the mid LAD (about 55% by its lumen labels), from mostly non-calcified plaque",
+      "dir": "data/web/575/"
     }
   ]
 }

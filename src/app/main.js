@@ -50,7 +50,8 @@ async function startDRR(){
   const hearts=await loadHearts();fillHearts(hearts);app.heart=hearts.heart;setMode();   // names the heart being loaded
   if(hearts.model)return fail('chosen');
   const dom={right:'a right-dominant',left:'a left-dominant',co:'a co-dominant'}[hearts.heart.dominance];
-  $('heartDesc').textContent=dom?`${hearts.heart.source}, ${dom} heart`:hearts.heart.source;
+  const fnd=hearts.heart.finding?` with ${hearts.heart.finding}`:'';
+  $('heartDesc').textContent=(dom?`${hearts.heart.source}, ${dom} heart`:hearts.heart.source)+fnd;
   const gl=drrCv.getContext('webgl2',{antialias:false,depth:false,preserveDrawingBuffer:true});
   const no=drrSupport(gl);if(no)return fail(no);
   let scan;

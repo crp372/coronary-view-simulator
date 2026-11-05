@@ -1,7 +1,7 @@
 // The hearts on offer (data/web/hearts.json), and which one the address asks for: ?heart=<id>, ?model for the
 // simplified model heart, or the manifest's default. Shared by index.html and drr.html.
 // Each heart: id, name (for the dropdown), short (for the monitor readout), source (scan named in the notes),
-// dominance, dir (its web export, from tools/export_scan.py).
+// dominance, dir (its web export, from tools/export_scan.py), and optionally finding (disease, named in the notes).
 import {fetchJSON} from './drr/data.js';
 export const MODEL='model';
 // used when the manifest can't be read (file://, or an older checkout)
