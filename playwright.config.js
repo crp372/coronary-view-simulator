@@ -17,5 +17,5 @@ export default defineConfig({
     reducedMotion: 'reduce',
     colorScheme: 'dark',
   },
-  webServer: {command: 'python3 -m http.server 8767', url: 'http://localhost:8767/', reuseExistingServer: true},
+  webServer: {command: 'python3 tools/serve.py 8767', url: 'http://localhost:8767/', reuseExistingServer: true},
 });

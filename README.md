@@ -9,10 +9,10 @@ This README has three parts: [what it does](#what-it-does) (implemented), [known
 **Run it from a local server** so the fluoro image can be computed from a real CT scan (see [below](#drr-fluoro-from-ct)):
 
 ```bash
-python3 -m http.server
+python3 tools/serve.py
 ```
 
-Then open http://localhost:8000/. The page has to be served: browsers won't load ES modules from `file://`, and the page says so if you open it that way. If the CT can't load, it falls back to the original model-heart image and says why under the monitor (add `?model` to the address to force that). `drr.html` shows the DRR engine on its own, with an extra iodine-strength slider and centreline toggle.
+Then open http://localhost:8000/. (`tools/serve.py` is Python's `http.server` plus a no-cache header, so the browser always picks up edited files; plain `python3 -m http.server` works too, but may show a stale mix after an edit.) The page has to be served: browsers won't load ES modules from `file://`, and the page says so if you open it that way. If the CT can't load, it falls back to the original model-heart image and says why under the monitor (add `?model` to the address to force that). `drr.html` shows the DRR engine on its own, with an extra iodine-strength slider and centreline toggle.
 
 ### Code layout
 - `src/drr/`: the DRR engine, shared by both pages. `engine.js` (WebGL2 passes), `shaders.js`, `tune.js` (image constants, `TUNE`), `data.js` (`loadScan()` for a `data/web/<id>/` export), `heart.js` (cardiac motion, GLSL and its CPU twin), `cine.js` (the cine run).
@@ -35,7 +35,7 @@ They open both pages in headless Chromium, show every preset, the overlays, a ci
 
 ### Layout
 - **One screen, no page scrolling** on laptops and desktops: standard views on the left, the fluoro monitor as large as the window allows in the middle, and a right rail with the room view and the controls.
-- **Collapsible control groups** (C-arm, Table, Injection, Display). The room view takes whatever height the open groups leave. Which groups are open is remembered in this browser.
+- **Collapsible control groups** (C-arm, Table, Injection, Display). C-arm and Injection start open, Table and Display collapsed. The room view takes whatever height the open groups leave. Which groups are open is remembered in this browser.
 - **Full screen** for the whole app (button in the top bar, or press F; Esc leaves). Hidden where the browser can't do it, e.g. iPhone Safari, and some embedded previews block it.
 - **About this image** (top bar) holds the longer notes: where the image comes from, how to read the overlays, and how the views are named. The short source line under the presets stays on the page, including the note that the finest branches are illustrative.
 - Narrower windows (920–1199 px) keep the three columns with a slimmer presets column; phones, and windows under 560 px tall, scroll in one column.

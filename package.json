@@ -4,7 +4,7 @@
   "type": "module",
   "description": "Dev tooling only: the app itself needs no build step (serve the folder and open index.html).",
   "scripts": {
-    "serve": "python3 -m http.server 8766",
+    "serve": "python3 tools/serve.py 8766",
     "check": "playwright test",
     "check:update": "playwright test --update-snapshots"
   },

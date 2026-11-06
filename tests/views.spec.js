@@ -37,6 +37,8 @@ async function pressPreset(p, side, name) {
 }
 async function setToggle(p, id, on) {
   const b = p.locator('#' + id);
+  // Display starts collapsed: open the group holding the button first
+  await b.evaluate(e => { const d = e.closest('details'); if (d) d.open = true; });
   if ((await b.getAttribute('aria-pressed')) !== String(on)) await b.click();
 }
 
@@ -208,6 +210,16 @@ test.describe('layout', () => {
     await expect(page.locator('#fsBtn')).toHaveText('Exit full screen');
     await page.keyboard.press('f');
     await expect.poll(fs).toBe(false);
+  });
+
+  test('How to use dialog, and its link to About', async () => {
+    await page.locator('#helpBtn').click();
+    await expect(page.locator('#help')).toBeVisible();
+    await page.locator('#help [data-about]').click();
+    await expect(page.locator('#help')).toBeHidden();
+    await expect(page.locator('#about')).toBeVisible();
+    await page.locator('#about button[type=submit]').click();
+    await expect(page.locator('#about')).toBeHidden();
   });
 
   test('About dialog', async () => {

@@ -11,7 +11,7 @@ Can the simulator be hosted online for free, non-commercially, for teaching? Thi
 | TotalSegmentator `heartchambers_highres` | Universitätsspital Basel non-commercial licence (PDF dated 23/08/23) | **Yes, by written permission** (2026-11-05) | Credit as promised; send the link once live; publish derived data only |
 | TotalSegmentator open tasks (e.g. `total`) | Apache-2.0 | Yes | Keep the licence notice |
 | Three.js r128 | MIT | Yes | |
-| Google Fonts (Barlow, Barlow Condensed, IBM Plex Mono) | SIL Open Font License | Yes | |
+| Google Fonts (Archivo Narrow, Inter, JetBrains Mono) | SIL Open Font License | Yes | |
 | Wikimedia CC-BY cine runs | CC BY | Not redistributed (used only to tune the image) | |
 
 ## ImageCAS: CC BY-NC 4.0

@@ -101,17 +101,18 @@ export function fillHearts({list,heart,model}){
   sel.value=model?MODEL:heart.id;
   sel.addEventListener('change',()=>{location.href=heartHref(sel.value);});
 }
-const about=$('about');
+const about=$('about'),help=$('help');
 document.addEventListener('click',e=>{const b=e.target.closest('[data-about]');if(!b)return;
-  about.showModal();const at=b.dataset.about&&$('about-'+b.dataset.about);if(at)at.scrollIntoView({block:'start'});});
+  if(help.open)help.close();about.showModal();const at=b.dataset.about&&$('about-'+b.dataset.about);if(at)at.scrollIntoView({block:'start'});});
 $('aboutBtn').addEventListener('click',()=>about.showModal());
+$('helpBtn').addEventListener('click',()=>help.showModal());
 // full screen for the whole app (F toggles it); hidden where the browser can't (e.g. iPhone Safari)
 const fsBtn=$('fsBtn'),fsOn=()=>!!document.fullscreenElement;
 const toggleFs=()=>{if(fsOn())document.exitFullscreen();else document.documentElement.requestFullscreen().catch(e=>console.info('No full screen:',e.message||e));};
 if(document.fullscreenEnabled){fsBtn.hidden=false;fsBtn.addEventListener('click',toggleFs);}
 document.addEventListener('fullscreenchange',()=>{fsBtn.setAttribute('aria-pressed',String(fsOn()));fsBtn.textContent=fsOn()?'Exit full screen':'Full screen';});
 document.addEventListener('keydown',e=>{if((e.key==='f'||e.key==='F')&&!e.metaKey&&!e.ctrlKey&&!e.altKey&&document.fullscreenEnabled&&
-  !e.target.closest('input[type=text],input[type=search],textarea,select,[contenteditable]')&&!about.open){e.preventDefault();toggleFs();}});
+  !e.target.closest('input[type=text],input[type=search],textarea,select,[contenteditable]')&&!about.open&&!help.open){e.preventDefault();toggleFs();}});
 // which control groups are open, per browser (storage may be unavailable, e.g. in a private window)
 const GRP_KEY='cvs.groups';
 let open={};try{open=JSON.parse(localStorage.getItem(GRP_KEY))||{};}catch(e){}

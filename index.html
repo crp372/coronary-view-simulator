@@ -7,7 +7,7 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="src/app/app.css">
 </head>
 <body>
@@ -18,6 +18,7 @@
       <select id="heartSel" aria-label="Choose a heart"></select>
     </label>
     <div class="acts">
+      <button type="button" id="helpBtn" class="icon" aria-haspopup="dialog" aria-label="How to use" title="How to use"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.2 9.3a2.9 2.9 0 0 1 5.6 1c0 1.9-2.8 2.6-2.8 4.2"/><circle cx="12" cy="17.6" r=".6" fill="currentColor"/></svg></button>
       <button type="button" id="aboutBtn" aria-haspopup="dialog">About this image</button>
       <button type="button" id="fsBtn" aria-pressed="false" title="Full screen (F)" hidden>Full screen</button>
     </div>
@@ -118,7 +119,7 @@
       </div>
     </details>
 
-    <details class="panel grp" data-grp="disp" open>
+    <details class="panel grp" data-grp="disp">
       <summary><h2>Display</h2></summary>
       <div class="seg">
         <button type="button" id="tOvV" aria-pressed="false">Coronary tree</button>
@@ -137,6 +138,45 @@
     </details>
   </div>
 </div>
+
+<dialog id="help" aria-labelledby="helpTitle">
+  <form method="dialog" class="dlghead"><h2 id="helpTitle">How to use</h2><button type="submit" aria-label="Close">Close</button></form>
+  <p>You're at the controls of a virtual cath lab. The big square is the fluoro monitor; the room view on the right shows where the C-arm and table are.</p>
+  <h3>1. Choose a view</h3>
+  <ul class="note">
+    <li><strong>Pick a standard view</strong> from the list on the left (left coronary views at the top, right coronary below). The C-arm swings there and the injection side switches to match. Below the list, the current view is named with what it's best for.</li>
+    <li><strong>Or set your own angle</strong> with the C-arm sliders: <em>Rotation</em> from RAO to LAO, <em>Angulation</em> from caudal to cranial. <em>Field of view</em> zooms the image (a smaller field is a bigger image).</li>
+  </ul>
+  <h3>2. Inject and run a cine</h3>
+  <ul class="note">
+    <li><strong>Left</strong> or <strong>Right</strong> under Injection chooses which coronary is filled with contrast, and which guide catheter is shown.</li>
+    <li><strong>Run cine</strong> plays one injection: contrast streams down the arteries over a few beats, then washes out. The heart beats during the run (switch this off with <em>Heart motion</em>).</li>
+  </ul>
+  <h3>3. Move the table</h3>
+  <ul class="note">
+    <li><strong>Drag the image</strong> to pan the table, as you would to follow a vessel off the edge of the screen. The Table group has sliders for each direction and <em>Centre table</em> to reset.</li>
+  </ul>
+  <h3>4. Find out what you're looking at</h3>
+  <ul class="note">
+    <li><strong>Hover over a vessel</strong> (or tap it on a touch screen) to name it, in the image or the room view.</li>
+    <li>Under Display, <strong>Coronary tree</strong> overlays the whole tree, including the side that isn't injected; <strong>Chambers</strong> outlines the chambers and great vessels; <strong>Segment numbers</strong> shows the SCCT segments. Click a chamber's chip in the legend to show or hide it.</li>
+    <li><strong>Vessel labels</strong>, <strong>Guide catheter</strong>, <strong>Fine branches</strong> and <strong>Spine and ribs</strong> switch those parts of the picture on and off.</li>
+  </ul>
+  <h3>5. Look at the room</h3>
+  <ul class="note">
+    <li><strong>Drag the room view</strong> to orbit around it and scroll to zoom. <em>Close on heart</em> moves the camera in on the heart inside the patient; <em>Whole room</em> goes back.</li>
+  </ul>
+  <h3>6. Try another heart</h3>
+  <ul class="note">
+    <li>The <strong>Heart</strong> menu at the top switches between real CT hearts: right-dominant, left-dominant, co-dominant, and one with a narrowed mid LAD. The page reloads with the new heart.</li>
+  </ul>
+  <h3>Tips</h3>
+  <ul class="note">
+    <li>Table and Display start collapsed: click a group's title to open or close it. Groups stay as you leave them, and closing the ones you aren't using gives the room view more space.</li>
+    <li><strong>Full screen</strong>, or press <kbd>F</kbd>, hides the browser around the simulator.</li>
+    <li>To learn how views are named and how to read the image, see <button type="button" class="link" data-about="">About this image</button>.</li>
+  </ul>
+</dialog>
 
 <dialog id="about" aria-labelledby="aboutTitle">
   <form method="dialog" class="dlghead"><h2 id="aboutTitle">About this image</h2><button type="submit" aria-label="Close">Close</button></form>

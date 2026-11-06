@@ -196,7 +196,7 @@ Leave `default` alone unless the new heart should open first.
 
 ## 11. Look at it in the app
 
-Serve the folder (`python3 -m http.server`) and open `http://localhost:8000/?heart=<id>`, or choose the heart from the dropdown. Go through:
+Serve the folder (`python3 tools/serve.py`) and open `http://localhost:8000/?heart=<id>`, or choose the heart from the dropdown. Go through:
 
 - [ ] **It loads the CT**, not the model heart. The note under the presets names the scan, and the monitor's bottom-right readout says `DRR · CT <id>`. If it says "Simplified model heart", the reason is in "About this image".
 - [ ] **Every left and right preset**, with the vessel labels on. Each label sits on its vessel, and the view shows roughly what its "best for" says. This heart's best angles can differ from the textbook by several degrees.
