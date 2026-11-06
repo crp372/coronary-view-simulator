@@ -73,23 +73,26 @@ export function setMode(){
   $('tCath').hidden=!(on&&roomCath.length);
   $('tMotion').hidden=!on;
   refreshOverlayUI();
+  // In the CT image: what is this patient's, then what is modelled or illustrative
+  const fine=app.drr&&app.drr.hasFine&&state.fine,li=t=>`<li>${t}</li>`;
   $('srcNote').innerHTML=on
-    ?`<strong>Fluoro image:</strong> X-rays traced through a real coronary CT (${esc(app.heart.source)}), with contrast only in the injected tree. `+
-      `The labelled vessels and a few small branches found in the CT are this patient's.`+
-      (app.drr&&app.drr.hasFine&&state.fine?` <strong>Branches finer than about 1 mm are illustrative</strong>: generated along the heart's surface to look realistic, not this patient's anatomy (switch them off with “Fine branches”).`:'')+
-      (roomCath.length?` The guide catheter (JL4 or JR4, femoral approach) is shaped along this CT's aorta; the arch above the scan is extrapolated.`:'')+
-      (app.drr&&app.drr.hasChest?` Beyond the ${app.scanCm} cm scan, the lungs, ribs, spine and diaphragm come from a synthetic chest fitted to this scan's landmarks (illustrative).`:'')+
-      ` During a cine run the heart beats at 72/min, then holds still when the run ends: a modelled motion (long-axis shortening, squeeze, twist, swing, buckling, each on its own time course), not this heart's measured motion. Data: ${esc(app.attr)}. Non-commercial use only.`
-    :app.mode==='loading'?'Loading a real coronary CT for the fluoro image.'
-    :app.why==='file'?'<strong>Fluoro image:</strong> simplified model heart. For the image computed from a real coronary CT, serve this folder (<code>python3 -m http.server</code>) and open it from localhost.'
-    :app.why==='chosen'?'<strong>Fluoro image:</strong> simplified, right-dominant model heart, chosen in the heart list. Contrast-filled vessels darken in proportion to their thickness.'
-    :`<strong>Fluoro image:</strong> simplified model heart, because ${esc(app.why)}.`;
-  // the short version stays on the page; the illustrative fine branches must always be labelled there
-  const more=' <button type="button" class="link" data-about="">More</button>';
-  $('srcShort').innerHTML=on
-    ?`Traced through a real coronary CT (${esc(app.heart.source)}).`+(app.drr&&app.drr.hasFine&&state.fine?' <strong>Branches under 1 mm are illustrative.</strong>':'')+' Non-commercial use only.'+more
-    :app.mode==='loading'?(app.heart?`Loading ${esc(app.heart.source)}…`:'Loading the CT…')
-    :(app.why==='chosen'?'Simplified model heart.':'Simplified model heart: the CT couldn’t be shown.')+more;
+    ?`<h4>Taken from this patient's CT (${esc(app.heart.source)})</h4><ul>`+
+        li(`The heart, the aortic root and everything else inside the ${app.scanCm} cm scan.`)+
+        li(`The labelled coronary arteries, and the few small branches that could be traced in the CT.`)+
+        (roomCath.length?li(`The path of the guide catheter (JL4 or JR4, femoral approach), which is shaped along this CT's aorta.`):'')+
+      `</ul><h4>Modelled or illustrative</h4><ul>`+
+        (app.drr&&app.drr.hasFine?li(`<strong>Branches finer than about 1 mm are illustrative.</strong> They are generated along the heart's surface to look realistic, but they are not this patient's anatomy.`+(fine?` You can switch them off with “Fine branches”.`:` They are switched off at the moment.`)):'')+
+        (roomCath.length?li(`The catheter's arch above the scan is extrapolated.`):'')+
+        (app.drr&&app.drr.hasChest?li(`Beyond the scan, the lungs, ribs, spine and diaphragm come from a synthetic chest fitted to this scan's landmarks.`):'')+
+        li(`During a cine run the heart beats at 72/min, then holds still when the run ends. The motion (long-axis shortening, squeeze, twist, swing and buckling, each on its own time course) is modelled, not measured from this heart.`)+
+      `</ul><p>If the CT can't load, a simplified, right-dominant model heart is shown instead.</p>`
+    :app.mode==='loading'?'<p>Loading a real coronary CT for the fluoro image.</p>'
+    :app.why==='file'?'<p><strong>You are seeing a simplified model heart.</strong> For the image computed from a real coronary CT, serve this folder (<code>python3 tools/serve.py</code>) and open it from localhost.</p>'
+    :app.why==='chosen'?'<p><strong>You are seeing a simplified, right-dominant model heart</strong>, chosen in the heart list. Its contrast-filled vessels darken in proportion to their thickness.</p>'
+    :`<p><strong>You are seeing a simplified model heart</strong>, because ${esc(app.why)}.</p>`;
+  // the author and licence stay on the page; the rest is in About
+  const ss=$('srcShort');ss.hidden=false;
+  ss.innerHTML='Made by <a href="https://chiranpandey.com/">Chiran Pandey</a><br>Non-commercial use only&nbsp;·&nbsp;<button type="button" class="link" data-about="credits">More</button>';
   syncUI();
 }
 

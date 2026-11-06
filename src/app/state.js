@@ -8,7 +8,7 @@ export const esc=t=>String(t).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'
 // ovV: CT coronary overlay; ovC: chamber overlay (the model's chambers in model mode); segN: SCCT segment numbers
 // fine: illustrative fine branches (below CT resolution) in the CT image; cath: guide catheter in the CT image;
 // motion: the heart beats during a cine run
-export const state={lao:-30,cra:-25,tx:0,ty:0,tz:0,fov:20,inj:'L',ovV:false,ovC:false,segN:false,labels:true,bones:true,fine:true,cath:true,motion:true};
+export const state={lao:-30,cra:-25,tx:0,ty:0,tz:0,fov:20,inj:'L',ovV:false,ovC:false,segN:false,labels:false,bones:true,fine:true,cath:true,motion:true};
 export const chOn={LV:true,RV:true,LA:true,RA:true,Ao:true,PA:true,Myo:false};   // per-chamber switches (legend chips)
 
 // What the modules change for each other:

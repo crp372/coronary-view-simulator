@@ -39,7 +39,7 @@ They open both pages in headless Chromium, show every preset, the overlays, a ci
 - **One screen, no page scrolling** on laptops and desktops: standard views on the left, the fluoro monitor as large as the window allows in the middle, and a right rail with the room view and the controls.
 - **Collapsible control groups** (C-arm, Table, Injection, Display). C-arm and Injection start open, Table and Display collapsed. The room view takes whatever height the open groups leave. Which groups are open is remembered in this browser.
 - **Full screen** for the whole app (button in the top bar, or press F; Esc leaves). Hidden where the browser can't do it, e.g. iPhone Safari, and some embedded previews block it.
-- **About this image** (top bar) holds the longer notes: where the image comes from, how to read the overlays, and how the views are named. The short source line under the presets stays on the page, including the note that the finest branches are illustrative.
+- **About this image** (top bar) holds the longer notes: where the image comes from (what is this patient's and what is modelled or illustrative), how to read the overlays, intended use, and credits. On the page, the "Fine branches (illustrative)" switch marks the generated branches, and a line under the presets says "Made by Chiran Pandey" (linked to chiranpandey.com) and "Non-commercial use only", with a link to the credits.
 - Narrower windows (920–1199 px) keep the three columns with a slimmer presets column; phones, and windows under 560 px tall, scroll in one column.
 
 ### Choosing a heart
@@ -48,7 +48,7 @@ They open both pages in headless Chromium, show every preset, the overlays, a ci
 
 ### Fluoro monitor
 - Simulated fluoroscopy image rendered from the X-ray tube's position, displayed as seen from the detector (head up; patient's left on screen right in AP).
-- **Default: DRR from a real CT.** X-rays are traced through the chosen heart's CT at the current angle, with iodine only in the injected tree (see [DRR fluoro](#drr-fluoro-from-ct)). Two hearts so far: ImageCAS scan 814 (right-dominant, the default) and scan 905 (left-dominant). Vessel labels come from each scan's own centrelines. A short source line sits under the presets; the full note and data attribution are in "About this image".
+- **Default: DRR from a real CT.** X-rays are traced through the chosen heart's CT at the current angle, with iodine only in the injected tree (see [DRR fluoro](#drr-fluoro-from-ct)). Two hearts so far: ImageCAS scan 814 (right-dominant, the default) and scan 905 (left-dominant). Vessel labels come from each scan's own centrelines. The full note and data attribution are in "About this image".
 - **While the CT loads**, the monitor shows a dark screen with "Loading ImageCAS scan …", and the room shows only the table and C-arm.
 - **Model heart**, a simplified, right-dominant, hand-built heart: chosen in the Heart dropdown (`?model`), or as the fallback when the CT can't be shown (no WebGL2 or float render targets, or the data can't load; the page says why). Contrast-filled vessels darken in proportion to their thickness; faint cardiac silhouette, spine, ribs, diaphragm domes and the guide catheter (JL4 for left, JR4 for right).
 - Animated quantum-noise grain. With the CT image, a square flat-panel field with rounded corners and dark shutters, drawn by the DRR's display pass. With the model image, a round vignette, drawn as CSS layers.
@@ -94,7 +94,7 @@ They open both pages in headless Chromium, show every preset, the overlays, a ci
     - **Timing:** each component has its own time course from the LV volume curve: isovolumic contraction, brisk ejection, isovolumic relaxation, rapid filling, diastasis, atrial kick. The twist unwinds early in diastole. Because the components are out of step, points trace loops rather than lines.
     - **Fitted and checked:** the heart's frame comes from the CT's own chamber meshes. The amplitudes and timing were compared frame by frame with a real RAO caudal cine (CC BY, Wikimedia Commons). The first version had a long frozen diastole and uniform squeezing, which looked like a zoom, and was reworked.
     - It's still a modelled motion, not this heart's measured motion.
-- **Display toggles:** coronary tree, chambers, vessel labels and segment numbers (the overlays); heart motion, guide catheter and fine branches (CT image); spine and ribs (model image only, since the CT has its own bones). In model mode only the chamber overlay applies.
+- **Display toggles:** coronary tree, chambers, vessel labels (off at first) and segment numbers (the overlays); heart motion, guide catheter and fine branches (CT image); spine and ribs (model image only, since the CT has its own bones). In model mode only the chamber overlay applies.
 - **Overlays, DRR mode:** everything comes from the same CT, so it lines up with the image. Each overlay turns on separately.
   - **Coronary overlay:** the tree from ImageCAS-X, including the tree that isn't injected. Thin ribbons coloured by segment, with labels for both trees.
   - **Chamber overlay:** chambers and great vessels (LV, RV, LA, RA, aorta, PA, and optionally the myocardium) from TotalSegmentator.
@@ -126,9 +126,6 @@ Each preset animates the C-arm to the angle and shows what the view is best for.
 | LAO (RCA) | LAO 40° | RCA "C" shape: ostium, proximal and mid RCA |
 | RAO (RCA) | RAO 30° | RCA "L" shape: mid RCA and PDA length |
 | LAO cranial (RCA) | LAO 30° CRA 25° | Crux: distal RCA into PDA and PLV |
-
-### Built-in explainer
-In the About dialog: how views are named (by detector position), how to read the image orientation, and why RAO, LAO, cranial and caudal views open different segments.
 
 ---
 

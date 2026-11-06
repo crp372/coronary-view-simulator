@@ -39,7 +39,7 @@
       <span class="nm" id="nowName"></span>
       <span class="bf" id="nowBest"></span>
     </div>
-    <p class="note" id="srcShort"></p>
+    <p class="note" id="srcShort" hidden></p>
   </aside>
 
   <main class="stage">
@@ -127,7 +127,7 @@
       <div class="seg">
         <button type="button" id="tOvV" aria-pressed="false">Coronary tree</button>
         <button type="button" id="tOvC" aria-pressed="false">Chambers</button>
-        <button type="button" id="tLabels" aria-pressed="true">Vessel labels</button>
+        <button type="button" id="tLabels" aria-pressed="false">Vessel labels</button>
         <button type="button" id="tSegN" aria-pressed="false">Segment numbers</button>
       </div>
       <div class="legend" id="ovLegend" hidden></div>
@@ -177,40 +177,33 @@
   <ul class="note">
     <li>Table and Display start collapsed: click a group's title to open or close it. Groups stay as you leave them, and closing the ones you aren't using gives the room view more space.</li>
     <li><strong>Full screen</strong>, or press <kbd>F</kbd>, hides the browser around the simulator.</li>
-    <li>To learn how views are named and how to read the image, see <button type="button" class="link" data-about="">About this image</button>.</li>
+    <li>To learn where the image comes from and how to read the overlays, see <button type="button" class="link" data-about="">About this image</button>.</li>
   </ul>
 </dialog>
 
 <dialog id="about" aria-labelledby="aboutTitle">
   <form method="dialog" class="dlghead"><h2 id="aboutTitle">About this image</h2><button type="submit" aria-label="Close">Close</button></form>
   <p>Swing the C-arm and move the table, then turn on the coronary and chamber overlays to see which structures the projection is showing you.</p>
-  <h3>Where the image comes from</h3>
-  <p class="note" id="srcNote"></p>
+  <h3>The fluoro image</h3>
+  <p class="note"><strong>The fluoro image is computed from one real coronary CT</strong> (<span id="heartDesc">a right-dominant heart</span>), by tracing X-rays through it at the current angle. Real hearts vary in orientation, so this heart's best angles can differ by a few degrees from the textbook ones.</p>
+  <div class="note" id="srcNote"></div>
   <h3 id="about-ovl">The overlays</h3>
-  <div class="note" id="ovNote">With the CT image, the overlays come from this CT's own segmentations, so they line up with the image:
-    <ul>
-      <li><strong>Coronary tree:</strong> from ImageCAS-X, including the tree that isn't injected.</li>
-      <li><strong>Chambers:</strong> chambers and great vessels from TotalSegmentator. Each is drawn as an outline where the beam grazes its wall edge-on, which is where it would form a border on a real image. Click a chip in the legend to show or hide one.</li>
-      <li><strong>Segment numbers:</strong> the SCCT 18-segment model. Proximal, mid and distal RCA are thirds of the RCA up to the crux, because the acute marginal isn't labelled in this CT.</li>
-    </ul>
-    Brighter means nearer the detector. Hover over or tap a structure, in the image or the room view, to name it. Over a chamber, the label also lists everything else in the beam at that point, detector side first.</div>
-  <h3>How the views are named, and how to read the image</h3>
-  <ul class="note">
-    <li><strong>Views are named for where the detector sits.</strong> The X-ray tube is under the table, the detector is above the patient. LAO means the detector has swung over toward the patient's left; RAO, toward the right. Cranial tilts the detector toward the head, caudal toward the feet.</li>
-    <li><strong>The image is drawn as seen from the detector.</strong> In AP the head is at the top and the patient's left is on the screen's right, like looking down at the patient from the ceiling.</li>
-    <li><strong>RAO separates left from right along the AV groove.</strong> The AV groove (RCA and LCx) is seen edge-on, so the RCA looks like an "L" and the LAD runs along the front of the heart.</li>
-    <li><strong>LAO looks down the septum.</strong> The AV groove opens into a ring, so the RCA looks like a "C", and the LAD and LCx split to either side of the septum.</li>
-    <li><strong>Cranial views open the LAD and diagonals; caudal views open the LM, LCx and OMs.</strong> LAO caudal, the "spider", looks up the long axis from the apex onto the LM bifurcation.</li>
-    <li><strong>The fluoro image is computed from one real coronary CT</strong> (<span id="heartDesc">a right-dominant heart</span>), by tracing X-rays through it at the current angle. Real hearts vary in orientation, so this heart's best angles can differ by a few degrees from the textbook ones.</li>
-    <li>With the CT image, the anatomy overlay comes from that same CT: its coronary tree, chambers and great vessels. The aorta and pulmonary artery are cut off where the scan ends. If the CT can't load, a simplified, right-dominant model heart is used instead.</li>
+  <p class="note">With the CT image, the overlays come from this CT's own segmentations, so they line up with the image. There are three of them:</p>
+  <ul class="note" id="ovNote">
+    <li><strong>Coronary tree.</strong> The arteries are labelled from ImageCAS-X. The tree that isn't injected is shown too, so you can see where it runs.</li>
+    <li><strong>Chambers and great vessels.</strong> These come from TotalSegmentator. Each is drawn as an outline where the beam grazes its wall edge-on, which is where it would form a border on a real image. Click a chip in the legend to show or hide one. The aorta and pulmonary artery are cut off where the scan ends.</li>
+    <li><strong>Segment numbers.</strong> These follow the SCCT 18-segment model. The proximal, mid and distal RCA are thirds of the RCA up to the crux, because the acute marginal isn't labelled in this CT.</li>
   </ul>
+  <h4>Reading them</h4>
+  <p class="note">Brighter parts of an overlay are nearer the detector. Hover over or tap a structure, in the image or in the room view, to name it. Over a chamber, the label also lists everything else in the beam at that point, starting from the detector side.</p>
+  <h3>Intended use</h3>
+  <p class="note"><strong>This is a teaching tool, not a medical device.</strong> It is not for diagnosis, treatment or any other clinical use. It is free and non-commercial.</p>
   <h3 id="about-credits">Credits and licences</h3>
-  <p class="note"><strong>A teaching tool, not a medical device.</strong> It is not for diagnosis, treatment or any other clinical use. Free and non-commercial.</p>
   <ul class="note">
-    <li><strong>CT volumes:</strong> ImageCAS (Zeng A, Xu X, et al. <i>Comput Med Imaging Graph</i> 2023), <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a>. Changed here: de-contrasted (blood pool clamped to 50 HU), resampled to 0.9 × 0.9 × 1 mm and cropped.</li>
-    <li><strong>Coronary labels and centrelines:</strong> ImageCAS-X (Bransby KM, et al. 2026, <a href="https://zenodo.org/records/21887809" target="_blank" rel="noopener">Zenodo</a>), <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>. Changed here: lumen labels resampled onto the CT, and small branches grown from the CT.</li>
-    <li><strong>Chambers and great vessels:</strong> segmented with TotalSegmentator <code>heartchambers_highres</code> (Wasserthal J, et al. <i>Radiol Artif Intell</i> 2023, <a href="https://doi.org/10.1148/ryai.230024" target="_blank" rel="noopener">doi:10.1148/ryai.230024</a>). Meshes and data derived from these segmentations are published with the kind permission of Dr Jakob Wasserthal, Department of Radiology, Universitätsspital Basel.</li>
-    <li><strong>Software:</strong> <a href="https://threejs.org/" target="_blank" rel="noopener">Three.js</a> (MIT). Fonts: Archivo Narrow, Inter and JetBrains Mono (SIL Open Font License).</li>
+    <li><strong>CT volumes.</strong> ImageCAS (Zeng A, Xu X, et al. <i>Comput Med Imaging Graph</i> 2023), <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a>. Changed here: de-contrasted (blood pool clamped to 50 HU), resampled to 0.9 × 0.9 × 1 mm and cropped.</li>
+    <li><strong>Coronary labels and centrelines.</strong> ImageCAS-X (Bransby KM, et al. 2026, <a href="https://zenodo.org/records/21887809" target="_blank" rel="noopener">Zenodo</a>), <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>. Changed here: lumen labels resampled onto the CT, and small branches grown from the CT.</li>
+    <li><strong>Chambers and great vessels.</strong> Segmented with TotalSegmentator <code>heartchambers_highres</code> (Wasserthal J, et al. <i>Radiol Artif Intell</i> 2023, <a href="https://doi.org/10.1148/ryai.230024" target="_blank" rel="noopener">doi:10.1148/ryai.230024</a>). Meshes and data derived from these segmentations are published with the kind permission of Dr Jakob Wasserthal, Department of Radiology, Universitätsspital Basel.</li>
+    <li><strong>Software.</strong> <a href="https://threejs.org/" target="_blank" rel="noopener">Three.js</a> (MIT). Fonts: Archivo Narrow, Inter and JetBrains Mono (SIL Open Font License).</li>
     <li><strong>Made by</strong> <a href="https://chiranpandey.com/" target="_blank" rel="noopener">Chiran Pandey</a>, medical student at Humanitas University. Source code on <a href="https://github.com/crp372/coronary-view-simulator" target="_blank" rel="noopener">GitHub</a>.</li>
   </ul>
 </dialog>
@@ -220,7 +213,7 @@
 <!-- The app is plain ES modules (src/app/main.js and what it imports), so it needs a local server: browsers
      won't load modules from file://. Say so on the page in that case. -->
 <script>
-if(location.protocol==='file:')document.getElementById('srcShort').innerHTML='This page has to be served, because it loads its code as modules: run <code>python3 -m http.server</code> in this folder and open <code>http://localhost:8000/</code>.';
+if(location.protocol==='file:')Object.assign(document.getElementById('srcShort'),{hidden:false}).innerHTML='This page has to be served, because it loads its code as modules: run <code>python3 -m http.server</code> in this folder and open <code>http://localhost:8000/</code>.';
 </script>
 <script type="module" src="src/app/main.js"></script>
 

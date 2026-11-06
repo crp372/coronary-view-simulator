@@ -46,8 +46,12 @@ test.describe('index.html, CT image', () => {
   test.beforeAll(async ({browser}) => { page = await open(browser, '/'); });
   test.afterAll(async () => { await page.close(); expect(errors).toEqual([]); });
 
-  test('starts in DRR mode', async () => {
+  // vessel labels start off; the view checks turn them on, so they also check where the labels sit
+  test('starts in DRR mode, with labels off', async () => {
     expect(await page.evaluate(() => window.sim.mode)).toBe('drr');
+    await expect(page.locator('#tLabels')).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.locator('#labels .lbl:not([hidden])')).toHaveCount(0);
+    await setToggle(page, 'tLabels', true);
   });
 
   for (const [side, name] of PRESETS) {
@@ -125,6 +129,8 @@ test.describe('index.html, model heart (?model)', () => {
 
   test('falls back to the model', async () => {
     expect(await page.evaluate(() => window.sim.mode)).toBe('model');
+
+    await setToggle(page, 'tLabels', true);
   });
   for (const [side, name] of [['L', 'RAO caudal'], ['R', 'LAO']]) {
     test(`preset ${side} ${name}`, async () => {
