@@ -11,7 +11,7 @@
 /* Same cath-lab console look as index.html: fluoro monitor on the left, controls in the right rail. */
 :root{
   --bg:#0e1215; --panel:#151a1f; --panel2:#1c232a; --line:#2b343c; --fg:#e3e7ea; --muted:#8b97a1;
-  --accent:#e8b450; --cool:#74b8c8; --screen:#050607; --ink:#0b0e10; --warn:#e07a5f;
+  --accent:#a3aff5; --accent-fill:#3f5f8f; --on-accent:#eef3fa; --scr:#e2e6ea; --cool:#74b8c8; --screen:#050607; --ink:#0b0e10; --warn:#e07a5f;
   --f-display:"Archivo Narrow","Arial Narrow",system-ui,sans-serif;
   --f-body:"Inter",system-ui,-apple-system,sans-serif;
   --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
@@ -34,11 +34,11 @@ h2{font-family:var(--f-display);font-weight:600;font-size:13px;letter-spacing:.1
 .monitor{position:relative;width:100%;max-width:100%;aspect-ratio:1/1;background:var(--screen);border-radius:4px;overflow:hidden;border:1px solid var(--line);touch-action:none;cursor:grab}
 .monitor.drag{cursor:grabbing}
 .monitor canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
-.ro{position:absolute;font-family:var(--f-mono);font-size:clamp(11px,1.5vw,13px);color:var(--accent);text-shadow:0 0 3px var(--ink),0 0 1px var(--ink);pointer-events:none;line-height:1.35;font-variant-numeric:tabular-nums}
+.ro{position:absolute;font-family:var(--f-mono);font-size:clamp(11px,1.5vw,13px);color:var(--scr);text-shadow:0 0 1px var(--ink),0 0 3px var(--ink),0 0 5px var(--ink);pointer-events:none;line-height:1.35;font-variant-numeric:tabular-nums}
 .ro.tl{top:10px;left:12px}.ro.tr{top:10px;right:12px;text-align:right}.ro.bl{bottom:10px;left:12px}.ro.br{bottom:10px;right:12px;text-align:right}
 .ro b{font-weight:500;font-size:1.25em}
 .labels{position:absolute;inset:0;pointer-events:none}
-.lbl{position:absolute;transform:translate(-50%,-50%);font-family:var(--f-display);font-weight:600;font-size:clamp(11px,1.6vw,14px);letter-spacing:.04em;color:var(--accent);text-shadow:0 0 3px var(--ink),0 0 2px var(--ink),0 0 1px var(--ink);white-space:nowrap}
+.lbl{position:absolute;transform:translate(-50%,-50%);font-family:var(--f-display);font-weight:600;font-size:clamp(11px,1.6vw,14px);letter-spacing:.04em;color:var(--scr);text-shadow:0 0 1px var(--ink),0 0 2px var(--ink),0 0 4px var(--ink),0 0 6px var(--ink);white-space:nowrap}
 .lbl.r{color:var(--cool)}
 .status{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;color:var(--muted);font-family:var(--f-mono);font-size:13px;background:var(--screen)}
 .status[hidden]{display:none}
@@ -60,14 +60,14 @@ h2{font-family:var(--f-display);font-weight:600;font-size:13px;letter-spacing:.1
 .ctl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:center}
 .ctl label{font-weight:500}
 .ctl output{font-family:var(--f-mono);color:var(--accent);font-variant-numeric:tabular-nums;font-size:14px}
-.ctl input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--accent);margin:4px 0 0}
+.ctl input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--accent-fill);margin:4px 0 0}
 .ctl .ends{grid-column:1/-1;display:flex;justify-content:space-between;font-size:11px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
 
 .seg{display:flex;flex-wrap:wrap;gap:6px}
 button{font:inherit;color:var(--fg);background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:7px 12px;cursor:pointer}
 button:hover{border-color:var(--muted)}
 button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-button[aria-pressed=true]{background:var(--accent);color:var(--ink);border-color:var(--accent);font-weight:600}
+button[aria-pressed=true]{background:var(--accent-fill);color:var(--on-accent);border-color:var(--accent-fill);font-weight:600}
 button.go{border-color:var(--accent);color:var(--accent)}
 .row{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between}
 
@@ -77,7 +77,7 @@ button.go{border-color:var(--accent);color:var(--accent)}
 .pre .pn{font-family:var(--f-display);font-weight:600;font-size:16px}
 .pre .pa{font-family:var(--f-mono);font-size:12px;color:var(--accent)}
 .pre .pb{font-size:12.5px;color:var(--muted);line-height:1.35}
-.pre[aria-pressed=true] .pa,.pre[aria-pressed=true] .pb{color:var(--ink)}
+.pre[aria-pressed=true] .pa,.pre[aria-pressed=true] .pb{color:#d3deee}
 .attr{color:var(--muted);font-size:12.5px;border-top:1px solid var(--line);padding-top:12px;margin:0}
 </style>
 </head>

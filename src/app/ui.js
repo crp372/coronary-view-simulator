@@ -95,11 +95,36 @@ export function setMode(){
 
 /* ---------- Heart list, About dialog, full screen, remembered groups ---------- */
 // hearts: loadHearts()'s result. Choosing one reloads the page for it.
+// A styled list box rather than a <select>, whose open list the browser draws in the system's own style. Keyboard:
+// Enter, Space or the arrows open it; arrows, Home/End and typing move; Enter or Space chooses; Escape or Tab closes.
 export function fillHearts({list,heart,model}){
-  const sel=$('heartSel');
-  sel.innerHTML=list.map(h=>`<option value="${esc(h.id)}">${esc(h.name)}</option>`).join('')+`<option value="${MODEL}">Simplified model heart</option>`;
-  sel.value=model?MODEL:heart.id;
-  sel.addEventListener('change',()=>{location.href=heartHref(sel.value);});
+  const btn=$('heartBtn'),lb=$('heartList'),cur=model?MODEL:heart.id;
+  const items=[...list.map(h=>({id:h.id,name:h.name})),{id:MODEL,name:'Simplified model heart'}];
+  lb.innerHTML=items.map((h,i)=>`<li role="option" id="heartOpt${i}" data-id="${esc(h.id)}" aria-selected="${h.id===cur}">${esc(h.name)}</li>`).join('');
+  $('heartCur').textContent=(items.find(h=>h.id===cur)||items[0]).name;
+  const opts=[...lb.children];let act=-1;
+  const activate=i=>{act=Math.max(0,Math.min(opts.length-1,i));opts.forEach((o,j)=>o.classList.toggle('act',j===act));
+    lb.setAttribute('aria-activedescendant',opts[act].id);opts[act].scrollIntoView({block:'nearest'});};
+  const open=()=>{if(!lb.hidden)return;lb.hidden=false;btn.setAttribute('aria-expanded','true');activate(Math.max(0,opts.findIndex(o=>o.dataset.id===cur)));lb.focus();};
+  const close=(refocus=true)=>{if(lb.hidden)return;lb.hidden=true;btn.setAttribute('aria-expanded','false');if(refocus)btn.focus();};
+  const choose=i=>{const id=opts[i].dataset.id;close();if(id!==cur)location.href=heartHref(id);};
+  btn.addEventListener('click',()=>lb.hidden?open():close());
+  btn.addEventListener('keydown',e=>{if(['ArrowDown','ArrowUp','Enter',' '].includes(e.key)){e.preventDefault();open();}});
+  lb.addEventListener('keydown',e=>{
+    const k=e.key;
+    if(k==='ArrowDown')activate(act+1);else if(k==='ArrowUp')activate(act-1);
+    else if(k==='Home')activate(0);else if(k==='End')activate(opts.length-1);
+    else if(k==='Enter'||k===' ')choose(act);
+    else if(k==='Escape')close();
+    else if(k==='Tab'){close(false);return;}
+    else if(k.length===1){const j=opts.findIndex((o,j)=>j>act&&o.textContent.toLowerCase().startsWith(k.toLowerCase()));
+      const f=j>=0?j:opts.findIndex(o=>o.textContent.toLowerCase().startsWith(k.toLowerCase()));if(f>=0)activate(f);}
+    else return;
+    e.preventDefault();});
+  lb.addEventListener('pointermove',e=>{const o=e.target.closest('[role=option]');if(o)activate(opts.indexOf(o));});
+  lb.addEventListener('click',e=>{const o=e.target.closest('[role=option]');if(o)choose(opts.indexOf(o));});
+  document.addEventListener('pointerdown',e=>{if(!e.target.closest('#heartSel'))close(false);});
+  lb.addEventListener('focusout',e=>{if(!$('heartSel').contains(e.relatedTarget))close(false);});
 }
 const about=$('about'),help=$('help');
 document.addEventListener('click',e=>{const b=e.target.closest('[data-about]');if(!b)return;
@@ -112,7 +137,7 @@ const toggleFs=()=>{if(fsOn())document.exitFullscreen();else document.documentEl
 if(document.fullscreenEnabled){fsBtn.hidden=false;fsBtn.addEventListener('click',toggleFs);}
 document.addEventListener('fullscreenchange',()=>{fsBtn.setAttribute('aria-pressed',String(fsOn()));fsBtn.textContent=fsOn()?'Exit full screen':'Full screen';});
 document.addEventListener('keydown',e=>{if((e.key==='f'||e.key==='F')&&!e.metaKey&&!e.ctrlKey&&!e.altKey&&document.fullscreenEnabled&&
-  !e.target.closest('input[type=text],input[type=search],textarea,select,[contenteditable]')&&!about.open&&!help.open){e.preventDefault();toggleFs();}});
+  !e.target.closest('input[type=text],input[type=search],textarea,select,[contenteditable],#heartSel')&&!about.open&&!help.open){e.preventDefault();toggleFs();}});
 // which control groups are open, per browser (storage may be unavailable, e.g. in a private window)
 const GRP_KEY='cvs.groups';
 let open={};try{open=JSON.parse(localStorage.getItem(GRP_KEY))||{};}catch(e){}

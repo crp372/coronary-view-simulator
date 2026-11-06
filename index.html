@@ -14,9 +14,12 @@
 <div class="app">
   <header class="bar">
     <h1>Coronary <span>View</span> Simulator</h1>
-    <label class="heart">Heart
-      <select id="heartSel" aria-label="Choose a heart"></select>
-    </label>
+    <div class="heart"><span id="heartLbl">Heart</span>
+      <div class="hsel" id="heartSel">
+        <button type="button" id="heartBtn" aria-haspopup="listbox" aria-expanded="false" aria-controls="heartList" aria-labelledby="heartLbl heartCur"><span id="heartCur"></span><svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <ul id="heartList" role="listbox" aria-labelledby="heartLbl" tabindex="-1" hidden></ul>
+      </div>
+    </div>
     <div class="acts">
       <button type="button" id="helpBtn" class="icon" aria-haspopup="dialog" aria-label="How to use" title="How to use"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.2 9.3a2.9 2.9 0 0 1 5.6 1c0 1.9-2.8 2.6-2.8 4.2"/><circle cx="12" cy="17.6" r=".6" fill="currentColor"/></svg></button>
       <button type="button" id="aboutBtn" aria-haspopup="dialog">About this image</button>

@@ -231,17 +231,31 @@ test.describe('layout', () => {
   });
 
   test('heart list: the CT hearts and the model; choosing reloads', async () => {
-    const sel = page.locator('#heartSel');
+    const btn = page.locator('#heartBtn'), lb = page.locator('#heartList');
     const hearts = JSON.parse(readFileSync(new URL('../data/web/hearts.json', import.meta.url))).hearts;
-    await expect(sel.locator('option')).toHaveText([...hearts.map(h => h.name), 'Simplified model heart']);
-    await expect(sel).toHaveValue('814');
-    await sel.selectOption('model');
+    await expect(lb.locator('[role=option]')).toHaveText([...hearts.map(h => h.name), 'Simplified model heart']);
+    await expect(lb.locator('[aria-selected=true]')).toHaveAttribute('data-id', '814');
+    await expect(lb).toBeHidden();
+    // mouse: open, then choose the model
+    await btn.click();
+    await expect(lb).toBeVisible();
+    await expect(btn).toHaveAttribute('aria-expanded', 'true');
+    await lb.locator('[data-id=model]').click();
     await page.waitForURL(/\?model$/);
     await page.evaluate(() => window.sim.ready);
     expect(await page.evaluate(() => window.sim.mode)).toBe('model');
-    await expect(sel).toHaveValue('model');
-    await sel.selectOption('814');
-    await page.waitForURL(/\?heart=814$/);
+    await expect(lb.locator('[aria-selected=true]')).toHaveAttribute('data-id', 'model');
+    // keyboard: Escape closes without choosing; Home then Enter chooses the first heart
+    await btn.focus();
+    await page.keyboard.press('Enter');
+    await expect(lb).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(lb).toBeHidden();
+    await expect(btn).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Home');
+    await page.keyboard.press('Enter');
+    await page.waitForURL(new RegExp('\\?heart=' + hearts[0].id + '$'));
     await page.evaluate(() => window.sim.ready);
     expect(await page.evaluate(() => window.sim.mode)).toBe('drr');
   });

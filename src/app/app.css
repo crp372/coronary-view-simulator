@@ -3,8 +3,14 @@
    like a control room. Narrower windows get a slimmer presets column; phones (and very short windows) scroll in one
    column. */
 :root{
-  --bg:#0e1215; --panel:#151a1f; --panel2:#1c232a; --line:#2b343c; --fg:#e3e7ea; --muted:#8b97a1;
-  --accent:#e8b450; --cool:#74b8c8; --screen:#050607; --ink:#0b0e10;
+  --bg:#0e1215; --panel:#252a30; --panel2:#30363d; --line:#3b434b; --fg:#e6e9ec; --muted:#9ba5ae;
+  --accent:#a3aff5; --accent-fill:#3f5f8f; --on-accent:#eef3fa; --scr:#e2e6ea; --cool:#74b8c8; --screen:#050607; --ink:#0b0e10;
+  /* steel console: graphite panels with classic bevelled edges (light top-left, dark bottom-right) */
+  --silver:#c5ccd3; --edge:#06080a; --hi:rgba(255,255,255,.13); --lo:rgba(0,0,0,.55);
+  --raised:inset 1px 1px 0 var(--hi),inset -1px -1px 0 var(--lo);
+  --sunken:inset 1px 1px 0 var(--lo),inset -1px -1px 0 var(--hi);
+  --steel:linear-gradient(180deg,#2b3137,#22272c);
+  --key:linear-gradient(180deg,#3a4148,#2d3339);
   --f-display:"Archivo Narrow","Arial Narrow",system-ui,sans-serif;
   --f-body:"Inter",system-ui,-apple-system,sans-serif;
   --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
@@ -19,11 +25,25 @@ h2{font-family:var(--f-display);font-weight:600;font-size:13px;letter-spacing:.1
 /* the shell: exactly one screen high; the middle cell is a size container so the monitor can be a square that fits */
 .app{box-sizing:border-box;height:100vh;height:100dvh;display:grid;gap:10px 14px;
   padding:10px max(16px,env(safe-area-inset-right,0px)) 12px max(16px,env(safe-area-inset-left,0px));
-  grid-template-columns:clamp(180px,15vw,220px) minmax(0,1fr) clamp(310px,26vw,380px);grid-template-rows:auto minmax(0,1fr);
+  grid-template-columns:clamp(190px,16vw,230px) minmax(0,1fr) clamp(310px,26vw,380px);grid-template-rows:auto minmax(0,1fr);
   grid-template-areas:"bar bar bar" "side stage rail"}
 .bar{grid-area:bar;display:flex;flex-wrap:wrap;align-items:center;gap:8px 22px;border-bottom:1px solid var(--line);padding-bottom:9px}
 .heart{display:flex;align-items:center;gap:8px;font-family:var(--f-display);font-weight:600;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
-select{font:inherit;font-family:var(--f-body);font-size:14px;letter-spacing:normal;text-transform:none;color:var(--fg);background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:5px 8px;max-width:60vw}
+/* the heart menu: a button and a list box drawn in the page's own style */
+.hsel{position:relative;font-family:var(--f-body);font-size:14px;letter-spacing:normal;text-transform:none}
+#heartBtn{display:flex;align-items:center;gap:10px;padding:5px 8px 5px 10px;font-size:14px;max-width:60vw}
+#heartBtn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#heartBtn svg{flex:none;color:var(--silver);transition:transform .15s}
+#heartBtn[aria-expanded=true] svg{transform:rotate(180deg)}
+#heartList{position:absolute;z-index:20;top:calc(100% + 3px);left:0;min-width:100%;box-sizing:border-box;margin:0;padding:3px;list-style:none;
+  max-height:60vh;overflow:auto;background:var(--steel);border:1px solid var(--edge);border-radius:2px;
+  box-shadow:var(--raised),0 8px 22px rgba(0,0,0,.55);outline:none}
+#heartList [role=option]{position:relative;padding:6px 12px 6px 26px;white-space:nowrap;cursor:pointer;border-radius:1px;color:var(--fg)}
+#heartList [role=option][aria-selected=true]::before{content:"";position:absolute;left:10px;top:50%;width:4px;height:8px;margin-top:-6px;
+  border:solid currentColor;border-width:0 2px 2px 0;transform:rotate(45deg)}
+#heartList [role=option].act{background:var(--accent-fill);color:var(--on-accent)}
+#heartList:focus-visible [role=option].act{outline:1px dotted rgba(255,255,255,.7);outline-offset:-3px}
+@media (prefers-reduced-motion:reduce){#heartBtn svg{transition:none}}
 .acts{margin-left:auto;display:flex;gap:6px}
 .side{grid-area:side;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:10px}
 .stage{grid-area:stage;min-width:0;min-height:0;container-type:size;display:grid;place-items:center}
@@ -60,11 +80,11 @@ select{font:inherit;font-family:var(--f-body);font-size:14px;letter-spacing:norm
 .spin{width:26px;height:26px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--accent);animation:spin .9s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.spin{animation:none}}
-.ro{position:absolute;font-family:var(--f-mono);font-size:clamp(11px,1.5vw,13px);color:var(--accent);text-shadow:0 0 3px var(--ink),0 0 1px var(--ink);pointer-events:none;line-height:1.35;font-variant-numeric:tabular-nums}
+.ro{position:absolute;font-family:var(--f-mono);font-size:clamp(11px,1.5vw,13px);color:var(--scr);text-shadow:0 0 1px var(--ink),0 0 3px var(--ink),0 0 5px var(--ink);pointer-events:none;line-height:1.35;font-variant-numeric:tabular-nums}
 .ro.tl{top:10px;left:12px}.ro.tr{top:10px;right:12px;text-align:right}.ro.bl{bottom:10px;left:12px}.ro.br{bottom:10px;right:12px;text-align:right}
 .ro b{font-weight:500;font-size:1.25em}
 .labels{position:absolute;inset:0;pointer-events:none}
-.lbl{position:absolute;transform:translate(-50%,-50%);font-family:var(--f-display);font-weight:600;font-size:clamp(11px,1.6vw,14px);letter-spacing:.04em;color:var(--accent);text-shadow:0 0 3px var(--ink),0 0 2px var(--ink),0 0 1px var(--ink);white-space:nowrap}
+.lbl{position:absolute;transform:translate(-50%,-50%);font-family:var(--f-display);font-weight:600;font-size:clamp(11px,1.6vw,14px);letter-spacing:.04em;color:var(--scr);text-shadow:0 0 1px var(--ink),0 0 2px var(--ink),0 0 4px var(--ink),0 0 6px var(--ink);white-space:nowrap}
 .lbl.ch{color:var(--fg);font-size:clamp(12px,1.8vw,16px)}
 .lbl.r{color:var(--cool)}
 /* hover readout for a vessel, in the monitor or the room view */
@@ -73,8 +93,8 @@ select{font:inherit;font-family:var(--f-body);font-size:14px;letter-spacing:norm
 .tip.r b{color:var(--cool)}
 .tip.flip{transform:translate(calc(-100% - 14px),-130%)}
 .tip.ch b{color:var(--fg)}
-.lbl.segn{font-family:var(--f-mono);font-weight:500;font-size:clamp(10px,1.3vw,12px);color:var(--ink);background:var(--accent);border-radius:9px;padding:0 5px;text-shadow:none;line-height:1.5}
-.lbl.segn.r{background:var(--cool)}
+.lbl.segn{font-family:var(--f-mono);font-weight:500;font-size:clamp(10px,1.3vw,12px);color:var(--on-accent);background:var(--accent-fill);border-radius:9px;padding:0 5px;text-shadow:none;line-height:1.5}
+.lbl.segn.r{background:var(--cool);color:var(--ink)}
 .chip{padding:3px 9px;font-size:12px;display:inline-flex;align-items:center;gap:5px}
 .chip i{display:inline-block;width:10px;height:10px;border-radius:2px}
 .chip[aria-pressed=false]{opacity:.55}
@@ -108,14 +128,14 @@ details.grp{display:block}
 .ctl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:center}
 .ctl label{font-weight:500}
 .ctl output{font-family:var(--f-mono);color:var(--accent);font-variant-numeric:tabular-nums;font-size:14px}
-.ctl input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--accent);margin:4px 0 0}
+.ctl input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--accent-fill);margin:4px 0 0}
 .ctl .ends{grid-column:1/-1;display:flex;justify-content:space-between;font-size:11px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
 
 .seg{display:flex;flex-wrap:wrap;gap:6px}
 button{font:inherit;color:var(--fg);background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:7px 12px;cursor:pointer}
 button:hover{border-color:var(--muted)}
 button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-button[aria-pressed=true]{background:var(--accent);color:var(--ink);border-color:var(--accent);font-weight:600}
+button[aria-pressed=true]{background:var(--accent-fill);color:var(--on-accent);border-color:var(--accent-fill);font-weight:600}
 button.icon{display:inline-flex;align-items:center;justify-content:center;padding:6px 9px}
 button.icon svg{display:block}
 button.go{border-color:var(--accent);color:var(--accent)}
@@ -129,7 +149,7 @@ button.go{border-color:var(--accent);color:var(--accent)}
 .pre .pb{display:none}   /* the current view's "best for" shows in the box below */
 .pre .pa{font-family:var(--f-mono);font-size:12px;color:var(--accent)}
 .pre .pb{font-size:12.5px;color:var(--muted);line-height:1.35}
-.pre[aria-pressed=true] .pa,.pre[aria-pressed=true] .pb{color:var(--ink)}
+.pre[aria-pressed=true] .pa,.pre[aria-pressed=true] .pb{color:#d3deee}
 
 button.link{background:none;border:0;padding:0;color:var(--cool);text-decoration:underline;text-underline-offset:2px;font-size:inherit}
 button.link:hover{color:var(--fg)}
@@ -146,6 +166,26 @@ dialog kbd{font-family:var(--f-mono);font-size:12px;border:1px solid var(--line)
 .dlghead{position:sticky;top:-14px;display:flex;align-items:center;justify-content:space-between;background:var(--panel);padding:4px 0 8px;border-bottom:1px solid var(--line)}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
 
+/* Steel console: the toolbar, the views column, the panels and dialogs are graphite with bevelled edges; buttons
+   are raised keys that sink when pressed (a selected one is filled steel blue). Screens (the monitor, the room view, the
+   heart menu) sit sunken in their panels. The page background stays dark. */
+.bar,.side,.panel,.now,dialog{background:var(--steel);border:1px solid var(--edge);border-radius:2px;box-shadow:var(--raised)}
+.bar{padding:5px 12px}
+.side{padding:6px}
+.now{background:var(--panel2);box-shadow:var(--sunken)}
+h2,.heart{color:var(--silver)}
+.dlghead{background:#2b3137}
+button{background:var(--key);border:1px solid var(--edge);border-radius:2px;box-shadow:var(--raised)}
+button:hover{border-color:var(--edge);background:linear-gradient(180deg,#434b53,#323940)}
+button:active{box-shadow:var(--sunken);background:#2a3036}
+button[aria-pressed=true]{background:linear-gradient(180deg,#3a5884,#4a6b9c);border-color:var(--edge);box-shadow:inset 1px 1px 0 rgba(0,0,0,.45),inset -1px -1px 0 rgba(255,255,255,.22)}
+button.go{border-color:var(--edge);color:var(--accent)}
+button.link{background:none;border:0;box-shadow:none}
+#heartBtn{background:var(--panel2);box-shadow:var(--sunken)}
+#heartBtn:hover{background:#353c44}
+.monitor,.room{border:1px solid var(--edge);box-shadow:-1px -1px 0 var(--lo),1px 1px 0 var(--hi)}
+.room{border-radius:2px}
+
 /* short windows (laptops at 800 px): tighter presets, no hover hint, a smaller minimum room view */
 @media (max-height:860px) and (min-width:920px){
   .pre{padding:3px 9px}
@@ -153,6 +193,9 @@ dialog kbd{font-family:var(--f-mono);font-size:12px;border:1px solid var(--line)
   .pre .pa{font-size:11px}
   .pgrid{gap:4px}
   .now{padding:8px 10px}
+  .side{gap:7px}
+  .presets{gap:4px}
+  .presets h2+.pgrid{margin-bottom:3px}
 }
 @media (max-height:860px) and (min-width:920px){
   .rail>.grp .note{display:none}
@@ -169,7 +212,7 @@ dialog kbd{font-family:var(--f-mono);font-size:12px;border:1px solid var(--line)
 
 /* narrower windows (920–1199 px): a slimmer presets column with names only (the box below shows the angle) */
 @media (max-width:1199px){
-  .app{grid-template-columns:150px minmax(0,1fr) 310px}
+  .app{grid-template-columns:160px minmax(0,1fr) 310px}
   .pre .pa{display:none}
 }
 /* phones and very short windows: one scrolling column, presets as chips */

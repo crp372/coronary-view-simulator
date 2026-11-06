@@ -72,7 +72,7 @@ They open both pages in headless Chromium, show every preset, the overlays, a ci
 - **Camera:** "Whole room" or "Close on heart".
   - The close view moves in to the heart from the current viewing direction, fades the skin, and follows the heart when the table moves.
   - Drag to orbit, scroll to zoom.
-- Left coronary in amber, right coronary in cyan. In DRR mode, hovering over a vessel or chamber highlights it in white, names it, and highlights it in the fluoro image too. Chambers are easiest to hover in the close view.
+- Left coronary in silver-white on the fluoro image (lavender blue in the room view), right coronary in cyan. In DRR mode, hovering over a vessel or chamber highlights it in white, names it, and highlights it in the fluoro image too. Chambers are easiest to hover in the close view.
 
 ### Injection and display
 - Switch between left and right coronary injection.
