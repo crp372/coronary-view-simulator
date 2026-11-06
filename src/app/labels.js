@@ -3,6 +3,7 @@ import {state,chOn,app} from './state.js';
 import {built,CHAMBERS,P,ao,paPts} from './model.js';
 import {mon,anat,fcam} from './fluoro.js';
 import {heartForward} from '../drr/heart.js';
+import {chAnchor} from './chambers.js';
 const V3=THREE.Vector3;
 
 /* ---------- Labels ---------- */
@@ -25,6 +26,8 @@ export function placeLabels(){
     const show=(l.kind===(drrOn?'d':'v')&&state.labels&&tree)||(l.kind==='sn'&&drrOn&&state.segN&&tree)||
       (l.kind===(drrOn?'cc':'c')&&state.ovC&&(!l.ch||chOn[l.ch]!==false));
     if(!show){l.el.hidden=true;return;}
+    // CT chamber labels sit inside the visible part of their chamber (chambers.js), not at its centre
+    if(l.kind==='cc'&&l.ch in chAnchor){const a=chAnchor[l.ch];l.el.hidden=!a;if(a){l.el.style.left=a.x*W+'px';l.el.style.top=a.y*H+'px';}return;}
     for(const p of l.cands||[l.p]){
       heartForward(p,tmp).add(anat.position).project(fcam);   // labels ride with the beating heart
       const x=(tmp.x+1)/2*W,y=(1-tmp.y)/2*H;

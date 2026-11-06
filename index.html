@@ -162,7 +162,7 @@
   <h3>4. Find out what you're looking at</h3>
   <ul class="note">
     <li><strong>Hover over a vessel</strong> (or tap it on a touch screen) to name it, in the image or the room view.</li>
-    <li>Under Display, <strong>Coronary tree</strong> overlays the whole tree, including the side that isn't injected; <strong>Chambers</strong> outlines the chambers and great vessels; <strong>Segment numbers</strong> shows the SCCT segments. Click a chamber's chip in the legend to show or hide it.</li>
+    <li>Under Display, <strong>Coronary tree</strong> overlays the whole tree, including the side that isn't injected; <strong>Chambers</strong> shades the chambers and great vessels; <strong>Segment numbers</strong> shows the SCCT segments. Click a chamber's chip in the legend to show or hide it, hover over a chip to pick that chamber out, or show just the left or right heart.</li>
     <li><strong>Vessel labels</strong>, <strong>Guide catheter</strong>, <strong>Fine branches</strong> and <strong>Spine and ribs</strong> switch those parts of the picture on and off.</li>
   </ul>
   <h3>5. Look at the room</h3>
@@ -191,7 +191,7 @@
   <p class="note">With the CT image, the overlays come from this CT's own segmentations, so they line up with the image. There are three of them:</p>
   <ul class="note" id="ovNote">
     <li><strong>Coronary tree.</strong> The arteries are labelled from ImageCAS-X. The tree that isn't injected is shown too, so you can see where it runs.</li>
-    <li><strong>Chambers and great vessels.</strong> These come from TotalSegmentator. Each is drawn as an outline where the beam grazes its wall edge-on, which is where it would form a border on a real image. Click a chip in the legend to show or hide one. The aorta and pulmonary artery are cut off where the scan ends.</li>
+    <li><strong>Chambers and great vessels.</strong> These come from TotalSegmentator. Each is drawn as its shadow in the beam, with one border around it: the left heart (LV, LA, aorta) in reds, the right heart (RV, RA, pulmonary artery) in blues. The LV includes its muscle wall, so its border is the outer surface that the LCx and its marginal branches run on. The other chambers and the great vessels are shown as their blood-filled cavities only, without their thin walls, so the RCA in its groove runs a few millimetres outside their borders. Where chambers overlap, the one nearest the detector is shaded, and a border that runs behind another chamber is dashed. Hover over a chamber, or its chip in the legend, to pick it out; click a chip to show or hide it. The aorta and pulmonary artery are cut off where the scan ends.</li>
     <li><strong>Segment numbers.</strong> These follow the SCCT 18-segment model. The proximal, mid and distal RCA are thirds of the RCA up to the crux, because the acute marginal isn't labelled in this CT.</li>
   </ul>
   <h4>Reading them</h4>

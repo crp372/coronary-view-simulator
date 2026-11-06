@@ -41,10 +41,10 @@ function pickChambers(cam,el,cx,cy,key,fromDetector){
   if(!CH.length)return [];
   const rc=el.getBoundingClientRect();ndc.set((cx-rc.left)/rc.width*2-1,1-(cy-rc.top)/rc.height*2);
   ray.setFromCamera(ndc,cam);ovl.updateMatrixWorld();tableG.updateMatrixWorld();
-  const hits=ray.intersectObjects(CH.filter(c=>chOn[c.s.id]!==false).map(c=>c[key]),false);if(fromDetector)hits.reverse();
-  const order=[];hits.forEach(h=>{const i=CH.findIndex(c=>c[key]===h.object);if(!order.includes(i))order.push(i);});
-  const solid=order.filter(i=>CH[i].s.id!=='Myo');   // the myocardium wraps the LV, so name it only on its own
-  return solid.length?solid:order;
+  const hits=ray.intersectObjects(CH.filter(c=>chOn[c.sw]!==false).map(c=>c[key]),false);if(fromDetector)hits.reverse();
+  // the LV's wall counts as the LV
+  const order=[];hits.forEach(h=>{let i=CH.findIndex(c=>c[key]===h.object);if(CH[i].part)i=CH[i].chan;if(!order.includes(i))order.push(i);});
+  return order;
 }
 // target: null, {v: vessel index}, or {c: chamber indices, first = highlighted}
 export function setHover(target,tipEl,cx,cy){

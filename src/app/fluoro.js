@@ -63,15 +63,6 @@ const paMat=new THREE.MeshBasicMaterial({color:'#9a8be0',transparent:true,opacit
 modelOvl.add(new THREE.Mesh(taperTube(ao,1.45,1.2,0).geo,aoMat));
 modelOvl.add(new THREE.Mesh(taperTube(paPts,1.35,1.2,0).geo,paMat));
 export const ovDir={value:new V3(0,1,0)};
-// chamber overlay: drawn as rims, bright where the beam grazes a wall edge-on (like a contour), with a faint
-// fill; brighter nearer the detector, as for the vessels
-export function chamberOvlMat(col,gain){return new THREE.ShaderMaterial({transparent:true,depthTest:false,depthWrite:false,side:THREE.DoubleSide,
-  uniforms:{uD:ovDir,uCol:{value:new THREE.Color(col)},uHi:{value:0},uGain:{value:gain},...HEART_U},
-  vertexShader:`uniform vec3 uD;varying float vNear,vRim;${HEART_GLSL}
-    void main(){vec4 w=modelMatrix*vec4(hfw(position),1.);vec3 n=normalize(mat3(modelMatrix)*normal);
-      vNear=clamp(.5+dot(w.xyz,uD)/9.,0.,1.);vRim=1.-abs(dot(n,uD));gl_Position=projectionMatrix*viewMatrix*w;}`,
-  fragmentShader:`uniform vec3 uCol;uniform float uHi,uGain;varying float vNear,vRim;
-    void main(){float a=(pow(vRim,10.)*mix(.28,.8,vNear)+.012+uHi*.1)*uGain;gl_FragColor=vec4(mix(uCol,vec3(1.),uHi*.45),min(a,1.));}`});}
 export function ctOvlMat(col){return new THREE.ShaderMaterial({transparent:true,depthTest:false,depthWrite:false,side:THREE.DoubleSide,
   uniforms:{uD:ovDir,uCol:{value:new THREE.Color(col)},uHi:{value:0},...HEART_U},
   vertexShader:`uniform vec3 uD;varying float vNear;${HEART_GLSL}

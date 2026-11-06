@@ -1,7 +1,8 @@
 // The CT's own anatomy (coronary tree from ImageCAS-X, chambers from TotalSegmentator) in the overlay and the room.
 import {app} from './state.js';
 import {taperTube} from './tubes.js';
-import {ctOvl,ctOvlMat,chamberOvlMat} from './fluoro.js';
+import {ctOvl,ctOvlMat} from './fluoro.js';
+import {CH_COL,chamberMaskMat,chamberNil} from './chambers.js';
 import {roomCTTree,roomCTCh,roomVesselMat,roomCathMat,roomCath,catName} from './room.js';
 import {labelsEl,LABELS} from './labels.js';
 import {heartFrame} from '../drr/heart.js';
@@ -64,12 +65,18 @@ export function addCT(scan){
   app.attr=meta.attribution?meta.attribution.join(' · '):'ImageCAS (CC BY-NC 4.0) · ImageCAS-X (CC BY 4.0)';
   // chambers and great vessels from the same CT (TotalSegmentator); optional, so a missing file only drops them
   if(!chambers)return;
-  chambers.forEach(({s,geometry:g})=>{
-    const myo=s.id==='Myo',mat=chamberOvlMat(s.colour,myo?0.45:1),ov=new THREE.Mesh(g,mat);
-    ov.renderOrder=-1;ov.visible=false;ctOvl.add(ov);   // under the coronary ribbons
+  // in the image they're drawn as silhouettes (chambers.js): ov is the mesh, mask its material for the mask pass
+  // The myocardium is drawn as part of the LV (into its channel), so the LV's border is its outer wall, where the
+  // LCx and OMs run; `chan` is the mask channel, `sw` the switch that shows it.
+  const lvK=chambers.findIndex(c=>c.s.id==='LV');
+  chambers.forEach(({s,geometry:g},k)=>{
+    const myo=s.id==='Myo'&&lvK>=0;
+    s.colour=myo?CH_COL.LV:CH_COL[s.id]||s.colour;   // left heart warm, right heart cool
+    const chan=myo?lvK:k,sw=myo?'LV':s.id,mask=chamberMaskMat(chan),mat=mask,ov=new THREE.Mesh(g,chamberNil);
+    ov.visible=false;ctOvl.add(ov);
     const roomMat=new THREE.MeshStandardMaterial({color:s.colour,transparent:true,opacity:myo?0.08:0.3,depthWrite:false,side:THREE.DoubleSide,roughness:.8});
     const room=new THREE.Mesh(g,roomMat);roomCTCh.add(room);
-    CH.push({s,ov,mat,room,roomMat});
+    CH.push({s,ov,mat,mask,room,roomMat,chan,sw,part:myo});
     if(!myo){const el=document.createElement('span');el.className='lbl ch';el.textContent=s.id;el.hidden=true;labelsEl.appendChild(el);
       LABELS.push({el,p:new V3(...s.centroid_cm),kind:'cc',ch:s.id});}});
   if(scan.chAttr)app.attr+=' · '+scan.chAttr;

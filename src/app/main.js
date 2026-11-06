@@ -9,6 +9,7 @@ import {HEART_U,heartForward} from '../drr/heart.js';
 import {mon,drrCv,fr,fScene,oScene,fcam,anat,ovl,sysGroups,bones,ovDir,cineStep} from './fluoro.js';
 import {rr,rScene,rcam,orbit,tableG,carm,holder,beamGeo,roomCath,roomCamStep} from './room.js';
 import {VES,CH,addCT} from './ct.js';
+import {renderChambers} from './chambers.js';
 import {placeLabels} from './labels.js';
 import {syncUI,setMode,fillHearts} from './ui.js';
 import {runPick} from './pointer.js';
@@ -36,7 +37,7 @@ function updateGeometry(){
   ovDir.value.copy(d);
   VES.forEach((e,i)=>{e.ov.visible=state.ovV||app.hover===i;});
   roomCath.forEach(m=>{m.visible=state.cath&&m.userData.side===state.inj;});
-  CH.forEach(c=>{const on=chOn[c.s.id]!==false;c.ov.visible=state.ovC&&on;c.room.visible=on;});
+  CH.forEach(c=>{const on=chOn[c.sw]!==false;c.ov.visible=state.ovC&&on;c.room.visible=on;});
   bones.visible=state.bones;
 }
 
@@ -92,6 +93,7 @@ function step(now){
   if(app.mode==='drr'){
     const cs=drrCine(app.cine,now,state.motion);if(app.cine&&app.cine.done)app.cine=null;
     app.drr.render(drrView(state),cs,reduce?0:Math.floor(now/1000*15));   // noise and motion refresh at 15 pulses/s
+    renderChambers(CH,state.ovC,app.hoverCh!=null?app.hoverCh:app.chipFocus);   // chamber masks, before the overlay pass
     if(state.ovV||state.ovC||app.hover!==null)fr.render(oScene,fcam);else fr.clear();   // transparent over the DRR
   }else if(app.mode==='model'){   // while loading, the monitor shows a status instead
     cineStep(now);

@@ -97,9 +97,11 @@ They open both pages in headless Chromium, show every preset, the overlays, a ci
 - **Display toggles:** coronary tree, chambers, vessel labels (off at first) and segment numbers (the overlays); heart motion, guide catheter and fine branches (CT image); spine and ribs (model image only, since the CT has its own bones). In model mode only the chamber overlay applies.
 - **Overlays, DRR mode:** everything comes from the same CT, so it lines up with the image. Each overlay turns on separately.
   - **Coronary overlay:** the tree from ImageCAS-X, including the tree that isn't injected. Thin ribbons coloured by segment, with labels for both trees.
-  - **Chamber overlay:** chambers and great vessels (LV, RV, LA, RA, aorta, PA, and optionally the myocardium) from TotalSegmentator.
-    - Drawn as thin outlines with almost no fill. A wall shows where the beam grazes it edge-on, which is where it would form a border on a real image.
-    - The legend has one chip per structure to show or hide it, in the image and the room view. The myocardium starts off.
+  - **Chamber overlay:** chambers and great vessels (LV, RV, LA, RA, aorta, PA) from TotalSegmentator.
+    - Drawn as silhouettes: each structure's shadow in the beam, with one border. Left heart (LV, LA, aorta) in reds, right heart (RV, RA, PA) in blues.
+    - Depth: per pixel, the structure nearest the detector is shaded; a border that runs behind another structure is dashed and fainter.
+    - Each label sits inside the part of its structure that's in front, so labels don't pile up at overlapping centres.
+    - The legend has one chip per structure to show or hide it, in the image and the room view, and links to show just the left or right heart. Hovering a chip, or the structure itself, fills it whole and dims the rest.The LV includes its muscle wall, so its border is the outer surface where the LCx and OMs run. The other structures are blood pools only (TotalSegmentator segments only the LV's myocardium), so their walls, a few mm thick, are not drawn.
     - The aorta and PA are cut off where the scan ends.
   - **Segment numbers:** SCCT 18-segment badges on the injected tree, or both trees with the coronary overlay.
     - Proximal LAD runs to the D1 origin, then mid and distal are halves of the rest.

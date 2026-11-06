@@ -6,6 +6,7 @@ import {CHAMBERS} from './model.js';
 import {mon,fr,fluoroBg,modelOvl,ctOvl} from './fluoro.js';
 import {roomModelTree,roomCTTree,roomModelAnat,roomCTCh,roomCath,catName,setRoomView} from './room.js';
 import {CH} from './ct.js';
+import {CH_SIDE} from './chambers.js';
 import {MODEL,heartHref} from '../hearts.js';
 
 const modelLegend=CHAMBERS.map(c=>`<span><i style="background:${c.col}"></i>${c.id}</span>`).join('')+'<span><i style="background:#c97fb6"></i>Aorta</span><span><i style="background:#9a8be0"></i>Pulmonary artery</span>';
@@ -51,11 +52,20 @@ export function refreshOverlayUI(){
   const drrOn=app.mode==='drr',lg=$('ovLegend');
   let h='';
   if(drrOn&&state.ovV)h+=app.ctLegend;
-  if(state.ovC)h+=drrOn?CH.map(c=>`<button type="button" class="chip" data-ch="${c.s.id}" aria-pressed="${chOn[c.s.id]!==false}" title="${esc(c.s.name)}"><i style="background:${c.s.colour}"></i>${esc(c.s.id==='Myo'?'Myocardium':c.s.id)}</button>`).join(''):modelLegend;
-  if(drrOn&&(state.ovV||state.ovC))h+='<span>Brighter = nearer the detector</span>';
+  // chamber chips: click to show or hide one, hover to focus it; the group keys show one side of the heart
+  if(state.ovC)h+=drrOn?CH.filter(c=>!c.part).map(c=>`<button type="button" class="chip" data-ch="${c.s.id}" aria-pressed="${chOn[c.s.id]!==false}" title="${esc(c.s.name)}"><i style="background:${c.s.colour}"></i>${esc(c.s.id)}</button>`).join('')+
+    (CH.length?'<span class="chgrp">Show: <button type="button" class="link" data-chg="L">left heart</button> · <button type="button" class="link" data-chg="R">right heart</button> · <button type="button" class="link" data-chg="all">all</button></span>':''):modelLegend;
+  if(drrOn&&state.ovV)h+='<span>Brighter = nearer the detector</span>';
+  if(drrOn&&state.ovC&&CH.length)h+='<span>Dashed border = behind another chamber</span>';
   lg.innerHTML=h;lg.hidden=!h;
 }
-$('ovLegend').addEventListener('click',e=>{const b=e.target.closest('[data-ch]');if(!b)return;const id=b.dataset.ch;chOn[id]=chOn[id]===false;b.setAttribute('aria-pressed',String(chOn[id]));});
+$('ovLegend').addEventListener('click',e=>{
+  const g=e.target.closest('[data-chg]');
+  if(g){const side=g.dataset.chg;CH.forEach(c=>{if(!c.part)chOn[c.s.id]=side==='all'||CH_SIDE[c.s.id]===side;});refreshOverlayUI();return;}
+  const b=e.target.closest('[data-ch]');if(!b)return;const id=b.dataset.ch;chOn[id]=chOn[id]===false;b.setAttribute('aria-pressed',String(chOn[id]));});
+const chipAt=e=>{const b=e.target.closest('[data-ch]'),i=b?CH.findIndex(c=>c.s.id===b.dataset.ch):-1;app.chipFocus=i>=0&&chOn[CH[i].s.id]!==false?i:null;};
+['pointerover','focusin'].forEach(t=>$('ovLegend').addEventListener(t,chipAt));
+['pointerleave','focusout'].forEach(t=>$('ovLegend').addEventListener(t,()=>{app.chipFocus=null;}));
 $('tblReset').addEventListener('click',()=>{state.tx=state.ty=state.tz=0;syncUI();});
 /* ---------- Fluoro source: DRR when it starts, model otherwise ---------- */
 export function setMode(){

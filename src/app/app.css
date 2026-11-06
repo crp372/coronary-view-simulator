@@ -98,6 +98,7 @@ h2{font-family:var(--f-display);font-weight:600;font-size:13px;letter-spacing:.1
 .chip{padding:3px 9px;font-size:12px;display:inline-flex;align-items:center;gap:5px}
 .chip i{display:inline-block;width:10px;height:10px;border-radius:2px}
 .chip[aria-pressed=false]{opacity:.55}
+.chgrp{font-size:12px;color:var(--muted)}
 .tip .stk{display:block;color:var(--muted);font-size:11.5px;margin-top:1px}
 
 .now{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:10px 12px}
