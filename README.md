@@ -2,7 +2,9 @@
 
 An interactive browser tool for learning coronary angiography projections. You move a virtual C-arm and patient table, watch a simulated fluoroscopy image update, and overlay cardiac anatomy to understand what each view shows.
 
-**Source:** `index.html` plus plain ES modules under `src/` (no build step; Three.js r128 from a CDN). See [Code layout](#code-layout). It isn't published online: the first, single-file version was a private Claude artifact, and the current version needs a server (or a bundled build) to be published.
+**Source:** `index.html` plus plain ES modules under `src/` (no build step; Three.js r128 from a CDN). See [Code layout](#code-layout).
+
+**Live:** https://coronary.chiranpandey.com/, linked from [chiranpandey.com](https://chiranpandey.com/). It's a Cloudflare Worker serving static files: `npm run deploy` copies `index.html`, `drr.html`, `src/` and `data/web/` into `dist/` (`tools/build_site.sh`, a whitelist, so `data/raw`, tools and tests never reach the site) and uploads them with Wrangler (`wrangler.jsonc`). Run `npx wrangler login` first if the login has expired.
 
 This README has three parts: [what it does](#what-it-does) (implemented), [known limitations](#known-limitations) (approximations, gaps, and what hasn't been validated), and the [roadmap](#roadmap) (not yet built). Technical details of the CT image and the data follow at the end.
 
@@ -175,13 +177,13 @@ What exists but is approximate, incomplete or not yet validated.
 
 **Technical**
 - **Speed** has been measured only on an Apple M5 in Chrome.
-- **It needs WebGL2** with float render targets, and a local server.
+- **It needs WebGL2** with float render targets, and to be served over http(s) (the live site, or a local server).
 - **Three.js r128** dates from 2021.
 - **Phones** get a one-column scrolling layout. Accessibility hasn't been reviewed.
 
 **Licensing**
 - **Non-commercial only:** the ImageCAS volumes (CC BY-NC 4.0) and the TotalSegmentator chamber model (non-commercial licence) both forbid commercial use.
-- **Hosting online: permission granted.** TotalSegmentator's licence limits its use to internal research, so its author was asked, and gave written permission (2026-11-05) to publish the meshes and data derived from its segmentations for this project, on a free website and in a public repository. See [docs/publishing/LICENSING.md](docs/publishing/LICENSING.md) for the findings and the remaining checklist.
+- **Hosting online: permission granted.** TotalSegmentator's licence limits its use to internal research, so its author was asked, and gave written permission (2026-11-05) to publish the meshes and data derived from its segmentations for this project, on a free website and in a public repository. Published on 2026-11-06, with credits and licences in the app's About dialog. See [docs/publishing/LICENSING.md](docs/publishing/LICENSING.md) for the findings and the checklist.
 
 ---
 
@@ -215,7 +217,6 @@ From the owner's backlog after the first full demo, and an external review (2026
   - the ramus moved under the LM;
   - better coverage of the aorta and PA.
 - **Technical hardening:**
-  - licensing resolved before any public release ([docs/publishing/LICENSING.md](docs/publishing/LICENSING.md));
   - Three.js upgraded;
   - testing on more typical hardware and browsers;
   - accessibility;

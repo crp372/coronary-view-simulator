@@ -6,7 +6,9 @@
   "scripts": {
     "serve": "python3 tools/serve.py 8766",
     "check": "playwright test",
-    "check:update": "playwright test --update-snapshots=all"
+    "check:update": "playwright test --update-snapshots=all",
+    "build": "sh tools/build_site.sh",
+    "deploy": "sh tools/build_site.sh && npx --yes wrangler@4.158.0 deploy"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1"

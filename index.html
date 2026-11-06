@@ -204,6 +204,15 @@
     <li><strong>The fluoro image is computed from one real coronary CT</strong> (<span id="heartDesc">a right-dominant heart</span>), by tracing X-rays through it at the current angle. Real hearts vary in orientation, so this heart's best angles can differ by a few degrees from the textbook ones.</li>
     <li>With the CT image, the anatomy overlay comes from that same CT: its coronary tree, chambers and great vessels. The aorta and pulmonary artery are cut off where the scan ends. If the CT can't load, a simplified, right-dominant model heart is used instead.</li>
   </ul>
+  <h3 id="about-credits">Credits and licences</h3>
+  <p class="note"><strong>A teaching tool, not a medical device.</strong> It is not for diagnosis, treatment or any other clinical use. Free and non-commercial.</p>
+  <ul class="note">
+    <li><strong>CT volumes:</strong> ImageCAS (Zeng A, Xu X, et al. <i>Comput Med Imaging Graph</i> 2023), <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a>. Changed here: de-contrasted (blood pool clamped to 50 HU), resampled to 0.9 × 0.9 × 1 mm and cropped.</li>
+    <li><strong>Coronary labels and centrelines:</strong> ImageCAS-X (Bransby KM, et al. 2026, <a href="https://zenodo.org/records/21887809" target="_blank" rel="noopener">Zenodo</a>), <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>. Changed here: lumen labels resampled onto the CT, and small branches grown from the CT.</li>
+    <li><strong>Chambers and great vessels:</strong> segmented with TotalSegmentator <code>heartchambers_highres</code> (Wasserthal J, et al. <i>Radiol Artif Intell</i> 2023, <a href="https://doi.org/10.1148/ryai.230024" target="_blank" rel="noopener">doi:10.1148/ryai.230024</a>). Meshes and data derived from these segmentations are published with the kind permission of Dr Jakob Wasserthal, Department of Radiology, Universitätsspital Basel.</li>
+    <li><strong>Software:</strong> <a href="https://threejs.org/" target="_blank" rel="noopener">Three.js</a> (MIT). Fonts: Archivo Narrow, Inter and JetBrains Mono (SIL Open Font License).</li>
+    <li><strong>Made by</strong> <a href="https://chiranpandey.com/" target="_blank" rel="noopener">Chiran Pandey</a>, medical student at Humanitas University. Source code on <a href="https://github.com/crp372/coronary-view-simulator" target="_blank" rel="noopener">GitHub</a>.</li>
+  </ul>
 </dialog>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>

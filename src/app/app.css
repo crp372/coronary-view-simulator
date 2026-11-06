@@ -162,6 +162,7 @@ dialog>p{color:var(--muted)}
 dialog h3{font-family:var(--f-display);font-weight:600;font-size:17px;margin:16px 0 4px}
 dialog .note{max-width:none;font-size:13.5px}
 dialog ul.note{padding-left:18px}
+dialog a{color:var(--accent);text-underline-offset:2px}
 dialog kbd{font-family:var(--f-mono);font-size:12px;border:1px solid var(--line);border-radius:3px;padding:0 5px;background:var(--bg)}
 .dlghead{position:sticky;top:-14px;display:flex;align-items:center;justify-content:space-between;background:var(--panel);padding:4px 0 8px;border-bottom:1px solid var(--line)}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto}}

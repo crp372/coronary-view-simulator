@@ -1,0 +1,12 @@
+// Cloudflare config: serve dist/ (built by tools/build_site.sh) as a static site at coronary.chiranpandey.com.
+// Deploy with `npm run deploy`.
+{
+  "name": "coronary-view-simulator",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./dist"
+  },
+  "routes": [
+    { "pattern": "coronary.chiranpandey.com", "custom_domain": true }
+  ]
+}

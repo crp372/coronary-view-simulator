@@ -50,8 +50,8 @@ Read from the full agreement linked from https://backend.totalsegmentator.com/li
 ## Before publishing
 
 - [x] Written permission from Dr Wasserthal: granted 2026-11-05 ([totalsegmentator-permission.md](totalsegmentator-permission.md)). Covers the described use for the project as a whole, including further hearts prepared the same way.
-- [ ] A credits and licences section on the site: ImageCAS, ImageCAS-X and TotalSegmentator, each with its licence link and a note of the changes.
-- [ ] A notice that it's a teaching tool, not a medical device, and not for clinical use.
-- [ ] Hosting chosen: free and without ads (e.g. GitHub Pages). It needs bundling or a static host that serves the `src/` modules and the `data/web/` files.
-- [ ] Whether the source repository will be public too. It contains the derived data files, and the permission covers that.
+- [x] A credits and licences section on the site: ImageCAS, ImageCAS-X and TotalSegmentator, each with its licence link and a note of the changes (About dialog, "Credits and licences").
+- [x] A notice that it's a teaching tool, not a medical device, and not for clinical use (same section).
+- [x] Hosting chosen: Cloudflare Workers static assets, free and without ads, at https://coronary.chiranpandey.com/ (2026-11-06). No bundling needed; `tools/build_site.sh` copies only the site's files.
+- [x] Source repository public: https://github.com/crp372/coronary-view-simulator. It contains the derived data files, which the permission covers; raw data stays in the git-ignored `data/raw/`.
 - [ ] After release, a link sent to Dr Wasserthal (clause 3.6).

@@ -222,14 +222,16 @@ Commit:
 
 Never commit `data/raw/`. Record the heart in the table below.
 
+Then publish it: `npm run deploy` (`npx wrangler login` first if it says the login has expired), and open https://coronary.chiranpandey.com/?heart=<id> to check the CT image loads there too.
+
 ## Licences
 
 Every heart is subject to:
 - **ImageCAS (the CT):** CC BY-NC 4.0, non-commercial.
 - **ImageCAS-X (the labels):** CC BY 4.0.
-- **TotalSegmentator `heartchambers_highres`:** a free non-commercial licence. Check whether it allows publishing its outputs (the chamber meshes, and anything derived from the masks) before making the repository or the app public.
+- **TotalSegmentator `heartchambers_highres`:** a free non-commercial licence. Its author gave written permission (2026-11-05) to publish meshes and data derived from it for this project, including further hearts prepared the same way: see [docs/publishing/totalsegmentator-permission.md](../docs/publishing/totalsegmentator-permission.md).
 
-The page shows the attribution from each heart's `meta.json` and `chambers.json`.
+The page shows the attribution from each heart's `meta.json` and `chambers.json`, and the About dialog's "Credits and licences" section covers all hearts; update it if a heart comes from a new source.
 
 ## Hearts prepared
 
