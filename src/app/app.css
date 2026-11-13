@@ -211,7 +211,7 @@ button.link{background:none;border:0;box-shadow:none}
 
 /* first-run tour: a ring round the target, dimming the rest a little, and a card beside it; neither takes the pointer
    except the card itself, so the page can be tried as the steps describe */
-#tourRing{position:fixed;z-index:29;pointer-events:none;border:2px solid var(--accent);border-radius:4px;box-shadow:0 0 0 9999px rgba(5,6,7,.38)}
+#tourRing{position:fixed;z-index:29;pointer-events:none;border:2px solid var(--accent);border-radius:4px;box-shadow:0 0 0 9999px rgba(5,6,7,.55)}
 #tourRing.dot{border-radius:50%}
 #tour{position:fixed;z-index:30;box-sizing:border-box;width:min(320px,calc(100vw - 16px));padding:12px 14px 10px;
   background:var(--steel);border:1px solid var(--edge);border-radius:2px;box-shadow:var(--raised),0 10px 28px rgba(0,0,0,.6)}
