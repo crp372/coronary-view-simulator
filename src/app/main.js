@@ -62,13 +62,14 @@ async function startDRR(){
   app.mode='drr';setMode();
 }
 
-$('cine').addEventListener('click',()=>{app.cine={t0:performance.now()};});
+['cine','cineM'].forEach(id=>$(id).addEventListener('click',()=>{app.cine={t0:performance.now()};}));   // cineM: the phone layout's
 
 /* ---------- Sizing ---------- */
 function sizeAll(){
   const m=mon.clientWidth;fr.setSize(m,m,false);
   const dw=Math.max(1,Math.min(1600,Math.round(m*Math.min(window.devicePixelRatio||1,2))));if(drrCv.width!==dw)drrCv.width=drrCv.height=dw;
-  const room=$('room');rr.setSize(room.clientWidth,room.clientHeight,false);rcam.aspect=room.clientWidth/Math.max(1,room.clientHeight);rcam.updateProjectionMatrix();
+  const room=$('room');if(!room.clientWidth)return;   // on a phone the room is hidden unless its tab is chosen
+  rr.setSize(room.clientWidth,room.clientHeight,false);rcam.aspect=room.clientWidth/Math.max(1,room.clientHeight);rcam.updateProjectionMatrix();
 }
 new ResizeObserver(sizeAll).observe(mon);new ResizeObserver(sizeAll).observe($('room'));sizeAll();
 

@@ -240,6 +240,7 @@ gScene.add(new THREE.HemisphereLight(0xffffff,0x39424a,1.05));
   [['R',-4.6,0,-1.5],['L',4.6,0,-1.5]].forEach(([t,x,y,z])=>{const w=word(t,4.2);w.position.set(x,y,z);gScene.add(w);});}
 // draws the room, then the figure in the bottom right corner, seen from the same direction
 export function drawRoom(){
+  if(!rCanvas.clientWidth)return;   // hidden (the phone layout shows the room on its own tab)
   rr.setViewport(0,0,rCanvas.clientWidth,rCanvas.clientHeight);rr.autoClear=true;rr.render(rScene,rcam);
   const W=rCanvas.clientWidth,n=Math.round(Math.max(56,Math.min(92,W*0.24)));
   rcam.getWorldDirection(gDir);gcam.position.copy(gDir).multiplyScalar(-46);gcam.up.copy(rcam.up);gcam.lookAt(0,0,0);

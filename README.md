@@ -41,7 +41,13 @@ They open both pages in headless Chromium, show every preset, the overlays, a ci
 - **Collapsible control groups** (C-arm, Table, Injection, Display). C-arm and Injection start open, Table and Display collapsed. The room view keeps the height that leaves it; opening more groups doesn't squeeze it, the right column scrolls instead, and closing groups lets it grow. Which groups are open is remembered in this browser.
 - **Full screen** for the whole app (button in the top bar, or press F; Esc leaves). Hidden where the browser can't do it, e.g. iPhone Safari, and some embedded previews block it.
 - **About this image** (top bar) holds the longer notes: where the image comes from (what is this patient's and what is modelled or illustrative), how to read the overlays, intended use, and credits. On the page, the "Fine branches (illustrative)" switch marks the generated branches, and a line under the presets says "Made by Chiran Pandey" (linked to chiranpandey.com) and "Non-commercial use only", with a link to the credits.
-- Narrower windows (920–1399 px) wrap the keypad's headings onto two lines; phones, and windows under 560 px tall, scroll in one column, with the keys two to a row.
+- Narrower windows (920–1399 px) wrap the keypad's headings onto two lines.
+- **Phones and small windows** (under 920 px wide or 560 px tall) keep to one screen too. The image stays put, as large as the screen allows, and a row of tabs chooses what the rest holds:
+  - **Views:** the keypad and the line saying what the view is best for.
+  - **C-arm:** the angle sliders and field of view, then the injection side and the table.
+  - **Display:** the overlays and other switches.
+  - **Room:** the room view, which takes about half the screen so it can be compared with the image.
+  - "Run cine" sits beside the tabs. Upright, the tabs and their pane are under the image; on its side, they are in a column to its right. The pane scrolls inside itself when its content is taller. The control groups are plain sections there (no collapsing), and the room view can't swap with the image.
 
 ### Choosing a heart
 - The **Heart** dropdown lists the hearts in `data/web/hearts.json`, plus the simplified model heart. Choosing one reloads the page with `?heart=<id>` (or `?model`). `drr.html` reads `?heart=` too.
@@ -183,7 +189,7 @@ What exists but is approximate, incomplete or not yet validated.
 - **Speed** has been measured only on an Apple M5 in Chrome.
 - **It needs WebGL2** with float render targets, and to be served over http(s) (the live site, or a local server).
 - **Three.js r128** dates from 2021.
-- **Phones** get a one-column scrolling layout. Accessibility hasn't been reviewed.
+- **Phones** have their own one-screen layout, checked in emulated phone sizes but not yet on real devices. Accessibility hasn't been reviewed.
 
 **Licensing**
 - **Non-commercial only:** the ImageCAS volumes (CC BY-NC 4.0) and the TotalSegmentator chamber model (non-commercial licence) both forbid commercial use.

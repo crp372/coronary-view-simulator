@@ -9,6 +9,7 @@ import {state,app,$} from './state.js';
 import {mon,fcam,anat} from './fluoro.js';
 import {VES} from './ct.js';
 import {setHover} from './pointer.js';
+import {setTab} from './ui.js';
 import {heartForward} from '../drr/heart.js';
 const V3=THREE.Vector3;
 const KEY='cvs.tour';
@@ -27,12 +28,12 @@ function vesselPoint(){
 }
 // What each card points at. Their words are in index.html (<template id="tourSteps">), one <div> per card in this order.
 const STEPS=[
-  {target:()=>document.querySelector('.presets')},
+  {enter(){setTab('views');},target:()=>document.querySelector('.presets')},   // the tab matters in the phone layout only
   {enter(){const v=vesselPoint();this.pt=v;if(v)setHover({v:v.i,pt:v.j},$('monTip'),v.x,v.y);},
     leave(){setHover(null);},
     target(){const v=this.pt;return v?{getBoundingClientRect:()=>{const r=14;return {left:v.x-r,top:v.y-r,right:v.x+r,bottom:v.y+r,width:2*r,height:2*r};}}:mon;}},
   {side:'left',   // beside the group, over the image, rather than over the other groups
-    enter(){const d=document.querySelector('details[data-grp=disp]');d.open=true;},
+    enter(){setTab('disp');const d=document.querySelector('details[data-grp=disp]');d.open=true;},
     target:()=>$('tOvV').parentElement},
   // the two buttons together: one rect round both
   {target:()=>({getBoundingClientRect:()=>{const a=$('helpBtn').getBoundingClientRect(),b=$('aboutBtn').getBoundingClientRect(),

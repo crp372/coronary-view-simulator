@@ -117,6 +117,7 @@ export function fillHearts({list,heart,model}){
   const items=[...list.map(h=>({id:h.id,name:h.name})),{id:MODEL,name:'Simplified model heart'}];
   lb.innerHTML=items.map((h,i)=>`<li role="option" id="heartOpt${i}" data-id="${esc(h.id)}" aria-selected="${h.id===cur}">${esc(h.name)}</li>`).join('');
   $('heartCur').textContent=(items.find(h=>h.id===cur)||items[0]).name;
+  $('heartCurS').textContent=model?'Model heart':heart.short||heart.name;   // the phone layout's bar has room for the short name only
   const opts=[...lb.children];let act=-1;
   const activate=i=>{act=Math.max(0,Math.min(opts.length-1,i));opts.forEach((o,j)=>o.classList.toggle('act',j===act));
     lb.setAttribute('aria-activedescendant',opts[act].id);opts[act].scrollIntoView({block:'nearest'});};
@@ -153,19 +154,19 @@ if(document.fullscreenEnabled){fsBtn.hidden=false;fsBtn.addEventListener('click'
 document.addEventListener('fullscreenchange',()=>{fsBtn.setAttribute('aria-pressed',String(fsOn()));fsBtn.textContent=fsOn()?'Exit full screen':'Full screen';});
 document.addEventListener('keydown',e=>{const k=e.key.toLowerCase();if((k!=='f'&&k!=='r')||e.metaKey||e.ctrlKey||e.altKey||about.open||help.open||
     e.target.closest('input[type=text],input[type=search],textarea,select,[contenteditable],#heartSel'))return;
-  if(k==='r'){e.preventDefault();$('swapBtn').click();}
+  if(k==='r'){e.preventDefault();if(!isCompact())$('swapBtn').click();}
   else if(document.fullscreenEnabled){e.preventDefault();toggleFs();}});
 // The room view and the image can swap places: the room in the centre, the image in the rail's slot (the button in the
 // room's corner, or R). The elements themselves move, so their canvases and listeners carry on; remembered per browser.
 const swapBtn=$('swapBtn'),SWAP_KEY='cvs.swap';
-function setSwap(on){
+function setSwap(on,save=true){
   const room=$('room'),stage=document.querySelector('.stage'),slot=$('railSlot');
   if(on){stage.appendChild(room);slot.appendChild(mon);}else{stage.appendChild(mon);slot.appendChild(room);}
   // the camera buttons go with the room view, and the panel is named for what it holds
   const head=document.querySelector('.roompanel .row');(on?room:head).appendChild($('roomViewSeg'));head.querySelector('h2').textContent=on?'Image':'Room';
   const t=on?'Return the room view to the side panel':'Enlarge the room view';
   swapBtn.setAttribute('aria-pressed',String(on));swapBtn.setAttribute('aria-label',t);swapBtn.title=t+' (R)';
-  try{localStorage.setItem(SWAP_KEY,on?'1':'');}catch(e){}
+  if(save)try{localStorage.setItem(SWAP_KEY,on?'1':'');}catch(e){}
 }
 const swapped=()=>swapBtn.getAttribute('aria-pressed')==='true';
 swapBtn.addEventListener('click',()=>setSwap(!swapped()));
@@ -173,5 +174,26 @@ try{if(localStorage.getItem(SWAP_KEY))setSwap(true);}catch(e){}
 // which control groups are open, per browser (storage may be unavailable, e.g. in a private window)
 const GRP_KEY='cvs.groups';
 let open={};try{open=JSON.parse(localStorage.getItem(GRP_KEY))||{};}catch(e){}
-document.querySelectorAll('details.grp').forEach(d=>{const k=d.dataset.grp;if(k in open)d.open=!!open[k];
-  d.addEventListener('toggle',()=>{open[k]=d.open;try{localStorage.setItem(GRP_KEY,JSON.stringify(open));}catch(e){}});});
+const groups=[...document.querySelectorAll('details.grp')],defOpen={};
+groups.forEach(d=>{const k=d.dataset.grp;defOpen[k]=d.open;
+  d.addEventListener('toggle',()=>{if(isCompact())return;open[k]=d.open;try{localStorage.setItem(GRP_KEY,JSON.stringify(open));}catch(e){}});
+  d.querySelector('summary').addEventListener('click',e=>{if(isCompact())e.preventDefault();});});
+/* ---------- Phones and small windows ---------- */
+// The compact layout (the same query as app.css): one screen, the image fixed, and a row of tabs choosing what the
+// rest holds: the views keypad, the C-arm controls (with injection and table), the display switches, or the room view.
+// The tab is an attribute on .app, which only the compact rules read. There the groups are plain sections, all open
+// (the remembered open state is the wide layout's, and comes back with it), and the room can't swap with the image.
+const compactMq=matchMedia('(max-width:919px),(max-height:559px)'),appEl=document.querySelector('.app');
+export function isCompact(){return compactMq.matches;}
+const tabBtns=[...document.querySelectorAll('#tabs [role=tab]')];
+export function setTab(t){appEl.dataset.tab=t;tabBtns.forEach(b=>{const on=b.dataset.tab===t;b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1;});}
+tabBtns.forEach((b,i)=>{b.addEventListener('click',()=>setTab(b.dataset.tab));
+  b.addEventListener('keydown',e=>{const d=e.key==='ArrowRight'?1:e.key==='ArrowLeft'?-1:0;if(!d)return;
+    e.preventDefault();const n=tabBtns[(i+d+tabBtns.length)%tabBtns.length];setTab(n.dataset.tab);n.focus();});});
+function applyCompact(){
+  const c=isCompact();
+  groups.forEach(d=>{const k=d.dataset.grp;d.open=c||(k in open?!!open[k]:defOpen[k]);});
+  let s=false;if(!c)try{s=!!localStorage.getItem(SWAP_KEY);}catch(e){}
+  if(s!==swapped())setSwap(s,false);
+}
+compactMq.addEventListener('change',applyCompact);applyCompact();

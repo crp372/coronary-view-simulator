@@ -203,7 +203,7 @@ test.describe('drr.html', () => {
   });
 });
 
-// The layout: one screen with nothing cut off, at common laptop and desktop sizes (phones scroll in one column),
+// The layout: one screen with nothing cut off, at common laptop and desktop sizes, and on phones (with tabs),
 // with the control groups as they start. Opening more groups scrolls the rail; the room view keeps its height.
 test.describe('layout', () => {
   test.beforeAll(async ({browser}) => { page = await open(browser, '/'); });
@@ -264,10 +264,55 @@ test.describe('layout', () => {
     await expect(page).toHaveScreenshot('layout-1440x900.png');
   });
 
-  test('phone: one column, no sideways scroll', async () => {
-    await page.setViewportSize({width: 375, height: 812});
-    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0);
+  // Phones and small windows keep to one screen too: the image stays put, and a row of tabs chooses what the rest
+  // holds (the views keypad, the C-arm controls, the display switches or the room view). 390×664 is a current iPhone
+  // in Safari with both bars showing; 375×548 an iPhone SE.
+  const phoneState = () => page.evaluate(() => {
+    const vis = s => !!document.querySelector(s).getClientRects().length, mon = document.getElementById('monitor').getBoundingClientRect();
+    return {page: document.documentElement.scrollHeight - innerHeight, wide: document.documentElement.scrollWidth - innerWidth,
+      mon: mon.width, monIn: mon.top >= 0 && mon.bottom <= innerHeight && mon.left >= 0 && mon.right <= innerWidth,
+      tabs: vis('#tabs'), cine: vis('#cineM'), keys: vis('#presetsL'), sliders: vis('#sLao'), inj: vis('#injSeg'), toggles: vis('#tOvC'), room: vis('#room')};
+  });
+  const tab = async t => { await page.locator(`#tabs [data-tab=${t}]`).click(); await page.waitForTimeout(150); await frame(page); };
+  for (const [w, h, name] of [[390, 664, 'phone'], [375, 548, 'small phone'], [800, 360, 'phone on its side'], [768, 1024, 'tablet, upright']]) {
+    test(`${name} (${w}×${h}): one screen, with tabs under or beside the image`, async () => {
+      await page.setViewportSize({width: w, height: h});
+      const fits = {page: 0, wide: 0, monIn: true, tabs: true, cine: true};
+      const views = await phoneState();
+      expect(views).toMatchObject({...fits, keys: true, sliders: false, toggles: false, room: false});
+      expect(views.mon).toBeGreaterThan(Math.min(w, h) * 0.6);
+      // the line under the keys (what the view is best for) shows without scrolling the pane
+      expect(await page.evaluate(() => document.querySelector('.now').getBoundingClientRect().bottom - document.querySelector('.side').getBoundingClientRect().bottom)).toBeLessThanOrEqual(0);
+      await tab('carm');
+      expect(await phoneState()).toMatchObject({...fits, keys: false, sliders: true, inj: true, toggles: false, room: false});
+      await tab('disp');
+      expect(await phoneState()).toMatchObject({...fits, keys: false, sliders: false, toggles: true, room: false});
+      await tab('room');
+      const room = await phoneState();
+      expect(room).toMatchObject({...fits, keys: false, sliders: false, toggles: false, room: true});
+      expect(await page.evaluate(() => document.getElementById('room').clientHeight)).toBeGreaterThan(150);
+      await tab('views');
+    });
+  }
+  test('phone: whole page, the views and the room', async () => {
+    await page.setViewportSize({width: 390, height: 664});
+    await frame(page);
+    await expect(page).toHaveScreenshot('layout-phone-views.png');
+    await tab('room');
+    await page.locator('#roomViewSeg [data-rv=det]').click();
+    await frame(page);
+    await expect(page).toHaveScreenshot('layout-phone-room.png');
+    await page.locator('#roomViewSeg [data-rv=room]').click();
+    await tab('views');
+  });
+  // back on a wide screen the tabs go, and the groups are as they were left (Table and Display closed)
+  test('phone layout gives way to the wide one', async () => {
     await page.setViewportSize({width: 1280, height: 900});
+    await frame(page);
+    const s = await phoneState();
+    expect(s).toMatchObject({page: 0, tabs: false, keys: true, sliders: true, room: true});
+    await expect(page.locator('details[data-grp=table]')).toHaveJSProperty('open', false);
+    await expect(page.locator('details[data-grp=carm]')).toHaveJSProperty('open', true);
   });
 
   test('groups collapse, and stay so after a reload', async () => {

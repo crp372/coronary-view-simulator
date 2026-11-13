@@ -12,27 +12,27 @@
 <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "bc36b9404d3442a9a071c5c14df311af"}'></script><!-- End Cloudflare Web Analytics -->
 </head>
 <body>
-<div class="app">
+<div class="app" data-tab="views">
   <header class="bar">
     <h1>Coronary <span>View</span> Simulator</h1>
     <div class="heart"><span id="heartLbl">Heart</span>
       <div class="hsel" id="heartSel">
-        <button type="button" id="heartBtn" aria-haspopup="listbox" aria-expanded="false" aria-controls="heartList" aria-labelledby="heartLbl heartCur"><span id="heartCur"></span><svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button type="button" id="heartBtn" aria-haspopup="listbox" aria-expanded="false" aria-controls="heartList" aria-labelledby="heartLbl heartCur"><span id="heartCur"></span><span id="heartCurS" aria-hidden="true"></span><svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <ul id="heartList" role="listbox" aria-labelledby="heartLbl" tabindex="-1" hidden></ul>
       </div>
     </div>
     <div class="acts">
       <button type="button" id="helpBtn" class="icon" aria-haspopup="dialog" aria-label="How to use" title="How to use"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.2 9.3a2.9 2.9 0 0 1 5.6 1c0 1.9-2.8 2.6-2.8 4.2"/><circle cx="12" cy="17.6" r=".6" fill="currentColor"/></svg></button>
-      <button type="button" id="aboutBtn" aria-haspopup="dialog">About this image</button>
+      <button type="button" id="aboutBtn" aria-haspopup="dialog">About<span class="wide"> this image</span></button>
       <button type="button" id="fsBtn" aria-pressed="false" title="Full screen (F)" hidden>Full screen</button>
     </div>
   </header>
 
   <aside class="side" aria-label="Standard views">
     <section class="presets">
-      <h2>Left coronary</h2>
+      <h2>Left<span class="wide"> coronary</span></h2>
       <div class="pgrid" id="presetsL"></div>
-      <h2>Right coronary</h2>
+      <h2>Right<span class="wide"> coronary</span></h2>
       <div class="pgrid" id="presetsR"></div>
     </section>
     <div class="now" aria-live="polite">
@@ -58,6 +58,17 @@
       <div class="mstat" id="monStat" role="status"><span class="spin" aria-hidden="true"></span><span id="monStatTxt">Loading the CT…</span></div>
     </div>
   </main>
+
+  <!-- phones and small windows only (app.css): the image stays put, and these choose what the rest of the screen holds -->
+  <nav class="tabs" id="tabs" aria-label="Controls">
+    <div class="tablist" role="tablist">
+      <button type="button" role="tab" data-tab="views" aria-selected="true">Views</button>
+      <button type="button" role="tab" data-tab="carm" aria-selected="false" tabindex="-1">C-arm</button>
+      <button type="button" role="tab" data-tab="disp" aria-selected="false" tabindex="-1">Display</button>
+      <button type="button" role="tab" data-tab="room" aria-selected="false" tabindex="-1">Room</button>
+    </div>
+    <button type="button" class="go" id="cineM">Run cine</button>
+  </nav>
 
   <div class="rail">
     <section class="panel roompanel">
@@ -173,7 +184,7 @@
   </div>
   <div>
     <h3>Find out more</h3>
-    <p>The ? button opens How to use, and explains every control you can find in the right pane. About this image explains where the image comes from and how to read the overlays.</p>
+    <p>The ? button opens How to use, which explains every control. About this image explains where the image comes from and how to read the overlays.</p>
   </div>
 </template>
 
@@ -214,6 +225,7 @@
   <h3>Tips</h3>
   <ul class="note">
     <li>New here? <button type="button" class="link" id="tourBtn">Show the tour</button>: four short steps through the views, naming what you see, the overlays, and where to find out more.</li>
+    <li><strong>On a phone</strong> the image stays at the top (or on the left with the phone on its side) and the tabs next to it choose what the rest of the screen holds: <em>Views</em> for the keys, <em>C-arm</em> for the sliders, injection side and table, <em>Display</em> for the overlays and other switches, and <em>Room</em> for the room view. <em>Run cine</em> is always beside the tabs. The notes below about groups and enlarging the room view apply to wider screens.</li>
     <li>Table and Display start collapsed: click a group's title to open or close it. Groups stay as you leave them. The room view keeps its size when you open more groups, so scroll the right-hand side to reach the lower ones; closing groups gives the room view more space.</li>
     <li><strong>Full screen</strong>, or press <kbd>F</kbd>, hides the browser around the simulator.</li>
     <li>To learn where the image comes from and how to read the overlays, see <button type="button" class="link" data-about="">About this image</button>.</li>

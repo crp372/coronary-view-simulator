@@ -1,6 +1,7 @@
 /* Layout: cath-lab console, one screen with no page scrolling, in two columns. Left: the fluoro monitor, as large as
    the window's height allows, with the standard views under it. Right: the room view and the collapsible control
-   groups. Single dark look by choice, like a control room. Phones (and very short windows) scroll in one column. */
+   groups. Single dark look by choice, like a control room. Phones and small windows keep to one screen too, with tabs
+   (the last block). */
 :root{
   --bg:#0e1215; --panel:#252a30; --panel2:#30363d; --line:#3b434b; --fg:#e6e9ec; --muted:#9ba5ae;
   --accent:#a3aff5; --accent-fill:#3f5f8f; --on-accent:#eef3fa; --scr:#e2e6ea; --cool:#74b8c8; --screen:#050607; --ink:#0b0e10;
@@ -253,15 +254,83 @@ button.link{background:none;border:0;box-shadow:none}
 @media (max-width:1199px){
   .app{grid-template-columns:minmax(0,3fr) minmax(0,2fr)}
 }
-/* phones and very short windows: one scrolling column, presets as chips */
+/* Phones and small windows: still one screen, with no page scrolling. The image stays put, as large as the screen
+   allows, and a row of tabs (#tabs) chooses what the rest holds: the views keypad (.side), or from the rail the C-arm
+   controls (with injection and table), the display switches, or the room view. Portrait: bar, image, tabs, pane, top
+   to bottom. Landscape: the image on the left at full height, the rest in a column beside it. The pane scrolls inside
+   itself if its content is taller. ui.js keeps the tab in .app[data-tab] and opens every group here. */
+.tabs,#heartCurS{display:none}
 @media (max-width:919px),(max-height:559px){
-  .app{height:auto;grid-template-columns:minmax(0,1fr);grid-template-rows:none;grid-template-areas:"bar" "stage" "side" "rail"}
-  .stage{container-type:normal}
-  .stage .monitor{width:min(100%,92vh)}
-  .rail{overflow:visible}
-  .roompanel .slot{flex:none;min-height:0;display:block;container-type:normal}
-  .slot .room,.stage .room{height:auto;aspect-ratio:4/3}
-  .slot .monitor{width:100%}
-  .pgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
-  #presetsL .pre:nth-child(7){grid-column:auto;grid-row:auto}
+  html,body{overscroll-behavior:none}
+  /* the pane takes what a full-width image leaves, and at least 200 px (the keypad and the line under it) or 30% of the height (the image gives way) */
+  .app{--pane-h:max(200px,30dvh,calc(100dvh - 100vw - 100px));gap:6px;
+    padding:6px max(8px,env(safe-area-inset-right,0px)) max(6px,env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px));
+    grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto var(--pane-h);
+    grid-template-areas:"bar" "stage" "tabs" "pane"}
+  /* bar: one line. The title gives way first; the heart menu shows the short name; "About" loses its second half */
+  .bar{flex-wrap:nowrap;gap:5px;padding:3px 5px}
+  h1{font-size:clamp(14px,3.85vw,18px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:0 1 auto;line-height:1.3}
+  #heartLbl,#heartCur,.wide,#fsBtn,#swapBtn{display:none}
+  #heartCurS{display:inline}
+  .heart,.acts{flex:none}
+  #heartBtn{padding:5px 5px 5px 7px;gap:4px;min-height:34px}
+  .acts{gap:5px}
+  .acts button{min-height:34px;padding:5px 9px}
+  .acts button.icon{padding:5px 7px}
+  /* tabs: four equal keys, then Run cine, always in reach */
+  .tabs{grid-area:tabs;display:flex;gap:8px;min-width:0}
+  .tablist{flex:1;min-width:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+  .tabs button{min-height:38px;padding:4px 6px;font-family:var(--f-display);font-weight:600;font-size:15px;white-space:nowrap}
+  .tabs [role=tab][aria-selected=true]{background:linear-gradient(180deg,#3a5884,#4a6b9c);color:var(--on-accent);box-shadow:inset 1px 1px 0 rgba(0,0,0,.45),inset -1px -1px 0 rgba(255,255,255,.22)}
+  #cineM{padding:4px 12px}
+  /* the pane: one of the views, or part of the rail */
+  .side,.rail{grid-area:pane;min-height:0;overflow:auto;overscroll-behavior:contain}
+  .app:not([data-tab=views]) .side,.app[data-tab=views] .rail{display:none}
+  .app:not([data-tab=room]) .rail>.roompanel,.app[data-tab=room] .rail>.grp,
+  .app[data-tab=carm] .rail>.grp[data-grp=disp],.app[data-tab=disp] .rail>.grp:not([data-grp=disp]){display:none}
+  /* views: the keypad as on a wide screen (four columns: RAO, AP, LAO, lateral), then the line saying what the view is
+     best for. The headings ("Left", "Right") run up the side of their rows, so the keys and that line fit the pane */
+  .side{gap:8px;padding:8px}
+  .now{padding:5px 10px}
+  .now .ang{display:none}   /* the image's corner shows the angle */
+  .presets{grid-template-columns:auto minmax(0,1fr);gap:5px 6px;align-items:stretch}
+  .presets h2{writing-mode:vertical-rl;transform:rotate(180deg);text-align:center;padding:0;width:auto;white-space:nowrap;font-size:10.5px;letter-spacing:.1em;line-height:1.2}
+  .pgrid{gap:5px}
+  .pre{min-height:38px;padding:2px 3px;display:grid;place-items:center}
+  .pre .pn{font-size:13px;line-height:1.15;white-space:normal;overflow:visible}
+  /* C-arm and Display: the groups are plain sections, all open; injection comes before the table */
+  .rail{gap:6px}
+  .rail .panel{padding:8px 10px}
+  .grp>summary{pointer-events:none}
+  .grp>summary::before{display:none}
+  .rail>.grp[data-grp=carm]>summary,.rail>.grp[data-grp=disp]>summary{display:none}   /* the tab names them */
+  .rail>.grp[data-grp=carm]>summary+*,.rail>.grp[data-grp=disp]>summary+*{margin-top:0}
+  .rail>.grp[data-grp=inj]{order:1}.rail>.grp[data-grp=table]{order:2}
+  .rail button{min-height:36px;padding:4px 10px}
+  .rail .chip{min-height:32px}
+  .rail input[type=range]{height:28px}
+  .rail>.grp .note{display:block}
+  /* room: fills the pane, under its camera keys */
+  .roompanel{flex:1 1 auto;min-height:0}
+  .roompanel{gap:6px}
+  .roompanel .row h2{display:none}
+  .roompanel .row,.roompanel #roomViewSeg{width:100%}
+  .roompanel #roomViewSeg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+  .roompanel #roomViewSeg button{padding:4px 2px;font-size:13.5px;white-space:nowrap}
+  .roompanel .slot{--room-h:110px}
+  .room .hint{font-size:11px}
+}
+/* portrait: sliders get the full width, with the label and value on the line above */
+@media (max-width:919px) and (orientation:portrait){
+  .rail .ctl{grid-template-columns:minmax(0,1fr) auto;gap:0 10px}
+  .rail .ctl output{grid-column:2}
+  .rail .ctl input[type=range]{grid-column:1/-1;grid-row:2}
+  /* the room's tab splits the screen about evenly, so the room and the image can be compared at a like size */
+  .app[data-tab=room]{--pane-h:max(200px,45dvh,calc(100dvh - 100vw - 100px))}
+}
+/* landscape: the image at full height on the left; bar, tabs and pane in a column on the right */
+@media (max-width:919px) and (orientation:landscape),(max-height:559px) and (orientation:landscape){
+  .app{grid-template-columns:minmax(0,1fr) clamp(300px,46vw,520px);grid-template-rows:auto auto minmax(0,1fr);
+    grid-template-areas:"stage bar" "stage tabs" "stage pane"}
+  h1{font-size:15px}
 }
