@@ -1,5 +1,5 @@
 // index.html's entry point: starts the DRR (or keeps the model fallback), and runs the frame loop.
-import {state,chOn,app,reduce,$} from './state.js';
+import {state,chOn,app,reduce,$,treeOn} from './state.js';
 import {deg,SOD,SID,dirs,drrView} from '../geometry.js';
 import {TUNE} from '../drr/tune.js';
 import {loadScan} from '../drr/data.js';
@@ -7,7 +7,7 @@ import {drrSupport,createDRR} from '../drr/engine.js';
 import {drrCine} from '../drr/cine.js';
 import {HEART_U,heartForward} from '../drr/heart.js';
 import {mon,drrCv,fr,fScene,oScene,fcam,anat,ovl,sysGroups,bones,ovDir,cineStep} from './fluoro.js';
-import {rr,rcam,tableG,carm,holder,setBeam,roomCath,roomCamStep,drawRoom} from './room.js';
+import {rr,rcam,tableG,carm,holder,setBeam,roomCath,roomCamStep,drawRoom,showTrees} from './room.js';
 import {VES,CH,addCT} from './ct.js';
 import {renderChambers} from './chambers.js';
 import {placeLabels} from './labels.js';
@@ -34,7 +34,7 @@ function updateGeometry(){
   setBeam(s,c,cn);
   sysGroups.L.visible=state.inj==='L';sysGroups.R.visible=state.inj==='R';
   ovDir.value.copy(d);
-  VES.forEach((e,i)=>{e.ov.visible=state.ovV||app.hover===i;});
+  VES.forEach((e,i)=>{e.ov.visible=state.ovV||app.hover===i;e.room.visible=treeOn(e.v.sys);});showTrees();
   roomCath.forEach(m=>{m.visible=state.cath&&m.userData.side===state.inj;});
   CH.forEach(c=>{const on=chOn[c.sw]!==false;c.ov.visible=state.ovC&&on;c.room.visible=on;});
   bones.visible=state.bones;

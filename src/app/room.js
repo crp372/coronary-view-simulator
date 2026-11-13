@@ -1,5 +1,5 @@
 // The room view: table, patient, C-arm and stand, with the heart (model or CT) on the table.
-import {reduce,tok,app,state} from './state.js';
+import {reduce,tok,app,state,treeOn} from './state.js';
 import {SOD,SID,deg,dirs} from '../geometry.js';
 import {CHAMBERS,ao,built,ellMesh} from './model.js';
 import {taperTube} from './tubes.js';
@@ -140,19 +140,42 @@ CHAMBERS.forEach(c=>roomModelAnat.add(ellMesh(new THREE.MeshStandardMaterial({co
 // lit, with some glow of their own so the two trees keep their colours in shadow
 const vesselMat=n=>{const c=new THREE.Color(tok(n));return beat(new THREE.MeshStandardMaterial({color:c,emissive:c.clone().multiplyScalar(0.45),roughness:.45}));};
 export const roomVesselMat={L:vesselMat('--accent'),R:vesselMat('--cool')};
-// the same vessels again, faintly, wherever something is in front of them: a solid heart doesn't hide the far side's
-// arteries, which the image shows too
-const ghostMat=n=>beat(new THREE.MeshBasicMaterial({color:tok(n),transparent:true,opacity:.5,depthFunc:THREE.GreaterDepth,depthWrite:false}));
-export const roomGhostMat={L:ghostMat('--accent'),R:ghostMat('--cool')};
+// The same vessels again wherever something is in front of them (depthFunc: GreaterDepth): a solid heart doesn't hide
+// the far side's arteries, which the image shows too. They're drawn dashed (along sdist), in a pale tint of the tree's
+// colour that reads on any chamber, over a slightly wider dark copy (the edge). grow: cm added to the radius; on: the
+// drawn share of each DASH cm, from `lead` before the dash starts (1 and over: no gaps). taperTube's faces wind
+// inward, so BackSide is the tube's near wall: the wider copies then fail the test wherever the vessel itself shows.
+const DASH=0.9;
+function ghostMat(col,opacity,grow,on,lead){
+  const m=beat(new THREE.MeshBasicMaterial({color:col,transparent:true,opacity,depthFunc:THREE.GreaterDepth,depthWrite:false,side:THREE.BackSide})),heart=m.onBeforeCompile;
+  const u={uGrow:{value:grow},uOn:{value:on},uLead:{value:lead}};
+  // values go in as uniforms: materials with the same onBeforeCompile share one program
+  m.onBeforeCompile=s=>{heart(s);Object.assign(s.uniforms,u);
+    s.vertexShader=s.vertexShader.replace('#include <common>','#include <common>\nattribute float sdist;uniform float uGrow;varying float vS;')
+      .replace('hfw(position)','hfw(position+normal*uGrow);vS=sdist');
+    s.fragmentShader=s.fragmentShader.replace('#include <common>','#include <common>\nuniform float uOn,uLead;varying float vS;')
+      .replace('#include <clipping_planes_fragment>',`#include <clipping_planes_fragment>\nif(fract(vS/${DASH.toFixed(2)}+uLead)>uOn)discard;`);};
+  return m;}
+const pale=n=>new THREE.Color(tok(n)).lerp(new THREE.Color(0xffffff),0.55);
+export const roomGhostMat={L:ghostMat(pale('--accent'),.95,0,.62,0),R:ghostMat(pale('--cool'),.95,0,.62,0),hi:ghostMat(0xffffff,1,0.02,2,0)};
+export const roomGhostEdge=ghostMat(0x06090c,.6,0.035,.7,.04);
 // model tree; swapped for the CT's tree (roomCTTree) once the DRR is running
 export const roomModelTree=new THREE.Group(),roomCTTree=new THREE.Group(),roomCTCh=new THREE.Group();roomCTTree.visible=roomCTCh.visible=false;tableG.add(roomModelTree,roomCTTree,roomCTCh);
-Object.values(built).forEach(b=>{const g=b.geo.clone();roomModelTree.add(new THREE.Mesh(g,roomVesselMat[b.v.sys]));});
+Object.values(built).forEach(b=>{const g=b.geo.clone(),m=new THREE.Mesh(g,roomVesselMat[b.v.sys]);m.userData.sys=b.v.sys;roomModelTree.add(m);});
 roomModelAnat.add(new THREE.Mesh(taperTube(ao,1.45,1.2,0).geo,new THREE.MeshStandardMaterial({color:'#c97fb6',transparent:true,opacity:.6,depthWrite:false,roughness:.7})));
 export const roomHiMat=beat(new THREE.MeshBasicMaterial({color:0xffffff}));
 // CT mode's guide catheters (JL4, JR4) in the room, shown for the injected side
 export const roomCathMat=beat(new THREE.MeshStandardMaterial({color:0x9aa3aa,roughness:.5})),roomCath=[],catName={};
 export const roomChHiMat=beat(new THREE.MeshStandardMaterial({color:0xffffff,emissive:0x555555,roughness:.6,side:THREE.DoubleSide}));
-document.getElementById('roomLegend').innerHTML=`<span><i style="background:var(--accent)"></i>Left coronary</span><span><i style="background:var(--cool)"></i>Right coronary</span>`;
+const legend=document.getElementById('roomLegend');
+legend.innerHTML=`<span data-sys="L"><i style="background:var(--accent)"></i>Left coronary</span><span data-sys="R"><i style="background:var(--cool)"></i>Right coronary</span><span data-dash><i class="dash"></i>Behind the heart</span>`;
+// The room shows the trees the image shows (treeOn), so the two agree; the legend follows. Hidden vessels are only
+// drawn dashed through a solid CT heart.
+export function showTrees(){
+  roomModelTree.children.forEach(m=>{m.visible=treeOn(m.userData.sys);});
+  const dash=app.mode==='drr'&&state.solid;
+  for(const el of legend.children){const hide='dash' in el.dataset?!dash:!treeOn(el.dataset.sys);if(el.hidden!==hide)el.hidden=hide;}
+}
 
 // C-arm, built in a local frame: Y = detector direction, Z = toward the head along the arc
 export const carm=new THREE.Group();carm.matrixAutoUpdate=false;rScene.add(carm);

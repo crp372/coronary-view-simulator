@@ -110,7 +110,18 @@ test.describe('index.html, CT image', () => {
     await frame(page);
     await expect(page.locator('#room .hint')).toContainText('follows the C-arm');
     await expect(page.locator('#room')).toHaveScreenshot('index-room-detector.png');
+    // the room shows the trees the image shows: the injected one, or both with the coronary overlay. In RAO caudal
+    // the left tree is behind the heart, so it's drawn dashed
+    await pressPreset(page, 'L', 'RAO caudal');
+    await expect(page.locator('#roomLegend [data-sys=L]')).toBeVisible();
+    await expect(page.locator('#roomLegend [data-sys=R]')).toBeHidden();
+    await expect(page.locator('#room')).toHaveScreenshot('index-room-detector-rao-caudal.png');
+    await setToggle(page, 'tOvV', true);
+    await frame(page);
+    await expect(page.locator('#roomLegend [data-sys=R]')).toBeVisible();
+    await setToggle(page, 'tOvV', false);
     await pressPreset(page, 'R', 'LAO');
+    await expect(page.locator('#roomLegend [data-sys=L]')).toBeHidden();
     await expect(page.locator('#room')).toHaveScreenshot('index-room-detector-R-lao.png');
     await page.locator('#roomViewSeg [data-rv=heart]').click();
     await frame(page);

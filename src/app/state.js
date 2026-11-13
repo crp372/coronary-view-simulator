@@ -19,3 +19,5 @@ export const chOn={LV:true,RV:true,LA:true,RA:true,Ao:true,PA:true,Myo:false};  
 //   tween: a preset move in progress; cine: the cine run in progress; roomView: 'room', 'heart' or 'det' (from the detector)
 //   heart: the chosen heart (hearts.json entry); scanCm: its CT's size, e.g. '23 × 23 × 14'
 export const app={mode:'loading',why:'',drr:null,attr:'',ctLegend:'',hover:null,hoverCh:null,tween:null,cine:null,roomView:'room',chipFocus:null,heart:null,scanCm:''};
+// the coronary trees on show, in the image and in the room alike: the injected one, or both with the coronary overlay
+export const treeOn=sys=>sys===state.inj||(state.ovV&&app.mode==='drr');

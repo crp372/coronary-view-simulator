@@ -1,9 +1,9 @@
 // Pointer input on the fluoro monitor and the room view: dragging the image pans the table; hovering (or tapping)
 // a structure names it in both views.
-import {state,chOn,app,$,esc} from './state.js';
+import {state,chOn,app,$,esc,treeOn} from './state.js';
 import {SOD,SID,dirs} from '../geometry.js';
 import {mon,fcam,ovl} from './fluoro.js';
-import {rCanvas,rcam,tableG,roomVesselMat,roomHiMat,roomChHiMat} from './room.js';
+import {rCanvas,rcam,tableG,roomVesselMat,roomGhostMat,roomHiMat,roomChHiMat} from './room.js';
 import {VES,CH,SEG,SCCT,scctAt} from './ct.js';
 import {syncUI} from './ui.js';
 import {heartForward} from '../drr/heart.js';
@@ -50,9 +50,9 @@ function pickChambers(cam,el,cx,cy,key,fromDetector){
 export function setHover(target,tipEl,cx,cy){
   const vi=target&&target.v!=null?target.v:null,ci=target&&target.c?target.c[0]:null;
   if(vi!==app.hover){
-    if(app.hover!==null){const o=VES[app.hover];o.mat.uniforms.uHi.value=0;o.room.material=roomVesselMat[o.v.sys];}
+    if(app.hover!==null){const o=VES[app.hover];o.mat.uniforms.uHi.value=0;o.room.material=roomVesselMat[o.v.sys];o.ghost.material=roomGhostMat[o.v.sys];}
     app.hover=vi;
-    if(vi!==null){const o=VES[vi];o.mat.uniforms.uHi.value=1;o.room.material=roomHiMat;}
+    if(vi!==null){const o=VES[vi];o.mat.uniforms.uHi.value=1;o.room.material=roomHiMat;o.ghost.material=roomGhostMat.hi;}
   }
   if(ci!==app.hoverCh){
     if(app.hoverCh!==null){const o=CH[app.hoverCh];o.mat.uniforms.uHi.value=0;o.room.material=o.roomMat;}
@@ -68,10 +68,10 @@ export function setHover(target,tipEl,cx,cy){
     t.style.left=(cx-rc.left)+'px';t.style.top=(cy-rc.top)+'px';t.hidden=false;});
 }
 // in the image: only what's visible there (the injected tree, or both trees and the chambers with the overlay on)
-function monPick(cx,cy){const p=pickVessel(fcam,mon,cx,cy,e=>state.ovV||e.v.sys===state.inj);if(p)return {v:p.i,pt:p.j};
+function monPick(cx,cy){const p=pickVessel(fcam,mon,cx,cy,e=>treeOn(e.v.sys));if(p)return {v:p.i,pt:p.j};
   if(!state.ovC)return null;const c=pickChambers(fcam,mon,cx,cy,'ov',true);return c.length?{c}:null;}
-// the room shows the heart small, so vessels need a tighter radius or they'd hide the chambers
-function roomPick(cx,cy){const p=pickVessel(rcam,rCanvas,cx,cy,null,app.roomView==='room'?4:9);if(p)return {v:p.i,pt:p.j};
+// the room shows the same trees; the heart is small there, so vessels need a tighter radius or they'd hide the chambers
+function roomPick(cx,cy){const p=pickVessel(rcam,rCanvas,cx,cy,e=>treeOn(e.v.sys),app.roomView==='room'?4:9);if(p)return {v:p.i,pt:p.j};
   const c=pickChambers(rcam,rCanvas,cx,cy,'room',false);return c.length?{c:c.slice(0,1)}:null;}
 // raycasting the chambers is too slow for every pointer event, so picks run once per frame in step()
 let pendingPick=null,tapAt=null;

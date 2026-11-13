@@ -3,7 +3,7 @@ import {app,state} from './state.js';
 import {taperTube} from './tubes.js';
 import {ctOvl,ctOvlMat} from './fluoro.js';
 import {CH_COL,chamberMaskMat,chamberNil} from './chambers.js';
-import {roomCTTree,roomCTCh,roomVesselMat,roomGhostMat,roomCathMat,roomCath,catName,beat,fitPatient} from './room.js';
+import {roomCTTree,roomCTCh,roomVesselMat,roomGhostMat,roomGhostEdge,roomCathMat,roomCath,catName,beat,fitPatient} from './room.js';
 import {labelsEl,LABELS} from './labels.js';
 import {heartFrame} from '../drr/heart.js';
 const V3=THREE.Vector3;
@@ -20,7 +20,7 @@ export const SCCT={1:'Proximal RCA',2:'Mid RCA',3:'Distal RCA',4:'R-PDA',5:'Left
   15:'L-PDA',16:'R-PLB',17:'Ramus intermedius',18:'L-PLB'};
 const SCCT_WHOLE={LM:5,D1:9,D2:10,OM1:12,OM2:14,IM:17,'R-PDA':4,'R-PLA':16,'L-PDA':15,'L-PLA':18};
 export const SEGN=[];       // {n, vessel index, from, to (sdist)} once the CT tree is loaded
-export const VES=[];        // CT vessels once loaded: {v, pts, room mesh, overlay mesh, overlay material}
+export const VES=[];        // CT vessels once loaded: {v, pts, room mesh, its ghost (the hidden part), overlay mesh, overlay material}
 export const CH=[];         // CT chambers and great vessels (TotalSegmentator): {s, overlay mesh, material, room mesh, room material}
 function buildScct(){
   const byLab=l=>VES.findIndex(e=>e.v.lab===l),origin=l=>{const i=byLab(l);return i<0?null:VES[i].v.sdist[0];};
@@ -66,9 +66,11 @@ export function addCT(scan){
   vessels.forEach(v=>{const pts=v.pts.map(p=>new V3(...p));if(pts.length<2)return;
     const r0=v.r[0],r1=v.r[v.r.length-1],col=(SEG[v.lab]||SEG.Other)[0];
     const room=new THREE.Mesh(taperTube(pts,Math.max(0.08,r0),Math.max(0.05,r1),0).geo,roomVesselMat[v.sys]);roomCTTree.add(room);
+    // where the heart hides it: a dark edge, then the dashed pale line over it (room.js)
+    const edge=new THREE.Mesh(room.geometry,roomGhostEdge);edge.renderOrder=3;room.add(edge);
     const ghost=new THREE.Mesh(room.geometry,roomGhostMat[v.sys]);ghost.renderOrder=4;room.add(ghost);
     const mat=ctOvlMat(col),ov=new THREE.Mesh(taperTube(pts,r0*0.35+0.025,r1*0.35+0.025,0).geo,mat);ov.visible=false;ctOvl.add(ov);
-    VES.push({v,pts,room,ov,mat});});
+    VES.push({v,pts,room,ghost,ov,mat});});
   buildScct();
   const segs=[...new Set(vessels.map(v=>v.lab))];
   app.ctLegend=segs.map(s=>`<span><i style="background:${(SEG[s]||SEG.Other)[0]}"></i>${s}</span>`).join('');

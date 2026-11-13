@@ -1,5 +1,5 @@
 // Labels on the fluoro image: HTML spans placed at projected anatomy points each frame.
-import {state,chOn,app} from './state.js';
+import {state,chOn,app,treeOn} from './state.js';
 import {built,CHAMBERS,P,ao,paPts} from './model.js';
 import {mon,anat,fcam} from './fluoro.js';
 import {heartForward} from '../drr/heart.js';
@@ -22,7 +22,7 @@ export function placeLabels(){
   LABELS.forEach(l=>{
     // vessel labels: the model's ('v') or, in DRR mode, the CT centrelines' ('d'), for both trees with the coronary
     // overlay; SCCT numbers ('sn') likewise; chamber labels with the chamber overlay: the model's ('c') or the CT's ('cc')
-    const drrOn=app.mode==='drr',tree=l.sys===state.inj||(state.ovV&&drrOn);
+    const drrOn=app.mode==='drr',tree=treeOn(l.sys);
     const show=(l.kind===(drrOn?'d':'v')&&state.labels&&tree)||(l.kind==='sn'&&drrOn&&state.segN&&tree)||
       (l.kind===(drrOn?'cc':'c')&&state.ovC&&(!l.ch||chOn[l.ch]!==false));
     if(!show){l.el.hidden=true;return;}
