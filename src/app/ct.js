@@ -1,9 +1,9 @@
 // The CT's own anatomy (coronary tree from ImageCAS-X, chambers from TotalSegmentator) in the overlay and the room.
-import {app} from './state.js';
+import {app,state} from './state.js';
 import {taperTube} from './tubes.js';
 import {ctOvl,ctOvlMat} from './fluoro.js';
 import {CH_COL,chamberMaskMat,chamberNil} from './chambers.js';
-import {roomCTTree,roomCTCh,roomVesselMat,roomCathMat,roomCath,catName} from './room.js';
+import {roomCTTree,roomCTCh,roomVesselMat,roomGhostMat,roomCathMat,roomCath,catName,beat,fitPatient} from './room.js';
 import {labelsEl,LABELS} from './labels.js';
 import {heartFrame} from '../drr/heart.js';
 const V3=THREE.Vector3;
@@ -38,12 +38,21 @@ function buildScct(){
     const el=document.createElement('span');el.className='lbl segn'+(v.sys==='R'?' r':'');el.textContent=g.n;el.title=SCCT[g.n];el.hidden=true;labelsEl.appendChild(el);
     LABELS.push({el,p:new V3(...v.pts[k]),kind:'sn',sys:v.sys});});
 }
+// The room's heart: solid (lit and opaque, like a model heart you can turn over; the aorta stays see-through, so the
+// catheter inside it shows) or see-through (every chamber translucent, so nothing hides anything). The LV's wall is
+// its outer surface when solid, and only a faint shell when see-through.
+export function styleHeart(){
+  CH.forEach(c=>{const m=c.roomMat,ao=c.s.id==='Ao',solid=state.solid;
+    m.transparent=!solid||ao;m.opacity=solid?(ao?0.5:1):(c.part?0.08:0.3);m.depthWrite=solid&&!ao;m.needsUpdate=true;});
+}
 export const scctAt=(vi,j)=>{const s=VES[vi].v.sdist[Math.min(j,VES[vi].v.sdist.length-1)];return SEGN.find(g=>g.i===vi&&s>=g.from-1e-6&&s<=g.to+1e-6);};
 
 // Adds a loaded scan's anatomy (loadScan()) to both views: the guide catheters in the room, the CT's coronary tree
 // (room tubes, overlay ribbons, labels, SCCT segments) and, if present, its chambers and great vessels.
 export function addCT(scan){
   const {meta,vessels,cath,chambers}=scan;
+  // the patient and the chest's bones, from the same landmarks as the synthetic chest in the image
+  if(scan.chest&&scan.chest.info.params)fitPatient(scan.chest.info.params,true);
   if(cath)for(const s of ['L','R'])if(cath[s]){const pts=cath[s].pts.map(p=>new V3(...p));
     const m=new THREE.Mesh(taperTube(pts,0.12,0.12,0).geo,roomCathMat);m.userData.side=s;roomCTTree.add(m);roomCath.push(m);catName[s]=cath[s].name;}
   // labels near the same spot along each centreline as drr.html; other points along it, nearest first, are
@@ -57,6 +66,7 @@ export function addCT(scan){
   vessels.forEach(v=>{const pts=v.pts.map(p=>new V3(...p));if(pts.length<2)return;
     const r0=v.r[0],r1=v.r[v.r.length-1],col=(SEG[v.lab]||SEG.Other)[0];
     const room=new THREE.Mesh(taperTube(pts,Math.max(0.08,r0),Math.max(0.05,r1),0).geo,roomVesselMat[v.sys]);roomCTTree.add(room);
+    const ghost=new THREE.Mesh(room.geometry,roomGhostMat[v.sys]);ghost.renderOrder=4;room.add(ghost);
     const mat=ctOvlMat(col),ov=new THREE.Mesh(taperTube(pts,r0*0.35+0.025,r1*0.35+0.025,0).geo,mat);ov.visible=false;ctOvl.add(ov);
     VES.push({v,pts,room,ov,mat});});
   buildScct();
@@ -74,11 +84,12 @@ export function addCT(scan){
     s.colour=myo?CH_COL.LV:CH_COL[s.id]||s.colour;   // left heart warm, right heart cool
     const chan=myo?lvK:k,sw=myo?'LV':s.id,mask=chamberMaskMat(chan),mat=mask,ov=new THREE.Mesh(g,chamberNil);
     ov.visible=false;ctOvl.add(ov);
-    const roomMat=new THREE.MeshStandardMaterial({color:s.colour,transparent:true,opacity:myo?0.08:0.3,depthWrite:false,side:THREE.DoubleSide,roughness:.8});
+    const roomMat=beat(new THREE.MeshStandardMaterial({color:myo?new THREE.Color(s.colour).multiplyScalar(0.82):s.colour,side:THREE.DoubleSide,roughness:.62}));
     const room=new THREE.Mesh(g,roomMat);roomCTCh.add(room);
     CH.push({s,ov,mat,mask,room,roomMat,chan,sw,part:myo});
     if(!myo){const el=document.createElement('span');el.className='lbl ch';el.textContent=s.id;el.hidden=true;labelsEl.appendChild(el);
       LABELS.push({el,p:new V3(...s.centroid_cm),kind:'cc',ch:s.id});}});
   if(scan.chAttr)app.attr+=' · '+scan.chAttr;
+  styleHeart();
   heartFrame(chambers);
 }

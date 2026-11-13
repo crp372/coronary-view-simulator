@@ -64,7 +64,8 @@
       <div class="row"><h2>Room</h2>
         <div class="seg" id="roomViewSeg" role="group" aria-label="Room camera">
           <button type="button" data-rv="room" aria-pressed="true">Whole room</button>
-          <button type="button" data-rv="heart" aria-pressed="false">Close on heart</button>
+          <button type="button" data-rv="heart" aria-pressed="false" title="Close on the heart: drag to turn it over">Heart</button>
+          <button type="button" data-rv="det" aria-pressed="false" title="The heart as the image shows it: looking back down the beam from the detector. Follows the C-arm.">From detector</button>
         </div>
       </div>
       <div class="room" id="room"><canvas id="roomc"></canvas><div class="legend" id="roomLegend"></div><span class="hint">Drag to orbit · scroll to zoom</span><div class="tip" id="roomTip" hidden></div></div>
@@ -138,6 +139,10 @@
         <button type="button" id="tFine" aria-pressed="true" hidden title="Branches finer than the CT can show, generated to look realistic; not this patient's anatomy">Fine branches (illustrative)</button>
         <button type="button" id="tBones" aria-pressed="true">Spine and ribs</button>
       </div>
+      <div class="seg" id="roomSeg">
+        <button type="button" id="tSolid" aria-pressed="true" hidden title="Room view: a solid heart you can turn over, or a see-through one where nothing hides anything">Solid heart</button>
+        <button type="button" id="tSkel" aria-pressed="true" hidden title="Room view: the spine, ribs, sternum and clavicles, placed where the image shows them (illustrative, not this patient's bones)">Skeleton</button>
+      </div>
       <p class="note">Hover or tap to name a structure · <button type="button" class="link" data-about="ovl">How to read the overlays</button></p>
     </details>
   </div>
@@ -168,7 +173,9 @@
   </ul>
   <h3>5. Look at the room</h3>
   <ul class="note">
-    <li><strong>Drag the room view</strong> to orbit around it and scroll to zoom. <em>Close on heart</em> moves the camera in on the heart inside the patient; <em>Whole room</em> goes back.</li>
+    <li><strong>Drag the room view</strong> to orbit around it and scroll to zoom. <em>Heart</em> moves the camera in on the heart inside the patient, where you can turn it over like a model; <em>Whole room</em> goes back.</li>
+    <li><strong>From detector</strong> shows the heart the way the image does: looking back down the beam, with the same side up. The square marks the image's field. This view follows the C-arm as you move it, so compare it with the image to see which side of the heart each artery runs on.</li>
+    <li>The heart is solid, and arteries on its far side show through faintly. Under Display, <strong>Solid heart</strong> switches to a see-through heart, and <strong>Skeleton</strong> hides the spine and ribs. The small figure in the corner shows which way the patient lies (R and L are the patient's right and left).</li>
   </ul>
   <h3>6. Try another heart</h3>
   <ul class="note">
@@ -197,6 +204,8 @@
   </ul>
   <h4>Reading them</h4>
   <p class="note">Brighter parts of an overlay are nearer the detector. Hover over or tap a structure, in the image or in the room view, to name it. Over a chamber, the label also lists everything else in the beam at that point, starting from the detector side.</p>
+  <h3>The room view</h3>
+  <p class="note">The heart and arteries in the room are the same CT segmentations as the overlays, and they beat with the image during a cine run. The patient's outline and the bones (spine, ribs, sternum and clavicles) are illustrative: they are drawn from the same landmarks as the synthetic chest in the image, so they sit where the image shows them, but they are not this patient's own. The C-arm and table are a simplified model.</p>
   <h3>Intended use</h3>
   <p class="note"><strong>This is a teaching tool, not a medical device.</strong> It is not for diagnosis, treatment or any other clinical use. It is free and non-commercial.</p>
   <h3 id="about-credits">Credits and licences</h3>

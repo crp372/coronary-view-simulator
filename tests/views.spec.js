@@ -17,10 +17,13 @@ const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, 
 let page;
 const errors = [];
 
+// the analytics beacon can't report from localhost, and its failures would count as page errors: serve it empty
+const noBeacon = p => p.route('**/*cloudflareinsights.com/**', r => r.fulfill({contentType: 'application/javascript', body: ''}));
 // opens a page and waits until its DRR (or fallback) is running and the fonts have loaded; hook: the page's
 // window.sim (index.html) or window.drr (drr.html)
 async function open(browser, path, hook = 'sim') {
   const p = await browser.newPage();
+  await noBeacon(p);
   p.on('pageerror', e => errors.push(String(e)));
   p.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   await p.goto(path);
@@ -99,13 +102,34 @@ test.describe('index.html, CT image', () => {
     await page.locator('#roomViewSeg [data-rv=heart]').click();
     await frame(page);
     await expect(page.locator('#room')).toHaveScreenshot('index-room-heart.png');
+    // from the detector: the heart as the image shows it; it follows the C-arm, so the orbit is off
+    await page.locator('#roomViewSeg [data-rv=det]').click();
+    await frame(page);
+    await expect(page.locator('#room .hint')).toContainText('follows the C-arm');
+    await expect(page.locator('#room')).toHaveScreenshot('index-room-detector.png');
+    await pressPreset(page, 'R', 'LAO');
+    await expect(page.locator('#room')).toHaveScreenshot('index-room-detector-R-lao.png');
+    await page.locator('#roomViewSeg [data-rv=heart]').click();
+    await frame(page);
+  });
+
+  // the room's heart: solid or see-through, and the chest's bones on or off
+  test('room view: see-through heart, no skeleton', async () => {
+    await setToggle(page, 'tSolid', false);
+    await setToggle(page, 'tSkel', false);
+    await frame(page);
+    await expect(page.locator('#room')).toHaveScreenshot('index-room-heart-see-through.png');
+    await setToggle(page, 'tSolid', true);
+    await setToggle(page, 'tSkel', true);
     await page.locator('#roomViewSeg [data-rv=room]').click();
+    await frame(page);
   });
 });
 
 // While the CT loads, the monitor shows a status, not the model heart; the room has no model on the table
 test('loading screen', async ({browser}) => {
   const p = await browser.newPage();
+  await noBeacon(p);
   let release;
   const held = new Promise(r => { release = r; });
   await p.route('**/ct.u8.gz', async route => { await held; await route.continue(); });

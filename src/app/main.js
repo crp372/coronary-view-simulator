@@ -7,7 +7,7 @@ import {drrSupport,createDRR} from '../drr/engine.js';
 import {drrCine} from '../drr/cine.js';
 import {HEART_U,heartForward} from '../drr/heart.js';
 import {mon,drrCv,fr,fScene,oScene,fcam,anat,ovl,sysGroups,bones,ovDir,cineStep} from './fluoro.js';
-import {rr,rScene,rcam,orbit,tableG,carm,holder,beamGeo,roomCath,roomCamStep} from './room.js';
+import {rr,rcam,tableG,carm,holder,setBeam,roomCath,roomCamStep,drawRoom} from './room.js';
 import {VES,CH,addCT} from './ct.js';
 import {renderChambers} from './chambers.js';
 import {placeLabels} from './labels.js';
@@ -30,9 +30,7 @@ function updateGeometry(){
   // beam: tube focal spot to the four detector corners, plus the detector outline
   const s=d.clone().multiplyScalar(-SOD),c=d.clone().multiplyScalar(SID-SOD),h=state.fov/2;
   const cn=[[1,1],[1,-1],[-1,-1],[-1,1]].map(([i,j])=>c.clone().addScaledVector(X,i*h).addScaledVector(t,j*h));
-  const arr=beamGeo.attributes.position.array;let k=0;const put=v=>{arr[k++]=v.x;arr[k++]=v.y;arr[k++]=v.z;};
-  cn.forEach(p=>{put(s);put(p);});for(let i=0;i<4;i++){put(cn[i]);put(cn[(i+1)%4]);}
-  beamGeo.attributes.position.needsUpdate=true;beamGeo.computeBoundingSphere();
+  setBeam(s,c,cn);
   sysGroups.L.visible=state.inj==='L';sysGroups.R.visible=state.inj==='R';
   ovDir.value.copy(d);
   VES.forEach((e,i)=>{e.ov.visible=state.ovV||app.hover===i;});
@@ -103,7 +101,7 @@ function step(now){
   }
   runPick();
   placeLabels();
-  roomCamStep(now);orbit.update();rr.render(rScene,rcam);
+  roomCamStep(now);drawRoom();
 }
 let paused=false;   // sim.pause(): checks drive the frames themselves
 function loop(now){if(!paused)step(now);requestAnimationFrame(loop);}

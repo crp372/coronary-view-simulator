@@ -4,8 +4,8 @@ import {PRESETS,angTxt} from '../presets.js';
 import {SID} from '../geometry.js';
 import {CHAMBERS} from './model.js';
 import {mon,fr,fluoroBg,modelOvl,ctOvl} from './fluoro.js';
-import {roomModelTree,roomCTTree,roomModelAnat,roomCTCh,roomCath,catName,setRoomView} from './room.js';
-import {CH} from './ct.js';
+import {roomModelTree,roomCTTree,roomModelAnat,roomCTCh,roomCath,catName,setRoomView,styleRoom,hasSkeleton} from './room.js';
+import {CH,styleHeart} from './ct.js';
 import {CH_SIDE} from './chambers.js';
 import {MODEL,heartHref} from '../hearts.js';
 
@@ -47,6 +47,7 @@ document.querySelectorAll('#roomViewSeg button').forEach(b=>b.addEventListener('
 function toggle(id,key,after){const b=$(id);b.addEventListener('click',()=>{state[key]=!state[key];b.setAttribute('aria-pressed',String(state[key]));after&&after();});}
 toggle('tOvV','ovV',refreshOverlayUI);toggle('tOvC','ovC',refreshOverlayUI);toggle('tSegN','segN');
 toggle('tLabels','labels');toggle('tBones','bones');toggle('tFine','fine',()=>{if(app.drr&&app.drr.hasFine)app.drr.setFine(state.fine);setMode();});toggle('tCath','cath',()=>syncUI());toggle('tMotion','motion');
+toggle('tSolid','solid',styleHeart);toggle('tSkel','skel',styleRoom);
 // legend: segment colours with the coronary overlay; with the chamber overlay, one chip per chamber to show or hide it
 export function refreshOverlayUI(){
   const drrOn=app.mode==='drr',lg=$('ovLegend');
@@ -82,6 +83,7 @@ export function setMode(){
   $('tFine').hidden=!(on&&app.drr&&app.drr.hasFine);
   $('tCath').hidden=!(on&&roomCath.length);
   $('tMotion').hidden=!on;
+  $('tSolid').hidden=!(on&&CH.length);$('tSkel').hidden=!hasSkeleton();   // room view: the CT heart's chambers, and the chest's bones
   refreshOverlayUI();
   // In the CT image: what is this patient's, then what is modelled or illustrative
   const fine=app.drr&&app.drr.hasFine&&state.fine,li=t=>`<li>${t}</li>`;

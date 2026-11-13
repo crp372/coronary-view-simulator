@@ -19,7 +19,7 @@ Then open http://localhost:8000/. (`tools/serve.py` is Python's `http.server` pl
 ### Code layout
 - `src/drr/`: the DRR engine, shared by both pages. `engine.js` (WebGL2 passes), `shaders.js`, `tune.js` (image constants, `TUNE`), `data.js` (`loadScan()` for a `data/web/<id>/` export), `heart.js` (cardiac motion, GLSL and its CPU twin), `cine.js` (the cine run).
 - `src/geometry.js` (projection conventions, `dirs()`, `drrView()`) and `src/presets.js`, shared by both pages.
-- `src/app/`: `index.html`'s modules. `main.js` is the entry point (start-up, frame loop, `window.sim`); `state.js` holds the shared state; then `model.js` (model heart), `fluoro.js` (Three.js image and overlay), `ct.js` (the CT's tree and chambers), `labels.js`, `room.js`, `ui.js` (controls, presets, `setMode()`), `pointer.js` (pan and hover). Styles are in `app.css`.
+- `src/app/`: `index.html`'s modules. `main.js` is the entry point (start-up, frame loop, `window.sim`); `state.js` holds the shared state; then `model.js` (model heart), `fluoro.js` (Three.js image and overlay), `ct.js` (the CT's tree and chambers), `labels.js`, `room.js`, `patient.js` (the room's patient and skeleton), `ui.js` (controls, presets, `setMode()`), `pointer.js` (pan and hover). Styles are in `app.css`.
 - `src/drr-page.js`: `drr.html`'s page script. `src/hearts.js` reads the heart list (`data/web/hearts.json`) for both pages.
 
 ### Screenshot checks
@@ -69,12 +69,15 @@ They open both pages in headless Chromium, show every preset, the overlays, a ci
 - 3D view of the room, with the X-ray beam cone between tube and detector:
   - **C-arm:** a floor-standing unit at the head end. A column and horizontal arm carry a holder that turns with LAO/RAO; the arc slides through it for cranial/caudal.
   - **Imaging chain:** a flat-panel detector housing with its active area, and the X-ray tube with its collimator under the table.
-  - **Table and patient:** a table on a pedestal at the foot end, with a translucent patient (shaped torso, head, neck, arms, legs). The heart and coronary tree are visible inside.
-  - **Anatomy in DRR mode:** the tree and the translucent chambers, aorta and PA are the CT's own (from `vessels.json` and the TotalSegmentator meshes).
-- **Camera:** "Whole room" or "Close on heart".
-  - The close view moves in to the heart from the current viewing direction, fades the skin, and follows the heart when the table moves.
-  - Drag to orbit, scroll to zoom.
-- Left coronary in silver-white on the fluoro image (lavender blue in the room view), right coronary in cyan. In DRR mode, hovering over a vessel or chamber highlights it in white, names it, and highlights it in the fluoro image too. Chambers are easiest to hover in the close view.
+  - **Table and patient:** a table on a pedestal at the foot end, with a translucent patient (a smooth body shaped to each scan's chest width, lying with the heart at the isocentre, so the body and table sit to one side). Words mark the head, feet and the patient's right and left, and a small figure in the corner turns with the camera.
+  - **Skeleton (CT hearts):** spine, ribs with costal cartilages, sternum and clavicles, built in the browser from the landmarks in `chest.json` (the same ones the synthetic chest in the image uses), so the bones sit where the image shows them and nothing extra is downloaded. Illustrative, not the patient's own bones. A "Skeleton" button hides them.
+  - **Anatomy in DRR mode:** the tree, chambers, aorta and PA are the CT's own (from `vessels.json` and the TotalSegmentator meshes). The heart is solid and lit, with the LV's wall as its outer surface; arteries on the far side show through faintly, and the aorta stays see-through so the catheter shows. A "Solid heart" button switches to a see-through heart. The heart, arteries and catheter beat with the image during a cine run.
+  - **Beam:** a faint cone with its edges, the field's outline on the detector and the central ray.
+- **Camera:** "Whole room", "Heart" or "From detector".
+  - The heart view moves in to the heart from the current viewing direction, fades the skin and bones, and follows the heart when the table moves.
+  - "From detector" looks back down the beam at the isocentre with the image's "up", so the heart is seen the way the image shows it (patient's left on screen right in AP). A square marks the image's field. It follows the C-arm, so it can't be orbited; scroll zooms.
+  - In the other two, drag to orbit, scroll to zoom.
+- Left coronary in silver-white on the fluoro image (lavender blue in the room view), right coronary in cyan. In DRR mode, hovering over a vessel or chamber highlights it in white, names it, and highlights it in the fluoro image too. Chambers are easiest to hover in the heart view.
 
 ### Injection and display
 - Switch between left and right coronary injection.

@@ -71,7 +71,7 @@ export function setHover(target,tipEl,cx,cy){
 function monPick(cx,cy){const p=pickVessel(fcam,mon,cx,cy,e=>state.ovV||e.v.sys===state.inj);if(p)return {v:p.i,pt:p.j};
   if(!state.ovC)return null;const c=pickChambers(fcam,mon,cx,cy,'ov',true);return c.length?{c}:null;}
 // the room shows the heart small, so vessels need a tighter radius or they'd hide the chambers
-function roomPick(cx,cy){const p=pickVessel(rcam,rCanvas,cx,cy,null,app.roomView==='heart'?9:4);if(p)return {v:p.i,pt:p.j};
+function roomPick(cx,cy){const p=pickVessel(rcam,rCanvas,cx,cy,null,app.roomView==='room'?4:9);if(p)return {v:p.i,pt:p.j};
   const c=pickChambers(rcam,rCanvas,cx,cy,'room',false);return c.length?{c:c.slice(0,1)}:null;}
 // raycasting the chambers is too slow for every pointer event, so picks run once per frame in step()
 let pendingPick=null,tapAt=null;
