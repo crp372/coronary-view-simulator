@@ -148,6 +148,35 @@
   </div>
 </div>
 
+<!-- first-run tour (src/app/tour.js): a card beside a ring round each step's target; the page stays usable -->
+<div id="tourRing" hidden></div>
+<section id="tour" role="dialog" aria-labelledby="tourTitle" aria-describedby="tourText" hidden>
+  <h3 id="tourTitle"></h3>
+  <p id="tourText"></p>
+  <div class="tfoot"><span id="tourCount"></span><button type="button" class="link" id="tourSkip">Skip tour</button><button type="button" id="tourNext">Next</button></div>
+</section>
+<!-- The tour's words, one card each, in order: edit the heading and the text freely (the text may use <strong> and <em>).
+     What each card points at is set in src/app/tour.js: 1 the views keypad, 2 an artery in the image, with its hover
+     label showing, 3 the Display group's toggles (the group is opened), 4 the ? and About this image buttons. Keep the text short: the card is 320 px wide. -->
+<template id="tourSteps">
+  <div>
+    <h3>Choose a view</h3>
+    <p>Each key swings the C-arm to a standard projection and picks the injection side. The line under the keys says what the view is best for.</p>
+  </div>
+  <div>
+    <h3>Name what you see</h3>
+    <p>Hover over an artery, or tap it, to name it. The artery you point at lights up in the room view too.</p>
+  </div>
+  <div>
+    <h3>Turn on the overlays</h3>
+    <p>Use these toggles to overlay the whole coronary tree, the chambers, vessel labels and SCCT segment numbers. Try them on any view.</p>
+  </div>
+  <div>
+    <h3>Find out more</h3>
+    <p>The ? button opens How to use, and explains every control you can find in the right pane. About this image explains where the image comes from and how to read the overlays.</p>
+  </div>
+</template>
+
 <dialog id="help" aria-labelledby="helpTitle">
   <form method="dialog" class="dlghead"><h2 id="helpTitle">How to use</h2><button type="submit" aria-label="Close">Close</button></form>
   <p>You're at the controls of a virtual cath lab. The big square is the fluoro monitor; the room view on the right shows where the C-arm and table are.</p>
@@ -184,6 +213,7 @@
   </ul>
   <h3>Tips</h3>
   <ul class="note">
+    <li>New here? <button type="button" class="link" id="tourBtn">Show the tour</button>: four short steps through the views, naming what you see, the overlays, and where to find out more.</li>
     <li>Table and Display start collapsed: click a group's title to open or close it. Groups stay as you leave them. The room view keeps its size when you open more groups, so scroll the right-hand side to reach the lower ones; closing groups gives the room view more space.</li>
     <li><strong>Full screen</strong>, or press <kbd>F</kbd>, hides the browser around the simulator.</li>
     <li>To learn where the image comes from and how to read the overlays, see <button type="button" class="link" data-about="">About this image</button>.</li>

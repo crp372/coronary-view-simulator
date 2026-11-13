@@ -18,12 +18,15 @@ let page;
 const errors = [];
 
 // the analytics beacon can't report from localhost, and its failures would count as page errors: serve it empty
+// the first-run tour would cover the views: mark it seen, except in its own check
+const noTour = p => p.addInitScript(() => { try { if (!location.search.includes('tour')) localStorage.setItem('cvs.tour', '1'); } catch (e) {} });
 const noBeacon = p => p.route('**/*cloudflareinsights.com/**', r => r.fulfill({contentType: 'application/javascript', body: ''}));
 // opens a page and waits until its DRR (or fallback) is running and the fonts have loaded; hook: the page's
 // window.sim (index.html) or window.drr (drr.html)
 async function open(browser, path, hook = 'sim') {
   const p = await browser.newPage();
   await noBeacon(p);
+  await noTour(p);
   p.on('pageerror', e => errors.push(String(e)));
   p.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   await p.goto(path);
@@ -130,6 +133,7 @@ test.describe('index.html, CT image', () => {
 test('loading screen', async ({browser}) => {
   const p = await browser.newPage();
   await noBeacon(p);
+  await noTour(p);
   let release;
   const held = new Promise(r => { release = r; });
   await p.route('**/ct.u8.gz', async route => { await held; await route.continue(); });
@@ -349,4 +353,46 @@ test.describe('layout', () => {
     await page.evaluate(() => window.sim.ready);
     expect(await page.evaluate(() => window.sim.mode)).toBe('drr');
   });
+});
+
+// The first-run tour: four steps on a first visit, then never again; "Show the tour" in How to use runs it again
+test('first-run tour', async ({browser}) => {
+  const p = await browser.newPage({viewport: {width: 1440, height: 900}});
+  await noBeacon(p);
+  await p.goto('/?tour');
+  await p.waitForFunction(() => window.sim && window.sim.ready);
+  await p.evaluate(() => Promise.all([window.sim.ready, document.fonts.ready]));
+  const card = p.locator('#tour');
+  await expect(card).toBeVisible();
+  await expect(p.locator('#tourCount')).toHaveText('1 of 4');
+  await expect(p.locator('#tourNext')).toBeFocused();
+  await p.locator('#tourNext').click();
+  // step 2 names a real artery, as hovering would
+  await expect(p.locator('#tourTitle')).toHaveText('Name what you see');
+  await expect(p.locator('#monTip')).toBeVisible();
+  await p.evaluate(() => window.sim.frame(0));
+  await expect(p).toHaveScreenshot('tour-step-2.png');
+  await p.locator('#tourNext').click();
+  // step 3 opens Display, where the overlays are
+  await expect(p.locator('details[data-grp=disp]')).toHaveJSProperty('open', true);
+  await expect(p.locator('#tOvV')).toBeInViewport();
+  await p.locator('#tourNext').click();
+  // step 4 points at How to use and About
+  await expect(p.locator('#tourTitle')).toHaveText('Find out more');
+  await expect(p.locator('#tourNext')).toHaveText('Done');
+  await p.locator('#tourNext').click();
+  await expect(card).toBeHidden();
+  await expect(p.locator('#monTip')).toBeHidden();
+  // seen: not on the next visit
+  await p.reload();
+  await p.evaluate(() => window.sim.ready);
+  await expect(card).toBeHidden();
+  // but How to use can run it again, and Escape ends it
+  await p.locator('#helpBtn').click();
+  await p.locator('#tourBtn').click();
+  await expect(p.locator('#help')).toBeHidden();
+  await expect(p.locator('#tourCount')).toHaveText('1 of 4');
+  await p.keyboard.press('Escape');
+  await expect(card).toBeHidden();
+  await p.close();
 });

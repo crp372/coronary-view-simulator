@@ -14,6 +14,7 @@ import {placeLabels} from './labels.js';
 import {syncUI,setMode,fillHearts} from './ui.js';
 import {runPick} from './pointer.js';
 import {loadHearts} from '../hearts.js';
+import {startTour} from './tour.js';
 const V3=THREE.Vector3;
 
 function updateGeometry(){
@@ -119,3 +120,4 @@ window.sim={state,chOn,tune:TUNE,heart:HEART_U,heartForward,get mode(){return ap
   advanceCine(at){drrCine(app.cine,at,state.motion);if(app.cine&&app.cine.done)app.cine=null;},
   pause(on=true){paused=on;}};
 setMode();window.sim.ready=startDRR();requestAnimationFrame(loop);
+window.sim.ready.then(()=>startTour(false));   // first visit: once the CT image is up
