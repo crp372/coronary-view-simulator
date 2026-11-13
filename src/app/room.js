@@ -34,7 +34,7 @@ const camT=ROOM_CAM.target.clone();   // what the camera looks at
 let camTween=null;const lastOff=new V3();
 function detPose(){const {d,t}=dirs(state.lao,state.cra),field=state.fov*SOD/SID/DET.zoom;
   return {pos:d.multiplyScalar(field/2/Math.tan(DET.fov*deg/2)/Math.min(1,rcam.aspect)),up:t};}
-const HINTS={room:'Drag to orbit · scroll to zoom',heart:'Drag to orbit · scroll to zoom',det:'As in the image (square) · follows the C-arm'};
+const HINTS={room:'Drag to orbit · pinch to zoom',heart:'Drag to orbit · pinch to zoom',det:'As in the image (square) · follows the C-arm'};
 export function setRoomView(v){
   app.roomView=v;document.querySelectorAll('#roomViewSeg button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.rv===v)));
   document.querySelector('#room .hint').textContent=HINTS[v];
@@ -66,7 +66,28 @@ export function roomCamStep(now){
   rcam.near=det?Math.max(NEAR,rcam.position.distanceTo(camT)-DET.clip):NEAR;rcam.updateProjectionMatrix();
   carm.visible=beam.visible=cone.visible=!det;field.visible=det;
 }
-rCanvas.addEventListener('wheel',e=>{if(app.roomView!=='det')return;e.preventDefault();DET.zoom=Math.max(0.5,Math.min(4,DET.zoom*(e.deltaY>0?1/1.1:1.1)));},{passive:false});
+// Zoom is by pinch only, so that scrolling with the pointer over the room scrolls the rail like anywhere else.
+// k > 1 moves away. On a touch screen two fingers pinch (the orbit's own handling, or pinchDet from the detector);
+// a trackpad pinch reaches the page as a wheel event with ctrlKey (so Ctrl + scroll works for a mouse), and in Safari
+// as gesture events. Plain wheel events are kept from the orbit controls and left to the browser.
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function zoomBy(k){
+  if(app.roomView==='det')DET.zoom=clamp(DET.zoom/k,0.5,4);
+  else if(orbit.enabled){const off=rcam.position.clone().sub(orbit.target),d=clamp(off.length()*k,orbit.minDistance,orbit.maxDistance);
+    rcam.position.copy(orbit.target).addScaledVector(off.normalize(),d);}
+}
+const roomEl=rCanvas.parentElement;
+roomEl.addEventListener('wheel',e=>{e.stopPropagation();if(!e.ctrlKey)return;e.preventDefault();zoomBy(Math.exp(clamp(e.deltaY,-50,50)*0.01));},{capture:true,passive:false});
+let gScale=1;
+roomEl.addEventListener('gesturestart',e=>{e.preventDefault();gScale=e.scale||1;});
+roomEl.addEventListener('gesturechange',e=>{e.preventDefault();const s=e.scale||1;zoomBy(gScale/s);gScale=s;});
+// from the detector the orbit is off, so two fingers are followed here
+const touches=new Map();let pinch0=0;
+const spread=()=>{const [a,b]=[...touches.values()];return Math.hypot(a.x-b.x,a.y-b.y);};
+rCanvas.addEventListener('pointerdown',e=>{if(e.pointerType!=='touch')return;touches.set(e.pointerId,{x:e.clientX,y:e.clientY});if(touches.size===2)pinch0=spread();});
+rCanvas.addEventListener('pointermove',e=>{if(!touches.has(e.pointerId))return;touches.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(touches.size===2&&app.roomView==='det'){const s=spread();if(pinch0>0&&s>0)zoomBy(pinch0/s);pinch0=s;}});
+['pointerup','pointercancel'].forEach(t=>rCanvas.addEventListener(t,e=>{touches.delete(e.pointerId);}));
 rScene.add(new THREE.HemisphereLight(0xdfe8ee,0x2a2f33,0.85));
 const dl=new THREE.DirectionalLight(0xffffff,0.6);dl.position.set(120,220,-80);rScene.add(dl);
 // a light from the camera, so the side of the heart you're looking at is never in shadow
@@ -103,9 +124,6 @@ export function fitPatient(p,bones){
   const floor=-106,top=y-3.8;
   add(new THREE.BoxGeometry(30,top-floor,40),tableMat,x,(top+floor)/2,116);         // pedestal, at the foot end
   add(new THREE.BoxGeometry(60,4,76),tableMat,x,-108,116);
-  // which way the patient lies: words by the head and feet, and at the patient's right and left
-  [['Head',x,y+26,-40],['Feet',x,y+20,138],['Patient’s right',x-p.body_a-18,y+9,6],['Patient’s left',x+p.body_a+18,y+9,6]]
-    .forEach(([t,px,py,pz])=>{const s=word(t,5.5);s.position.set(px,py,pz);s.userData.word=true;tableTop.add(s);});
   styleRoom();
 }
 // skin and bones fade in the close views, so they don't wash the heart out; the Skeleton switch hides the bones
@@ -114,7 +132,6 @@ export function styleRoom(){
   skin.opacity=close?0.05:0.24;
   boneMat.opacity=cartMat.opacity=close?0.07:1;boneMat.depthWrite=cartMat.depthWrite=!close;
   if(skelG)skelG.visible=state.skel;
-  if(tableTop)tableTop.children.forEach(o=>{if(o.userData.word)o.visible=!close;});   // the words are for the whole room; close up, the corner figure does it
 }
 export const hasSkeleton=()=>!!skelG;
 // model chambers and aorta; hidden with the CT, which they don't match

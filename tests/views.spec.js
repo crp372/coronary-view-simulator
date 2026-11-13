@@ -188,7 +188,8 @@ test.describe('drr.html', () => {
   });
 });
 
-// The layout: one screen with nothing cut off, at common laptop and desktop sizes (phones scroll in one column)
+// The layout: one screen with nothing cut off, at common laptop and desktop sizes (phones scroll in one column),
+// with the control groups as they start. Opening more groups scrolls the rail; the room view keeps its height.
 test.describe('layout', () => {
   test.beforeAll(async ({browser}) => { page = await open(browser, '/'); });
   test.afterAll(async () => { await page.close(); expect(errors).toEqual([]); });
@@ -207,6 +208,40 @@ test.describe('layout', () => {
       expect(m.mon).toBeGreaterThan(Math.min(w, h) * 0.6);
     });
   }
+
+  test('opening more groups scrolls the rail, and the room keeps its height', async () => {
+    await page.setViewportSize({width: 1440, height: 900});
+    const m = () => page.evaluate(() => ({room: document.getElementById('room').clientHeight, rail: (e => e.scrollHeight - e.clientHeight)(document.querySelector('.rail')),
+      page: document.documentElement.scrollHeight - innerHeight}));
+    const setAll = open => page.evaluate(open => document.querySelectorAll('details.grp').forEach(d => { if (open || !['carm', 'inj'].includes(d.dataset.grp)) d.open = open; }), open);
+    const before = await m();
+    await setAll(true);
+    const after = await m();
+    expect(Math.abs(after.room - before.room)).toBeLessThanOrEqual(3);
+    expect(after.rail).toBeGreaterThan(100);
+    expect(after.page).toBe(0);
+    await setAll(false);
+    expect((await m()).rail).toBeLessThanOrEqual(1);
+  });
+
+  // zoom in the room is by pinch only (a trackpad pinch arrives as a wheel event with Ctrl), so a plain wheel
+  // over it is left to scroll the rail
+  test('room view: a plain wheel does not zoom, a pinch does', async () => {
+    // how far the room's camera is from the isocentre
+    const dist = async () => { await frame(page); return page.evaluate(() => Math.hypot(...window.sim.roomCam.pos)); };
+    const r = await page.locator('#room').boundingBox();
+    await page.mouse.move(r.x + r.width / 2, r.y + r.height / 2);
+    const a = await dist();
+    await page.mouse.wheel(0, 300);
+    expect(await dist()).toBeCloseTo(a, 3);
+    await page.keyboard.down('Control');
+    await page.mouse.wheel(0, 300);
+    await page.keyboard.up('Control');
+    expect(await dist()).toBeGreaterThan(a * 1.1);
+    await page.locator('#roomViewSeg [data-rv=room]').click();   // back to the whole room's own distance
+    await frame(page);
+    await page.mouse.move(5, 5);
+  });
 
   test('whole page, 1440×900', async () => {
     await page.setViewportSize({width: 1440, height: 900});
@@ -231,6 +266,31 @@ test.describe('layout', () => {
     await page.evaluate(() => window.sim.ready);
     await expect(page.locator('details[data-grp=table]')).toHaveJSProperty('open', true);
     await page.locator('details[data-grp=table] summary').click();
+  });
+
+  // the room view and the image swap places (the button in the room's corner, or R), and still fit one screen
+  test('room view swaps with the image', async () => {
+    const sizes = () => page.evaluate(() => ({room: document.getElementById('room').clientWidth, mon: document.getElementById('monitor').clientWidth,
+      inStage: !!document.querySelector('.stage #room'), page: document.documentElement.scrollHeight - innerHeight,
+      rail: (e => e.scrollHeight - e.clientHeight)(document.querySelector('.rail'))}));
+    const before = await sizes();
+    expect(before.inStage).toBe(false);
+    await page.locator('#swapBtn').click();
+    const after = await sizes();
+    expect(after).toMatchObject({inStage: true, page: 0});
+    expect(after.rail).toBeLessThanOrEqual(1);
+    expect(after.room).toBeGreaterThan(before.room * 1.1);
+    expect(after.mon).toBeGreaterThan(200);
+    await expect(page.locator('#swapBtn')).toHaveAttribute('aria-pressed', 'true');
+    // the camera buttons go with the room, and the panel is named for the image it now holds
+    await expect(page.locator('.roompanel h2')).toHaveText('Image');
+    await expect(page.locator('.stage #room #roomViewSeg')).toBeVisible();
+    await frame(page);
+    await expect(page).toHaveScreenshot('layout-swapped-1280x900.png');
+    await page.keyboard.press('r');
+    expect((await sizes()).inStage).toBe(false);
+    await expect(page.locator('.roompanel h2')).toHaveText('Room');
+    await expect(page.locator('.roompanel .row #roomViewSeg')).toBeVisible();
   });
 
   test('full screen: the button and F', async () => {

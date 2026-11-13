@@ -104,7 +104,7 @@ export function setMode(){
     :`<p><strong>You are seeing a simplified model heart</strong>, because ${esc(app.why)}.</p>`;
   // the author and licence stay on the page; the rest is in About
   const ss=$('srcShort');ss.hidden=false;
-  ss.innerHTML='Made by <a href="https://chiranpandey.com/">Chiran Pandey</a><br>Non-commercial use only&nbsp;·&nbsp;<button type="button" class="link" data-about="credits">More</button>';
+  ss.innerHTML='Made by <a href="https://chiranpandey.com/">Chiran Pandey</a>&nbsp;&nbsp;·&nbsp;&nbsp;Non-commercial use only&nbsp;&nbsp;·&nbsp;&nbsp;<button type="button" class="link" data-about="credits">Credits and licences</button>';
   syncUI();
 }
 
@@ -151,8 +151,25 @@ const fsBtn=$('fsBtn'),fsOn=()=>!!document.fullscreenElement;
 const toggleFs=()=>{if(fsOn())document.exitFullscreen();else document.documentElement.requestFullscreen().catch(e=>console.info('No full screen:',e.message||e));};
 if(document.fullscreenEnabled){fsBtn.hidden=false;fsBtn.addEventListener('click',toggleFs);}
 document.addEventListener('fullscreenchange',()=>{fsBtn.setAttribute('aria-pressed',String(fsOn()));fsBtn.textContent=fsOn()?'Exit full screen':'Full screen';});
-document.addEventListener('keydown',e=>{if((e.key==='f'||e.key==='F')&&!e.metaKey&&!e.ctrlKey&&!e.altKey&&document.fullscreenEnabled&&
-  !e.target.closest('input[type=text],input[type=search],textarea,select,[contenteditable],#heartSel')&&!about.open&&!help.open){e.preventDefault();toggleFs();}});
+document.addEventListener('keydown',e=>{const k=e.key.toLowerCase();if((k!=='f'&&k!=='r')||e.metaKey||e.ctrlKey||e.altKey||about.open||help.open||
+    e.target.closest('input[type=text],input[type=search],textarea,select,[contenteditable],#heartSel'))return;
+  if(k==='r'){e.preventDefault();$('swapBtn').click();}
+  else if(document.fullscreenEnabled){e.preventDefault();toggleFs();}});
+// The room view and the image can swap places: the room in the centre, the image in the rail's slot (the button in the
+// room's corner, or R). The elements themselves move, so their canvases and listeners carry on; remembered per browser.
+const swapBtn=$('swapBtn'),SWAP_KEY='cvs.swap';
+function setSwap(on){
+  const room=$('room'),stage=document.querySelector('.stage'),slot=$('railSlot');
+  if(on){stage.appendChild(room);slot.appendChild(mon);}else{stage.appendChild(mon);slot.appendChild(room);}
+  // the camera buttons go with the room view, and the panel is named for what it holds
+  const head=document.querySelector('.roompanel .row');(on?room:head).appendChild($('roomViewSeg'));head.querySelector('h2').textContent=on?'Image':'Room';
+  const t=on?'Return the room view to the side panel':'Enlarge the room view';
+  swapBtn.setAttribute('aria-pressed',String(on));swapBtn.setAttribute('aria-label',t);swapBtn.title=t+' (R)';
+  try{localStorage.setItem(SWAP_KEY,on?'1':'');}catch(e){}
+}
+const swapped=()=>swapBtn.getAttribute('aria-pressed')==='true';
+swapBtn.addEventListener('click',()=>setSwap(!swapped()));
+try{if(localStorage.getItem(SWAP_KEY))setSwap(true);}catch(e){}
 // which control groups are open, per browser (storage may be unavailable, e.g. in a private window)
 const GRP_KEY='cvs.groups';
 let open={};try{open=JSON.parse(localStorage.getItem(GRP_KEY))||{};}catch(e){}

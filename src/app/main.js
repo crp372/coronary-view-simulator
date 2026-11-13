@@ -109,6 +109,7 @@ function loop(now){if(!paused)step(now);requestAnimationFrame(loop);}
 
 // for automated checks; frame() renders one frame without rAF, which stops while the page is hidden
 window.sim={state,chOn,tune:TUNE,heart:HEART_U,heartForward,get mode(){return app.mode;},get drr(){return app.drr;},get cine(){return app.cine;},
+  get roomCam(){return {pos:rcam.position.toArray(),fov:rcam.fov};},   // the room view's camera, for checks
   set(o){Object.assign(state,o);app.tween=null;syncUI();if(app.drr)app.drr.invalidate();},
   // frame(at): render one frame as if the clock read `at` ms (default now), for deterministic checks
   frame(at){const t0=performance.now();step(at??t0);if(app.drr)app.drr.finish();return performance.now()-t0;},

@@ -68,7 +68,7 @@
           <button type="button" data-rv="det" aria-pressed="false" title="The heart as the image shows it: looking back down the beam from the detector. Follows the C-arm.">From detector</button>
         </div>
       </div>
-      <div class="room" id="room"><canvas id="roomc"></canvas><div class="legend" id="roomLegend"></div><span class="hint">Drag to orbit · scroll to zoom</span><div class="tip" id="roomTip" hidden></div></div>
+      <div class="slot" id="railSlot"><div class="room" id="room"><canvas id="roomc"></canvas><button type="button" id="swapBtn" class="icon" aria-pressed="false" aria-label="Enlarge the room view" title="Enlarge the room view (R)"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9"/></svg></button><div class="legend" id="roomLegend"></div><span class="hint">Drag to orbit · pinch to zoom</span><div class="tip" id="roomTip" hidden></div></div></div>
     </section>
 
     <details class="panel grp" data-grp="carm" open>
@@ -153,7 +153,7 @@
   <p>You're at the controls of a virtual cath lab. The big square is the fluoro monitor; the room view on the right shows where the C-arm and table are.</p>
   <h3>1. Choose a view</h3>
   <ul class="note">
-    <li><strong>Pick a standard view</strong> from the list on the left (left coronary views at the top, right coronary below). The C-arm swings there and the injection side switches to match. Below the list, the current view is named with what it's best for.</li>
+    <li><strong>Pick a standard view</strong> from the keys under the image. Left coronary views come first, caudal on the top row and cranial below, each in the order RAO, AP, LAO; right coronary views are on the last row. The C-arm swings there and the injection side switches to match. The line under the keys names the current view and what it's best for.</li>
     <li><strong>Or set your own angle</strong> with the C-arm sliders: <em>Rotation</em> from RAO to LAO, <em>Angulation</em> from caudal to cranial. <em>Field of view</em> zooms the image (a smaller field is a bigger image).</li>
   </ul>
   <h3>2. Inject and run a cine</h3>
@@ -173,7 +173,8 @@
   </ul>
   <h3>5. Look at the room</h3>
   <ul class="note">
-    <li><strong>Drag the room view</strong> to orbit around it and scroll to zoom. <em>Heart</em> moves the camera in on the heart inside the patient, where you can turn it over like a model; <em>Whole room</em> goes back.</li>
+    <li><strong>Drag the room view</strong> to orbit around it, and pinch to zoom (two fingers on a trackpad or touch screen; with a mouse, hold <kbd>Ctrl</kbd> and scroll). <em>Heart</em> moves the camera in on the heart inside the patient, where you can turn it over like a model; <em>Whole room</em> goes back.</li>
+    <li><strong>Enlarge the room view</strong> with the arrows button in its corner, or press <kbd>R</kbd>: it swaps places with the image, which moves to the side panel. Press it again to swap back.</li>
     <li><strong>From detector</strong> shows the heart the way the image does: looking back down the beam, with the same side up. The square marks the image's field. This view follows the C-arm as you move it, so compare it with the image to see which side of the heart each artery runs on.</li>
     <li>The heart is solid, and arteries on its far side show through faintly. Under Display, <strong>Solid heart</strong> switches to a see-through heart, and <strong>Skeleton</strong> hides the spine and ribs. The small figure in the corner shows which way the patient lies (R and L are the patient's right and left).</li>
   </ul>
@@ -183,7 +184,7 @@
   </ul>
   <h3>Tips</h3>
   <ul class="note">
-    <li>Table and Display start collapsed: click a group's title to open or close it. Groups stay as you leave them, and closing the ones you aren't using gives the room view more space.</li>
+    <li>Table and Display start collapsed: click a group's title to open or close it. Groups stay as you leave them. The room view keeps its size when you open more groups, so scroll the right-hand side to reach the lower ones; closing groups gives the room view more space.</li>
     <li><strong>Full screen</strong>, or press <kbd>F</kbd>, hides the browser around the simulator.</li>
     <li>To learn where the image comes from and how to read the overlays, see <button type="button" class="link" data-about="">About this image</button>.</li>
   </ul>

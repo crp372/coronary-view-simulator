@@ -36,11 +36,11 @@ They open both pages in headless Chromium, show every preset, the overlays, a ci
 ## What it does
 
 ### Layout
-- **One screen, no page scrolling** on laptops and desktops: standard views on the left, the fluoro monitor as large as the window allows in the middle, and a right rail with the room view and the controls.
-- **Collapsible control groups** (C-arm, Table, Injection, Display). C-arm and Injection start open, Table and Display collapsed. The room view takes whatever height the open groups leave. Which groups are open is remembered in this browser.
+- **One screen, no page scrolling** on laptops and desktops, in two columns (55 / 45; 60 / 40 under 1200 px wide). Left: the fluoro monitor as large as the window's height allows, with the standard views under it as a keypad of equal keys (left coronary caudal views on the first row, cranial on the second, each RAO, AP, LAO, with the lateral beside them; right coronary views on the third), then the current view on one line, then the credit. Right: the room view and the controls.
+- **Collapsible control groups** (C-arm, Table, Injection, Display). C-arm and Injection start open, Table and Display collapsed. The room view keeps the height that leaves it; opening more groups doesn't squeeze it, the right column scrolls instead, and closing groups lets it grow. Which groups are open is remembered in this browser.
 - **Full screen** for the whole app (button in the top bar, or press F; Esc leaves). Hidden where the browser can't do it, e.g. iPhone Safari, and some embedded previews block it.
 - **About this image** (top bar) holds the longer notes: where the image comes from (what is this patient's and what is modelled or illustrative), how to read the overlays, intended use, and credits. On the page, the "Fine branches (illustrative)" switch marks the generated branches, and a line under the presets says "Made by Chiran Pandey" (linked to chiranpandey.com) and "Non-commercial use only", with a link to the credits.
-- Narrower windows (920–1199 px) keep the three columns with a slimmer presets column; phones, and windows under 560 px tall, scroll in one column.
+- Narrower windows (920–1399 px) wrap the keypad's headings onto two lines; phones, and windows under 560 px tall, scroll in one column, with the keys two to a row.
 
 ### Choosing a heart
 - The **Heart** dropdown lists the hearts in `data/web/hearts.json`, plus the simplified model heart. Choosing one reloads the page with `?heart=<id>` (or `?model`). `drr.html` reads `?heart=` too.
@@ -73,10 +73,11 @@ They open both pages in headless Chromium, show every preset, the overlays, a ci
   - **Skeleton (CT hearts):** spine, ribs with costal cartilages, sternum and clavicles, built in the browser from the landmarks in `chest.json` (the same ones the synthetic chest in the image uses), so the bones sit where the image shows them and nothing extra is downloaded. Illustrative, not the patient's own bones. A "Skeleton" button hides them.
   - **Anatomy in DRR mode:** the tree, chambers, aorta and PA are the CT's own (from `vessels.json` and the TotalSegmentator meshes). The heart is solid and lit, with the LV's wall as its outer surface; arteries on the far side show through faintly, and the aorta stays see-through so the catheter shows. A "Solid heart" button switches to a see-through heart. The heart, arteries and catheter beat with the image during a cine run.
   - **Beam:** a faint cone with its edges, the field's outline on the detector and the central ray.
+- **Enlarge:** the arrows button in the room's corner, or R, swaps the room view with the image: the room fills the centre and the image moves to the side panel. Remembered in this browser.
 - **Camera:** "Whole room", "Heart" or "From detector".
   - The heart view moves in to the heart from the current viewing direction, fades the skin and bones, and follows the heart when the table moves.
   - "From detector" looks back down the beam at the isocentre with the image's "up", so the heart is seen the way the image shows it (patient's left on screen right in AP). A square marks the image's field. It follows the C-arm, so it can't be orbited; scroll zooms.
-  - In the other two, drag to orbit, scroll to zoom.
+  - In the other two, drag to orbit. Zoom is by pinch in all three (two fingers on a touch screen or trackpad, or Ctrl + scroll with a mouse), so that scrolling over the room view scrolls the column.
 - Left coronary in silver-white on the fluoro image (lavender blue in the room view), right coronary in cyan. In DRR mode, hovering over a vessel or chamber highlights it in white, names it, and highlights it in the fluoro image too. Chambers are easiest to hover in the heart view.
 
 ### Injection and display

@@ -1,7 +1,6 @@
-/* Layout: cath-lab console, one screen with no page scrolling. Presets on the left, the fluoro monitor as large as the
-   window allows in the middle, room view and collapsible control groups in the right rail. Single dark look by choice,
-   like a control room. Narrower windows get a slimmer presets column; phones (and very short windows) scroll in one
-   column. */
+/* Layout: cath-lab console, one screen with no page scrolling, in two columns. Left: the fluoro monitor, as large as
+   the window's height allows, with the standard views under it. Right: the room view and the collapsible control
+   groups. Single dark look by choice, like a control room. Phones (and very short windows) scroll in one column. */
 :root{
   --bg:#0e1215; --panel:#252a30; --panel2:#30363d; --line:#3b434b; --fg:#e6e9ec; --muted:#9ba5ae;
   --accent:#a3aff5; --accent-fill:#3f5f8f; --on-accent:#eef3fa; --scr:#e2e6ea; --cool:#74b8c8; --screen:#050607; --ink:#0b0e10;
@@ -25,8 +24,8 @@ h2{font-family:var(--f-display);font-weight:600;font-size:13px;letter-spacing:.1
 /* the shell: exactly one screen high; the middle cell is a size container so the monitor can be a square that fits */
 .app{box-sizing:border-box;height:100vh;height:100dvh;display:grid;gap:10px 14px;
   padding:10px max(16px,env(safe-area-inset-right,0px)) 12px max(16px,env(safe-area-inset-left,0px));
-  grid-template-columns:clamp(190px,16vw,230px) minmax(0,1fr) clamp(310px,26vw,380px);grid-template-rows:auto minmax(0,1fr);
-  grid-template-areas:"bar bar bar" "side stage rail"}
+  grid-template-columns:minmax(0,11fr) minmax(0,9fr);grid-template-rows:auto minmax(0,1fr) auto;
+  grid-template-areas:"bar bar" "stage rail" "side rail"}
 .bar{grid-area:bar;display:flex;flex-wrap:wrap;align-items:center;gap:8px 22px;border-bottom:1px solid var(--line);padding-bottom:9px}
 .heart{display:flex;align-items:center;gap:8px;font-family:var(--f-display);font-weight:600;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 /* the heart menu: a button and a list box drawn in the page's own style */
@@ -45,13 +44,27 @@ h2{font-family:var(--f-display);font-weight:600;font-size:13px;letter-spacing:.1
 #heartList:focus-visible [role=option].act{outline:1px dotted rgba(255,255,255,.7);outline-offset:-3px}
 @media (prefers-reduced-motion:reduce){#heartBtn svg{transition:none}}
 .acts{margin-left:auto;display:flex;gap:6px}
-.side{grid-area:side;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:10px}
+/* the standard views sit under the image: a keypad of equal keys, then the current view on one line, then the credit */
+.side{grid-area:side;min-height:0;display:flex;flex-direction:column;gap:7px}
 .stage{grid-area:stage;min-width:0;min-height:0;container-type:size;display:grid;place-items:center}
 .stage .monitor{width:min(100cqw,100cqh)}
 .rail{grid-area:rail;min-height:0;overflow:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:10px}
 /* the room view takes the height the open groups leave */
-.roompanel{flex:1 1 auto;min-height:190px}
-.roompanel .room{flex:1 1 0;min-height:140px;aspect-ratio:auto}
+/* The room view keeps a set height: what the window leaves it with the groups as they start (C-arm and Injection
+   open). Opening more groups doesn't squeeze it; the rail scrolls instead. Closing groups lets it grow. */
+.roompanel{flex:1 0 auto}
+/* the rail's slot holds the room view, or the image when the two are swapped (#swapBtn, or R) */
+.roompanel .slot{--room-h:max(140px,calc(100dvh - 490px));flex:1 0 var(--room-h);min-height:var(--room-h);min-width:0;display:grid;place-items:center;container-type:size}
+.slot .room,.stage .room{width:100%;height:100%;aspect-ratio:auto}
+.slot .monitor{width:min(100cqw,100cqh)}
+.slot .monitor .ro{font-size:10.5px}
+.slot .monitor .ro.tl{top:6px;left:8px}.slot .monitor .ro.tr{top:6px;right:8px}.slot .monitor .ro.bl{bottom:6px;left:8px}.slot .monitor .ro.br{display:none}
+/* swapped: the camera buttons sit in the room view's corner, with the legend under them */
+.room #roomViewSeg{position:absolute;z-index:3;top:6px;left:8px;gap:5px;flex-wrap:nowrap}
+.room #roomViewSeg button{padding:4px 8px;font-size:13px}
+.stage .room .legend{top:42px}
+#swapBtn{position:absolute;z-index:3;top:6px;right:6px;padding:4px 5px;opacity:.85}
+#swapBtn:hover,#swapBtn:focus-visible{opacity:1}
 /* compact controls, so the open groups and a useful room view fit one screen */
 .rail .panel{padding:10px 12px;gap:8px}
 .rail .grp>:not(summary){margin-top:8px}
@@ -101,10 +114,10 @@ h2{font-family:var(--f-display);font-weight:600;font-size:13px;letter-spacing:.1
 .chgrp{font-size:12px;color:var(--muted)}
 .tip .stk{display:block;color:var(--muted);font-size:11.5px;margin-top:1px}
 
-.now{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:10px 12px}
+.now{display:flex;flex-wrap:wrap;gap:2px 14px;align-items:baseline;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:4px 12px}
 .now .ang{font-family:var(--f-mono);color:var(--accent);font-variant-numeric:tabular-nums}
-.now .nm{font-family:var(--f-display);font-weight:600;font-size:18px}
-.now .bf{color:var(--muted);flex-basis:100%;font-size:12.5px;line-height:1.35}
+.now .nm{font-family:var(--f-display);font-weight:600;font-size:17px}
+.now .bf{color:var(--muted);font-size:12.5px;line-height:1.35}
 .now .bf strong{color:var(--fg);font-weight:500}
 
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
@@ -142,11 +155,15 @@ button.icon svg{display:block}
 button.go{border-color:var(--accent);color:var(--accent)}
 .row{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between}
 
-.presets{display:flex;flex-direction:column;gap:6px}
-.pgrid{display:grid;grid-template-columns:minmax(0,1fr);gap:5px}
-.presets h2+.pgrid{margin-bottom:6px}
-.pre{text-align:left;display:flex;flex-direction:column;gap:0;padding:5px 10px}
-.pre .pn{font-family:var(--f-display);font-weight:600;font-size:15px;line-height:1.25}
+/* four equal columns. Left coronary: caudal views on the first row and cranial on the second, each RAO, AP, LAO,
+   with the lateral in the fourth column; right coronary views on a row of their own, in the same columns */
+.presets{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 16px;align-items:start}
+.presets h2{padding-top:7px;white-space:nowrap}
+.pgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+#presetsL .pre:nth-child(7){grid-column:4;grid-row:1}
+.pre{text-align:center;display:block;padding:4px 8px}
+.pre .pa{display:none}   /* the line under the keys shows the angle */
+.pre .pn{display:block;font-family:var(--f-display);font-weight:600;font-size:15px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pre .pb{display:none}   /* the current view's "best for" shows in the box below */
 .pre .pa{font-family:var(--f-mono);font-size:12px;color:var(--accent)}
 .pre .pb{font-size:12.5px;color:var(--muted);line-height:1.35}
@@ -154,7 +171,7 @@ button.go{border-color:var(--accent);color:var(--accent)}
 
 button.link{background:none;border:0;padding:0;color:var(--cool);text-decoration:underline;text-underline-offset:2px;font-size:inherit}
 button.link:hover{color:var(--fg)}
-.side>.note{font-size:11.5px}
+.side>.note{font-size:11.5px;margin:0;max-width:none;padding:0 2px}
 .side>.note a{color:var(--cool);text-underline-offset:2px}
 
 /* About this image */
@@ -177,7 +194,7 @@ dialog kbd{font-family:var(--f-mono);font-size:12px;border:1px solid var(--line)
    heart menu) sit sunken in their panels. The page background stays dark. */
 .bar,.side,.panel,.now,dialog{background:var(--steel);border:1px solid var(--edge);border-radius:2px;box-shadow:var(--raised)}
 .bar{padding:5px 12px}
-.side{padding:6px}
+.side{padding:8px 12px 6px}
 .now{background:var(--panel2);box-shadow:var(--sunken)}
 h2,.heart{color:var(--silver)}
 .dlghead{background:#2b3137}
@@ -194,32 +211,32 @@ button.link{background:none;border:0;box-shadow:none}
 
 /* short windows (laptops at 800 px): tighter presets, no hover hint, a smaller minimum room view */
 @media (max-height:860px) and (min-width:920px){
-  .pre{padding:3px 9px}
+  .pre{padding:3px 8px}
   .pre .pn{font-size:14px}
-  .pre .pa{font-size:11px}
-  .pgrid{gap:4px}
-  .now{padding:8px 10px}
-  .side{gap:7px}
-  .presets{gap:4px}
-  .presets h2+.pgrid{margin-bottom:3px}
+  .pgrid{gap:5px}
+  .side{gap:6px}
+  .presets{row-gap:6px}
 }
 @media (max-height:860px) and (min-width:920px){
   .rail>.grp .note{display:none}
-  .roompanel{min-height:170px}
-  .roompanel .room{min-height:120px}
 }
 @media (max-height:780px) and (min-width:920px){
-  .roompanel{min-height:140px}
-  .roompanel .room{min-height:95px}
+  .roompanel .slot{--room-h:max(140px,calc(100dvh - 458px))}   /* the tighter rail leaves it more */
   .room .hint{display:none}
   .rail{gap:7px}
   .rail .panel{padding:8px 12px}
 }
 
-/* narrower windows (920–1199 px): a slimmer presets column with names only (the box below shows the angle) */
+/* narrower windows (920–1399 px): the headings wrap onto two lines, so the keys stay wide enough for their names;
+   under 1200 px the image's column takes 60%, which the keys need */
+@media (max-width:1399px){
+  .presets{gap:8px 12px}
+  .presets h2{white-space:normal;width:min-content;font-size:11.5px;line-height:1.25;padding-top:3px}
+  .pre{padding:4px 5px}
+  .pre .pn{font-size:13.5px}
+}
 @media (max-width:1199px){
-  .app{grid-template-columns:160px minmax(0,1fr) 310px}
-  .pre .pa{display:none}
+  .app{grid-template-columns:minmax(0,3fr) minmax(0,2fr)}
 }
 /* phones and very short windows: one scrolling column, presets as chips */
 @media (max-width:919px),(max-height:559px){
@@ -227,10 +244,9 @@ button.link{background:none;border:0;box-shadow:none}
   .stage{container-type:normal}
   .stage .monitor{width:min(100%,92vh)}
   .rail{overflow:visible}
-  .roompanel .room{flex:none;aspect-ratio:4/3}
-  .presets{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 10px;align-items:center}
-  .pgrid{display:flex;flex-wrap:wrap;gap:6px}
-  .presets h2+.pgrid{margin-bottom:0}
-  .pre{padding:4px 9px}
-  .pre .pa{display:none}
+  .roompanel .slot{flex:none;min-height:0;display:block;container-type:normal}
+  .slot .room,.stage .room{height:auto;aspect-ratio:4/3}
+  .slot .monitor{width:100%}
+  .pgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #presetsL .pre:nth-child(7){grid-column:auto;grid-row:auto}
 }
