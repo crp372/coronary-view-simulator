@@ -189,11 +189,11 @@ What exists but is approximate, incomplete or not yet validated.
 - **Speed** has been measured only on an Apple M5 in Chrome.
 - **It needs WebGL2** with float render targets, and to be served over http(s) (the live site, or a local server).
 - **Three.js r128** dates from 2021.
-- **Phones** have their own one-screen layout, checked in emulated phone sizes but not yet on real devices. Accessibility hasn't been reviewed.
+- **Phones** have their own one-screen layout, checked in emulated phone sizes and tried on one iPhone (the CT image runs there); other phones and tablets are untested. Accessibility hasn't been reviewed.
 
 **Licensing**
 - **Non-commercial only:** the ImageCAS volumes (CC BY-NC 4.0) and the TotalSegmentator chamber model (non-commercial licence) both forbid commercial use.
-- **Hosting online: permission granted.** TotalSegmentator's licence limits its use to internal research, so its author was asked, and gave written permission (2026-11-05) to publish the meshes and data derived from its segmentations for this project, on a free website and in a public repository. Published on 2026-11-06, with credits and licences in the app's About dialog. See [docs/publishing/LICENSING.md](docs/publishing/LICENSING.md) for the findings and the checklist.
+- **Hosting online: permission granted.** TotalSegmentator's licence limits its use to internal research, so its author was asked, and gave written permission (2026-11-05) to publish the meshes and data derived from its segmentations for this project, on a free website and in a public repository. Published on 2026-11-06, with credits and licences in the app's About dialog. The licence findings and the permission correspondence are kept privately by the author.
 
 ---
 

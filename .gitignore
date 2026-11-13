@@ -10,3 +10,6 @@ playwright-report/
 dist/
 .wrangler/
 .claude/
+# private: the licensing notes and permission correspondence, and the briefing for Claude Code
+docs/publishing/
+CLAUDE.md

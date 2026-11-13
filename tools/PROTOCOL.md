@@ -229,7 +229,7 @@ Then publish it: `npm run deploy` (`npx wrangler login` first if it says the log
 Every heart is subject to:
 - **ImageCAS (the CT):** CC BY-NC 4.0, non-commercial.
 - **ImageCAS-X (the labels):** CC BY 4.0.
-- **TotalSegmentator `heartchambers_highres`:** a free non-commercial licence. Its author gave written permission (2026-11-05) to publish meshes and data derived from it for this project, including further hearts prepared the same way: see [docs/publishing/totalsegmentator-permission.md](../docs/publishing/totalsegmentator-permission.md).
+- **TotalSegmentator `heartchambers_highres`:** a free non-commercial licence. Its author gave written permission (2026-11-05) to publish meshes and data derived from it for this project, including further hearts prepared the same way. The record is kept privately by the author (locally in `docs/publishing/`, which is not in the repository).
 
 The page shows the attribution from each heart's `meta.json` and `chambers.json`, and the About dialog's "Credits and licences" section covers all hearts; update it if a heart comes from a new source.
 
